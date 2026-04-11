@@ -48,3 +48,7 @@
 1. 개발 착수 기준 문서는 `docs/product/PRD.md` 상태를 기준으로 판단한다.
 2. `Ready for Development` 상태일 때 기능 구현을 시작한다.
 3. 변경이 큰 경우 PRD/FEATURE/TEST 문서를 함께 갱신한다.
+
+## 8. Status
+
+- `docs/STATUS-2026-04-11.md`
