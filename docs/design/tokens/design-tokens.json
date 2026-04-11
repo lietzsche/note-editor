@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "name": "note-editor-design-tokens",
+    "version": "1.0.0"
+  },
+  "color": {
+    "bg": {
+      "canvas": "#f7f8fa",
+      "surface": "#ffffff",
+      "elevated": "#ffffff"
+    },
+    "text": {
+      "primary": "#111111",
+      "secondary": "#4a4f58",
+      "muted": "#7a808a",
+      "inverse": "#ffffff"
+    },
+    "border": {
+      "subtle": "#e5e8ee",
+      "default": "#d4d9e2",
+      "strong": "#b7beca"
+    },
+    "brand": {
+      "primary": "#1f6feb",
+      "primaryHover": "#1858bd"
+    },
+    "feedback": {
+      "success": "#1f9d55",
+      "warning": "#d9822b",
+      "danger": "#d64545",
+      "info": "#147cc1"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "base": "\"Noto Sans KR\", \"Pretendard\", sans-serif",
+      "mono": "\"JetBrains Mono\", monospace"
+    },
+    "fontSize": {
+      "xs": "12px",
+      "sm": "14px",
+      "md": "16px",
+      "lg": "20px",
+      "xl": "24px"
+    },
+    "lineHeight": {
+      "tight": 1.25,
+      "normal": 1.5,
+      "relaxed": 1.7
+    },
+    "fontWeight": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    }
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "xl": "24px",
+    "2xl": "32px"
+  },
+  "radius": {
+    "sm": "6px",
+    "md": "10px",
+    "lg": "14px"
+  },
+  "shadow": {
+    "sm": "0 1px 2px rgba(17, 17, 17, 0.08)",
+    "md": "0 6px 18px rgba(17, 17, 17, 0.12)"
+  },
+  "motion": {
+    "duration": {
+      "fast": "120ms",
+      "normal": "180ms",
+      "slow": "260ms"
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0, 0, 1)"
+    }
+  }
+}

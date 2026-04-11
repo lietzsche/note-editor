@@ -6,15 +6,20 @@
 
 - `docs/product/PRD.md`
 
-## 2. Testing
+## 2. Design
+
+- `docs/design/README.md`
+- `docs/design/DESIGN_GUIDELINES.md`
+
+## 3. Testing
 
 - `docs/testing/TEST_PLAN.md`
 
-## 3. Operations
+## 4. Operations
 
 - `docs/operations/DEPLOY.md`
 
-## 4. Specs
+## 5. Specs
 
 - `docs/specs/README.md`
 - `docs/specs/SPEC-01-cloudflare-project-bootstrap.md`

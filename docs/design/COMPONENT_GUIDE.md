@@ -1,0 +1,96 @@
+# COMPONENT GUIDE
+
+- 문서 버전: v1.0
+- 작성일: 2026-04-11
+- 상태: Draft
+
+## 1. 목적
+
+React 컴포넌트 API와 구현 패턴을 일관되게 유지하기 위한 규약을 정의한다.
+
+## 2. 공통 네이밍 규칙
+
+1. 컴포넌트: PascalCase (`NoteListItem`)
+2. 파일명: 컴포넌트명과 동일 (`NoteListItem.tsx`)
+3. Props 타입: `<ComponentName>Props`
+4. 핸들러: `on<Event>` (`onSelect`, `onDelete`)
+
+## 3. Props 설계 규칙
+
+1. `variant`, `size`, `state`를 공통 축으로 사용한다.
+2. 불린 플래그 남발 대신 enum/string union을 우선한다.
+3. 선택/입력 컴포넌트는 controlled 방식을 기본으로 한다.
+4. `className` 확장 포인트를 제공한다.
+
+### 3.1 공통 값 사전 (Global Dictionary)
+
+1. `variant`
+- `default`: 일반 상태
+- `active`: 선택/강조 상태
+- `subtle`: 낮은 강조 상태
+- `danger`: 파괴적 액션 상태
+
+2. `size`
+- `sm`: 좁은 밀도(툴바/보조 액션)
+- `md`: 기본 밀도(기본값)
+- `lg`: 주요 CTA/모바일 우선 액션
+
+3. `state`
+- `loading`
+- `ready`
+- `empty`
+- `error`
+- `disabled`
+
+4. 저장 관련 확장 상태(편집 컴포넌트 전용)
+- `dirty`
+- `saving`
+- `saved`
+- `conflict`
+
+예시:
+
+```tsx
+type NoteItemVariant = "default" | "active" | "danger";
+type NoteItemSize = "sm" | "md";
+
+export interface NoteListItemProps {
+  id: string;
+  title: string;
+  selected?: boolean;
+  variant?: NoteItemVariant;
+  size?: NoteItemSize;
+  onSelect?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  className?: string;
+}
+```
+
+## 4. 상태 규칙
+
+1. 화면 상태는 `loading`, `empty`, `error`, `ready`로 표준화한다.
+2. 컴포넌트 내부 비동기 상태는 필요 최소한만 유지한다.
+3. 저장 상태는 사용자에게 노출 가능한 형태(`saving/saved/error`)로 모델링한다.
+
+## 5. 접근성 규칙
+
+1. 인터랙션 요소는 키보드 접근 가능해야 한다.
+2. 포커스 링은 제거하지 않는다.
+3. 아이콘 버튼은 `aria-label`을 필수로 제공한다.
+4. 오류 메시지는 스크린리더가 읽을 수 있도록 연결한다.
+5. 일반 텍스트 대비는 4.5:1 이상을 만족해야 한다.
+6. 터치 타깃은 모바일에서 44x44px 이상을 권장한다.
+
+## 6. 분리 규칙
+
+1. 화면 컨테이너와 프리젠테이셔널 컴포넌트를 분리한다.
+2. 데이터 fetch/상태 orchestration은 컨테이너에서 처리한다.
+3. 프리젠테이셔널 컴포넌트는 렌더링과 이벤트 전달에 집중한다.
+
+## 7. 체크리스트
+
+- [ ] 네이밍 규칙 준수
+- [ ] Props 규약 준수(variant/size/state)
+- [ ] 접근성 기준 준수
+- [ ] 상태 모델 표준 준수
+- [ ] 문서 업데이트(컴포넌트 추가/변경 시)

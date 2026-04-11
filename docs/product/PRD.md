@@ -191,6 +191,11 @@
 
 ## 10. 연계 문서
 
+- `docs/design/README.md`
+- `docs/design/DESIGN_GUIDELINES.md`
+- `docs/design/DESIGN_SYSTEM.md`
+- `docs/design/COMPONENT_GUIDE.md`
+- `docs/design/THEME_TOKENS.md`
 - `docs/testing/TEST_PLAN.md`
 - `docs/operations/DEPLOY.md`
 - `docs/specs/README.md`
