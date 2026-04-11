@@ -57,8 +57,9 @@ npx wrangler pages deploy build/ --project-name <NEW_PAGES_PROJECT_NAME>
 
 ## 6. 배포 직후 검증
 
-1. `docs/testing/TEST_PLAN.md`의 TS-01, TS-02, TS-04, TS-05, TS-07, TS-08 우선 실행
-2. 실패 시 배포 승인 보류
+1. 필수 스모크: `docs/testing/TEST_PLAN.md`의 TS-01, TS-02, TS-04, TS-05, TS-07, TS-08, TS-10, TS-11 우선 실행
+2. 확장 회귀: TS-09(충돌 처리)는 릴리스 윈도우 내 추가 수행
+3. 필수 스모크 실패 시 배포 승인 보류
 
 ## 7. 장애 대응
 

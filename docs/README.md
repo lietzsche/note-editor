@@ -10,6 +10,9 @@
 
 - `docs/design/README.md`
 - `docs/design/DESIGN_GUIDELINES.md`
+- `docs/design/DESIGN_SYSTEM.md`
+- `docs/design/COMPONENT_GUIDE.md`
+- `docs/design/THEME_TOKENS.md`
 
 ## 3. Testing
 
@@ -22,6 +25,7 @@
 - `docs/features/FEATURE-002-notes-core.md`
 - `docs/features/FEATURE-003-groups.md`
 - `docs/features/FEATURE-004-note-isolation.md`
+- `docs/features/FEATURE-005-editor-productivity.md`
 
 ## 5. Operations
 

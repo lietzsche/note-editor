@@ -16,6 +16,9 @@
 4. `FEATURE-004-note-isolation.md`
 - 노트 전환 독립성/무결성/충돌 처리
 
+5. `FEATURE-005-editor-productivity.md`
+- 편집 생산성(실시간 글자 수/전체 복사)
+
 ## 공통 작성 규칙
 
 1. 기능 단위 문서는 아래 섹션을 포함한다.
