@@ -4,6 +4,9 @@
 - 작성일: 2026-04-11
 - 목적: 신규 Cloudflare Pages + D1 배포 절차 표준화
 
+관련 문서:
+- GitHub 연동만 먼저 진행하는 경우: `docs/operations/CLOUDFLARE_GITHUB_CONNECT.md`
+
 ## 1. 전제
 
 1. 서비스 요구사항: `docs/product/PRD.md` 확정

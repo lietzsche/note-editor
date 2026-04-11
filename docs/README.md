@@ -35,6 +35,7 @@
 ## 5. Operations
 
 - `docs/operations/DEPLOY.md`
+- `docs/operations/CLOUDFLARE_GITHUB_CONNECT.md`
 
 ## 6. Specs
 
