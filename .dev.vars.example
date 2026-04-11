@@ -1,0 +1,2 @@
+AUTH_SESSION_SECRET=change-me-to-a-random-32-char-or-longer-string
+AUTH_SESSION_TTL_SECONDS=604800

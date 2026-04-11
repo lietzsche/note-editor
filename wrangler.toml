@@ -1,0 +1,9 @@
+name = "note-editor-app"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "build"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "note-editor-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"

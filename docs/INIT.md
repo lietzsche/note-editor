@@ -91,7 +91,19 @@ npm run dev
 
 브라우저에서 `http://localhost:8788` 접속 후 확인한다.
 
-## 8. 원격 배포가 필요한 경우
+## 8. Cloudflare Pages GitHub 연동 설정
+
+GitHub 저장소와 Cloudflare Pages를 연동하는 경우, 대시보드에서 아래 값을 입력한다.
+
+| 항목 | 값 |
+|---|---|
+| **Build command** | `npm run build` |
+| **Build output directory** | `build` |
+| **Root directory** | `/` (기본값 유지) |
+
+> `npm run build`는 Vite를 실행해 `build/` 디렉터리에 산출물을 생성한다.
+
+## 9. 원격 배포가 필요한 경우
 
 원격 배포는 로컬 개발이 충분히 진행된 후 수행한다.
 절차는 `docs/operations/DEPLOY.md`를 따른다.
