@@ -5,6 +5,7 @@
 ## 1. Product
 
 - `docs/product/PRD.md`
+- `docs/WBS.md`
 
 ## 2. Design
 
