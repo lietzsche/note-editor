@@ -67,6 +67,10 @@ app.post("/api/auth/signup", async (c) => {
   return created({ username });
 });
 
+// 5분 윈도우, 최대 5회 실패 시 차단
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const RATE_LIMIT_MAX = 5;
+
 app.post("/api/auth/login", async (c) => {
   const { username, password } = await c.req.json<{
     username: string;
@@ -76,21 +80,46 @@ app.post("/api/auth/login", async (c) => {
   if (!username || !password)
     return err("VALIDATION", "username과 password를 입력하세요.");
 
+  // Rate limit 확인
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+  const attempts = await c.env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM login_attempts WHERE username = ? AND attempted_at > ?"
+  )
+    .bind(username, windowStart)
+    .first<{ cnt: number }>();
+
+  if ((attempts?.cnt ?? 0) >= RATE_LIMIT_MAX)
+    return err("RATE_LIMITED", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.", 429);
+
   const user = await c.env.DB.prepare(
     "SELECT id, username, password_hash FROM users WHERE username = ?"
   )
     .bind(username)
     .first<{ id: string; username: string; password_hash: string }>();
 
-  if (!user) return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
+  if (!user) {
+    await recordLoginAttempt(c.env.DB, username);
+    return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
+  }
 
   const hash = await hashPassword(password);
-  if (hash !== user.password_hash)
+  if (hash !== user.password_hash) {
+    await recordLoginAttempt(c.env.DB, username);
     return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
+  }
 
   await createSession(c, { userId: user.id, username: user.username });
   return ok({ username: user.username });
 });
+
+async function recordLoginAttempt(db: D1Database, username: string) {
+  await db
+    .prepare(
+      "INSERT INTO login_attempts (id, username, attempted_at) VALUES (?, ?, ?)"
+    )
+    .bind(crypto.randomUUID(), username, new Date().toISOString())
+    .run();
+}
 
 app.post("/api/auth/logout", (c) => {
   clearSession(c);

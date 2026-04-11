@@ -13,7 +13,9 @@
     "migrate:apply:remote": "npx wrangler d1 migrations apply DB --remote",
     "migrate:list:local": "npx wrangler d1 migrations list DB --local",
     "migrate:list:remote": "npx wrangler d1 migrations list DB --remote",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "hono": "^4.6.0",
@@ -22,6 +24,7 @@
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.0",
     "@cloudflare/workers-types": "^4.20241112.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
@@ -29,6 +32,7 @@
     "concurrently": "^9.1.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
-    "wrangler": "^3.87.0"
+    "vitest": "^2.0.0",
+    "wrangler": "^4.0.0"
   }
 }
