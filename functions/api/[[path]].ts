@@ -18,13 +18,6 @@ import {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// ── Auth middleware helper ─────────────────────────────────────────────────
-async function requireAuth(c: Parameters<typeof app.use>[1]) {
-  const session = await getSession(c as any);
-  if (!session) return unauthorized();
-  return session;
-}
-
 // ── Auth routes ────────────────────────────────────────────────────────────
 
 app.post("/api/auth/signup", async (c) => {
@@ -64,7 +57,7 @@ app.post("/api/auth/signup", async (c) => {
     .run();
 
   await createSession(c, { userId: id, username });
-  return created({ username });
+  return c.json({ data: { username } }, 201);
 });
 
 // 5분 윈도우, 최대 5회 실패 시 차단
@@ -99,17 +92,20 @@ app.post("/api/auth/login", async (c) => {
 
   if (!user) {
     await recordLoginAttempt(c.env.DB, username);
+    await recordAuditLog(c.env.DB, "login_failure", username);
     return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
   }
 
   const hash = await hashPassword(password);
   if (hash !== user.password_hash) {
     await recordLoginAttempt(c.env.DB, username);
+    await recordAuditLog(c.env.DB, "login_failure", username);
     return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
   }
 
   await createSession(c, { userId: user.id, username: user.username });
-  return ok({ username: user.username });
+  await recordAuditLog(c.env.DB, "login_success", username);
+  return c.json({ data: { username: user.username } }, 200);
 });
 
 async function recordLoginAttempt(db: D1Database, username: string) {
@@ -121,9 +117,22 @@ async function recordLoginAttempt(db: D1Database, username: string) {
     .run();
 }
 
-app.post("/api/auth/logout", (c) => {
+async function recordAuditLog(db: D1Database, eventType: string, username: string) {
+  await db
+    .prepare(
+      "INSERT INTO audit_logs (id, event_type, username, created_at) VALUES (?, ?, ?, ?)"
+    )
+    .bind(crypto.randomUUID(), eventType, username, new Date().toISOString())
+    .run();
+}
+
+app.post("/api/auth/logout", async (c) => {
+  const session = await getSession(c);
   clearSession(c);
-  return noContent();
+  if (session) {
+    await recordAuditLog(c.env.DB, "logout", session.username);
+  }
+  return c.newResponse(null, 204);
 });
 
 app.get("/api/auth/me", async (c) => {

@@ -1,5 +1,10 @@
 import { SELF, env } from "cloudflare:test";
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import type { Env } from "../../functions/api/_lib/types";
+
+declare module "cloudflare:test" {
+  interface ProvidedEnv extends Env {}
+}
 
 const BASE = "http://example.com";
 
@@ -37,16 +42,34 @@ async function setupSchema() {
       username TEXT NOT NULL,
       attempted_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      username TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`),
   ]);
 }
 
 async function cleanDb() {
-  await env.DB.exec(`
-    DELETE FROM login_attempts;
-    DELETE FROM pages;
-    DELETE FROM groups;
-    DELETE FROM users;
-  `);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM audit_logs"),
+    env.DB.prepare("DELETE FROM login_attempts"),
+    env.DB.prepare("DELETE FROM pages"),
+    env.DB.prepare("DELETE FROM groups"),
+    env.DB.prepare("DELETE FROM users"),
+  ]);
+}
+
+async function logout(cookie: string) {
+  return SELF.fetch(`${BASE}/api/auth/logout`, {
+    method: "POST",
+    headers: { Cookie: cookie },
+  });
+}
+
+function extractCookie(res: Response): string {
+  return res.headers.get("set-cookie") ?? "";
 }
 
 // ── 요청 헬퍼 ──────────────────────────────────────────────────────────────
@@ -148,5 +171,38 @@ describe("GET /api/auth/me", () => {
   it("세션 없이 호출하면 401을 반환한다", async () => {
     const res = await SELF.fetch(`${BASE}/api/auth/me`);
     expect(res.status).toBe(401);
+  });
+});
+
+// ── 감사 로그 (Red: 미구현 → 실패 예상) ───────────────────────────────────
+describe("감사 로그 (Audit Logs)", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("로그인 성공 시 login_success 이벤트가 기록된다", async () => {
+    await login("alice", "password123");
+    const log = await env.DB.prepare(
+      "SELECT * FROM audit_logs WHERE username = ? AND event_type = 'login_success'"
+    ).bind("alice").first();
+    expect(log).not.toBeNull();
+  });
+
+  it("로그인 실패 시 login_failure 이벤트가 기록된다", async () => {
+    await login("alice", "wrongpassword");
+    const log = await env.DB.prepare(
+      "SELECT * FROM audit_logs WHERE username = ? AND event_type = 'login_failure'"
+    ).bind("alice").first();
+    expect(log).not.toBeNull();
+  });
+
+  it("로그아웃 시 logout 이벤트가 기록된다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+    await logout(cookie);
+    const log = await env.DB.prepare(
+      "SELECT * FROM audit_logs WHERE username = ? AND event_type = 'logout'"
+    ).bind("alice").first();
+    expect(log).not.toBeNull();
   });
 });
