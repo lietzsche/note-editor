@@ -2,6 +2,10 @@
 
 현재 저장소는 문서 중심으로 시작하며, 실행 구조 정렬은 `docs/specs/SPEC-01-cloudflare-project-bootstrap.md`를 따른다.
 
+## 0. 초기 세팅
+
+- `docs/INIT.md`
+
 ## 1. Product
 
 - `docs/product/PRD.md`
