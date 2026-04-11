@@ -15,11 +15,19 @@
 
 - `docs/testing/TEST_PLAN.md`
 
-## 4. Operations
+## 4. Features
+
+- `docs/features/README.md`
+- `docs/features/FEATURE-001-auth.md`
+- `docs/features/FEATURE-002-notes-core.md`
+- `docs/features/FEATURE-003-groups.md`
+- `docs/features/FEATURE-004-note-isolation.md`
+
+## 5. Operations
 
 - `docs/operations/DEPLOY.md`
 
-## 5. Specs
+## 6. Specs
 
 - `docs/specs/README.md`
 - `docs/specs/SPEC-01-cloudflare-project-bootstrap.md`

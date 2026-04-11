@@ -196,6 +196,7 @@
 - `docs/design/DESIGN_SYSTEM.md`
 - `docs/design/COMPONENT_GUIDE.md`
 - `docs/design/THEME_TOKENS.md`
+- `docs/features/README.md`
 - `docs/testing/TEST_PLAN.md`
 - `docs/operations/DEPLOY.md`
 - `docs/specs/README.md`
