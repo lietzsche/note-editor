@@ -11,12 +11,25 @@ export default function LoginPage({ onLogin }: Props) {
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError("");
+    setPasswordConfirm("");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (mode === "signup" && password !== passwordConfirm) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
     setLoading(true);
     try {
       const action = mode === "login" ? api.auth.login : api.auth.signup;
@@ -36,13 +49,13 @@ export default function LoginPage({ onLogin }: Props) {
         <div style={styles.tabs}>
           <button
             style={{ ...styles.tab, ...(mode === "login" ? styles.activeTab : {}) }}
-            onClick={() => { setMode("login"); setError(""); }}
+            onClick={() => switchMode("login")}
           >
             로그인
           </button>
           <button
             style={{ ...styles.tab, ...(mode === "signup" ? styles.activeTab : {}) }}
-            onClick={() => { setMode("signup"); setError(""); }}
+            onClick={() => switchMode("signup")}
           >
             회원가입
           </button>
@@ -66,6 +79,17 @@ export default function LoginPage({ onLogin }: Props) {
             required
             autoComplete={mode === "login" ? "current-password" : "new-password"}
           />
+          {mode === "signup" && (
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="비밀번호 확인"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              required
+              autoComplete="new-password"
+            />
+          )}
           {error && <p style={styles.error}>{error}</p>}
           <button style={styles.submitBtn} type="submit" disabled={loading}>
             {loading ? "처리 중..." : mode === "login" ? "로그인" : "가입하기"}
