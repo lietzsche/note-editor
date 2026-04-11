@@ -89,8 +89,8 @@ npx wrangler d1 execute DB --remote --command="SELECT name FROM sqlite_master WH
 
 ## 7. 완료 기준
 
-- [ ] migration 파일 생성/검토 완료
+- [x] migration 파일 생성/검토 완료 (`migrations/0001_initial.sql`)
 - [ ] local apply 성공
-- [ ] remote apply 성공
-- [ ] `users`, `groups`, `pages(notes)` 스키마 검증 완료
-- [ ] 그룹/노트 조회용 인덱스 검증 완료
+- [x] remote apply 성공
+- [x] `users`, `groups`, `pages(notes)` 스키마 검증 완료
+- [x] 그룹/노트 조회용 인덱스 검증 완료

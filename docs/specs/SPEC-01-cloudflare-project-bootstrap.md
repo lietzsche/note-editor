@@ -6,9 +6,9 @@ Cloudflare Pages 프로젝트 설정, 프론트/백엔드 소스 배치, 로컬 
 
 ## 2. 입력값
 
-- `<NEW_PAGES_PROJECT_NAME>`
-- `<NEW_D1_DB_NAME>`
-- `<NEW_D1_DB_ID>`
+- `note-editor` (Pages/Workers 프로젝트명)
+- `note-editor-db` (D1 데이터베이스명)
+- `c633c65e-4033-4ae7-ba5b-d753e1cb557e` (D1 database_id)
 
 ## 2.1 기술 스택 명세 (Current / Target)
 
@@ -17,8 +17,8 @@ Cloudflare Pages 프로젝트 설정, 프론트/백엔드 소스 배치, 로컬 
 - Target: React.js (유지)
 
 2. Backend
-- Current: Cloudflare Pages Functions (file-based handlers)
-- Target: Hono.js on Cloudflare Pages Functions
+- Current: Hono.js on Cloudflare Workers (`functions/api/[[path]].ts` → `main` 엔트리)
+- Target: Hono.js on Cloudflare Workers (유지)
 
 3. Database
 - Current: Cloudflare D1
@@ -35,6 +35,13 @@ Cloudflare Pages 프로젝트 설정, 프론트/백엔드 소스 배치, 로컬 
 ```text
 note-editor/
   README.md                 # 루트 진입 문서
+  index.html                # Vite HTML 엔트리
+  vite.config.ts            # Vite 빌드 설정
+  tsconfig.json             # TypeScript 설정
+  package.json              # 스크립트/의존성
+  wrangler.toml             # Cloudflare Workers/D1 바인딩 설정
+  schema.sql                # 초기 스키마(부트스트랩 기준)
+  .dev.vars.example         # 로컬 환경변수 템플릿
   docs/
     README.md               # 문서 인덱스
     product/PRD.md          # 서비스 요구사항
@@ -42,14 +49,17 @@ note-editor/
     operations/DEPLOY.md    # 배포 실행 절차
     specs/                  # 인프라 스펙
   src/                      # Frontend 소스 (React)
-  public/                   # Frontend 정적 리소스
+    main.tsx                # React 엔트리
+    App.tsx                 # 인증 상태 라우팅
+    index.css               # 전역 스타일
+    lib/api.ts              # API 클라이언트
+    pages/                  # 페이지 컴포넌트
   functions/
-    api/                    # Backend API 엔트리 (Hono 라우팅 기준)
+    api/
+      [[path]].ts           # Backend 엔트리 (Hono, Workers main)
       _lib/                 # Backend 공통 유틸/인증 로직
   migrations/               # D1 migration 파일 (append-only)
-  schema.sql                # 초기 스키마(부트스트랩 기준)
-  wrangler.toml             # Cloudflare 프로젝트/D1 바인딩 설정
-  .dev.vars.example         # 로컬 환경변수 템플릿
+  build/                    # Vite 빌드 산출물 (gitignore)
 ```
 
 구조 원칙:
@@ -62,30 +72,35 @@ note-editor/
 ### 4.1 `wrangler.toml`
 
 ```toml
-name = "<NEW_PAGES_PROJECT_NAME>"
+name = "note-editor"
 compatibility_date = "2024-01-01"
+main = "functions/api/[[path]].ts"
+
+[assets]
+directory = "./build"
+not_found_handling = "single-page-application"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "<NEW_D1_DB_NAME>"
-database_id = "<NEW_D1_DB_ID>"
+database_name = "note-editor-db"
+database_id = "c633c65e-4033-4ae7-ba5b-d753e1cb557e"
+migrations_dir = "migrations"
 ```
 
 ### 4.2 `package.json` 배포 스크립트
 
 ```json
-"deploy": "npm run build && npx wrangler pages deploy build/ --project-name <NEW_PAGES_PROJECT_NAME>"
+"deploy": "npm run build && npx wrangler deploy"
 ```
 
 ### 4.3 환경변수/시크릿
 
-- `AUTH_PASSWORD`
-- `AUTH_SESSION_SECRET`
-- `AUTH_SESSION_TTL_SECONDS` (선택)
+- `AUTH_SESSION_SECRET` (필수, 32자 이상 임의 문자열)
+- `AUTH_SESSION_TTL_SECONDS` (선택, 기본값 604800 = 7일)
 
-## 4.4 Hono 엔트리 계약 (Target)
+## 4.4 Hono 엔트리 계약 (현행)
 
-1. API 엔트리는 `functions/api/[[path]].ts` 단일 진입점을 사용한다.
+1. API 엔트리는 `functions/api/[[path]].ts` 단일 진입점을 사용하며, `wrangler.toml`의 `main`으로 등록된다.
 2. 라우팅은 Hono 앱에서 `/api/*` 하위 경로를 관리한다.
 3. 미들웨어 순서는 아래를 따른다.
 - request-id/로깅
@@ -108,11 +123,11 @@ database_id = "<NEW_D1_DB_ID>"
 동작 개념:
 - 단일 오리진으로 프론트+백엔드를 함께 띄운다.
 - 브라우저는 하나의 URL(예: `http://localhost:8788`)만 사용한다.
-- `/api/*` 요청은 동일 오리진에서 `functions/api/*`로 라우팅된다.
+- `/api/*` 요청은 Hono Worker가 처리하고, 나머지는 `build/` 정적 파일을 서빙한다.
 
 표준 스크립트 규격:
-- `npm run dev`: 빌드 결과 + Pages Functions를 로컬에서 통합 실행
-- `npm run dev:watch`: 프론트 변경 감시 빌드 + Pages dev 동시 실행
+- `npm run dev`: 빌드 결과 + Workers를 로컬에서 통합 실행 (`wrangler pages dev build/`)
+- `npm run dev:watch`: 프론트 변경 감시 빌드 + Workers dev 동시 실행
 
 ### 5.2 로컬 테스트 기준
 
@@ -147,10 +162,10 @@ database_id = "<NEW_D1_DB_ID>"
 
 ## 7. 확인 항목
 
-- [ ] Pages 프로젝트명 반영 완료
-- [ ] D1 바인딩 반영 완료
-- [ ] deploy 스크립트 반영 완료
-- [ ] 프론트/백엔드 폴더 구조 반영 완료
+- [x] 프로젝트명 반영 완료 (`note-editor`)
+- [x] D1 바인딩 반영 완료 (`note-editor-db`)
+- [x] deploy 스크립트 반영 완료 (`npm run build && npx wrangler deploy`)
+- [x] 프론트/백엔드 폴더 구조 반영 완료
 - [ ] 통합 모드 로컬 실행 확인 완료
 - [ ] 파일/함수 길이 기준 준수 확인 완료
-- [ ] 로컬 개발 환경 변수 준비 완료
+- [ ] 로컬 개발 환경 변수 준비 완료 (`.dev.vars` 생성 필요)

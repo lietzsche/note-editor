@@ -1,11 +1,11 @@
 # DEPLOY.md
 
-- 문서 버전: v1.0
+- 문서 버전: v1.1
 - 작성일: 2026-04-11
-- 목적: 신규 Cloudflare Pages + D1 배포 절차 표준화
+- 목적: Cloudflare Workers + D1 배포 절차 표준화
 
 관련 문서:
-- GitHub 연동만 먼저 진행하는 경우: `docs/operations/CLOUDFLARE_GITHUB_CONNECT.md`
+- GitHub 연동 설정: `docs/operations/CLOUDFLARE_GITHUB_CONNECT.md`
 
 ## 1. 전제
 
@@ -15,14 +15,14 @@
 
 ## 2. 사전 점검
 
-1. 프로젝트/DB 플레이스홀더 확정
-- `<NEW_PAGES_PROJECT_NAME>`
-- `<NEW_D1_DB_NAME>`
-- `<NEW_D1_DB_ID>`
+1. 프로젝트/DB 확정값
+- 프로젝트명: `note-editor`
+- D1 DB명: `note-editor-db`
+- D1 database_id: `c633c65e-4033-4ae7-ba5b-d753e1cb557e`
 
 2. 배포 전 점검
 - `wrangler.toml` 바인딩 확인
-- `package.json` deploy 대상 프로젝트 확인
+- `package.json` deploy 스크립트 확인
 - 마이그레이션 파일 최신 상태 확인
 
 3. 로컬 통합 모드 사전 확인
@@ -32,9 +32,11 @@
 ## 3. 시크릿 설정
 
 ```bash
-npx wrangler pages secret put AUTH_PASSWORD --project-name <NEW_PAGES_PROJECT_NAME>
-npx wrangler pages secret put AUTH_SESSION_SECRET --project-name <NEW_PAGES_PROJECT_NAME>
-npx wrangler pages secret put AUTH_SESSION_TTL_SECONDS --project-name <NEW_PAGES_PROJECT_NAME>
+npx wrangler secret put AUTH_SESSION_SECRET
+# 입력 프롬프트에 32자 이상 임의 문자열 입력
+
+# 선택: 세션 TTL 변경 시 (기본 604800 = 7일)
+npx wrangler secret put AUTH_SESSION_TTL_SECONDS
 ```
 
 ## 4. D1 스키마 반영 (Migration Framework)
@@ -52,9 +54,10 @@ npm run migrate:apply:remote
 
 ```bash
 npm install
-npm run build
-npx wrangler pages deploy build/ --project-name <NEW_PAGES_PROJECT_NAME>
+npm run deploy
 ```
+
+> `npm run deploy` = `npm run build && npx wrangler deploy`
 
 배포 결과 URL, 시각, 담당자 기록.
 
