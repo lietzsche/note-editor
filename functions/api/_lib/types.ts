@@ -1,5 +1,6 @@
 export type Env = {
   DB: D1Database;
+  ASSETS: Fetcher;
   AUTH_SESSION_SECRET: string;
   AUTH_SESSION_TTL_SECONDS?: string;
 };

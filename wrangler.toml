@@ -1,7 +1,10 @@
 name = "note-editor"
 compatibility_date = "2024-01-01"
+main = "functions/api/[[path]].ts"
+
 [assets]
 directory = "./build"
+not_found_handling = "single-page-application"
 
 [[d1_databases]]
 binding = "DB"

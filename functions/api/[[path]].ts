@@ -347,5 +347,15 @@ app.delete("/api/notes/:id", async (c) => {
   return noContent();
 });
 
-// ── Cloudflare Pages Functions export ─────────────────────────────────────
-export const onRequest = app.fetch;
+// ── SPA fallback: 정적 파일 서빙 (React 클라이언트 라우팅 포함) ─────────────
+app.all("*", async (c) => {
+  const res = await c.env.ASSETS.fetch(c.req.raw);
+  if (res.status !== 404) return res;
+  // 정적 파일이 없으면 index.html 반환 (SPA 라우팅)
+  const url = new URL(c.req.url);
+  url.pathname = "/";
+  return c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
+});
+
+// ── Workers export ─────────────────────────────────────────────────────────
+export default app;
