@@ -5,5 +5,5 @@ pages_build_output_dir = "build"
 [[d1_databases]]
 binding = "DB"
 database_name = "note-editor-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "c633c65e-4033-4ae7-ba5b-d753e1cb557e"
 migrations_dir = "migrations"
