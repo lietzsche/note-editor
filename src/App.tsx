@@ -22,8 +22,12 @@ export default function App() {
 
   if (auth === "loading") {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-        로딩 중...
+      <div className="app-loading">
+        <div className="app-loading__panel" role="status" aria-live="polite">
+          <div className="app-loading__dot" aria-hidden="true" />
+          <strong className="app-loading__title">세션 상태를 확인하고 있습니다</strong>
+          <p className="app-loading__body">보호된 작업 공간에 안전하게 연결하는 중입니다.</p>
+        </div>
       </div>
     );
   }
@@ -37,8 +41,8 @@ export default function App() {
             <Navigate to="/" replace />
           ) : (
             <LoginPage
-              onLogin={(u) => {
-                setUsername(u);
+              onLogin={(nextUsername) => {
+                setUsername(nextUsername);
                 setAuth("authenticated");
               }}
             />

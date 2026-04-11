@@ -1,0 +1,79 @@
+:root {
+  --color-bg-canvas: #f7f8fa;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #ffffff;
+  --color-bg-emphasis: #0f172a;
+  --color-bg-accent-soft: rgba(31, 111, 235, 0.1);
+  --color-bg-accent-warm: rgba(217, 130, 43, 0.12);
+
+  --color-text-primary: #111111;
+  --color-text-secondary: #4a4f58;
+  --color-text-muted: #7a808a;
+  --color-text-inverse: #ffffff;
+
+  --color-border-subtle: #e5e8ee;
+  --color-border-default: #d4d9e2;
+  --color-border-strong: #b7beca;
+
+  --color-brand-primary: #1f6feb;
+  --color-brand-primary-hover: #1858bd;
+  --color-brand-contrast: #ffffff;
+
+  --color-feedback-success: #1f9d55;
+  --color-feedback-warning: #d9822b;
+  --color-feedback-danger: #d64545;
+  --color-feedback-info: #147cc1;
+
+  --font-family-base: "Noto Sans KR", "Pretendard", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-family-mono: "JetBrains Mono", monospace;
+
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 34px;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 24px;
+
+  --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.08);
+  --shadow-md: 0 6px 18px rgba(17, 17, 17, 0.12);
+  --shadow-lg: 0 18px 45px rgba(17, 17, 17, 0.18);
+
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 260ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Legacy aliases for existing screens. */
+  --color-bg: var(--color-bg-canvas);
+  --color-surface: var(--color-bg-surface);
+  --color-border: var(--color-border-default);
+  --color-primary: var(--color-brand-primary);
+  --color-primary-hover: var(--color-brand-primary-hover);
+  --color-danger: var(--color-feedback-danger);
+  --color-success: var(--color-feedback-success);
+  --radius: var(--radius-sm);
+  --shadow: var(--shadow-sm);
+}

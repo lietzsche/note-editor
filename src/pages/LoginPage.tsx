@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { api } from "../lib/api";
 
 type Props = {
@@ -15,18 +15,23 @@ export default function LoginPage({ onLogin }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const usernameId = useId();
+  const passwordId = useId();
+  const passwordConfirmId = useId();
+  const errorId = useId();
+
   function switchMode(next: Mode) {
     setMode(next);
     setError("");
     setPasswordConfirm("");
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError("");
 
     if (mode === "signup" && password !== passwordConfirm) {
-      setError("비밀번호가 일치하지 않습니다.");
+      setError("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
       return;
     }
 
@@ -42,130 +47,147 @@ export default function LoginPage({ onLogin }: Props) {
     }
   }
 
+  const isSignup = mode === "signup";
+
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>노트 에디터</h1>
-        <div style={styles.tabs}>
-          <button
-            style={{ ...styles.tab, ...(mode === "login" ? styles.activeTab : {}) }}
-            onClick={() => switchMode("login")}
-          >
-            로그인
-          </button>
-          <button
-            style={{ ...styles.tab, ...(mode === "signup" ? styles.activeTab : {}) }}
-            onClick={() => switchMode("signup")}
-          >
-            회원가입
-          </button>
+    <main className="auth-shell">
+      <section className="auth-card" aria-labelledby="auth-title">
+        <div className="auth-hero">
+          <div className="auth-headline">
+            <span className="auth-eyebrow">Secure Auth</span>
+            <h1 id="auth-title" className="auth-title">
+              안전하게 로그인하고 작업을 이어가세요
+            </h1>
+            <p className="auth-copy">
+              인증 영역은 세션 보호, 로그인 시도 제한, 감사 로그를 기본으로 적용합니다.
+            </p>
+          </div>
+
+          <div className="auth-highlights" aria-hidden="true">
+            <div className="auth-highlight">
+              <span className="auth-highlight__label">Session</span>
+              <strong className="auth-highlight__value">7일 고정 세션</strong>
+              <span className="auth-highlight__meta">로그아웃 시 즉시 무효화</span>
+            </div>
+            <div className="auth-highlight">
+              <span className="auth-highlight__label">Protection</span>
+              <strong className="auth-highlight__value">시도 제한 + 감사 로그</strong>
+              <span className="auth-highlight__meta">실패/성공/로그아웃 이벤트 기록</span>
+            </div>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="사용자명"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            autoComplete="username"
-          />
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-          />
-          {mode === "signup" && (
-            <input
-              style={styles.input}
-              type="password"
-              placeholder="비밀번호 확인"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
-              required
-              autoComplete="new-password"
-            />
-          )}
-          {error && <p style={styles.error}>{error}</p>}
-          <button style={styles.submitBtn} type="submit" disabled={loading}>
-            {loading ? "처리 중..." : mode === "login" ? "로그인" : "가입하기"}
-          </button>
-        </form>
-      </div>
-    </div>
+
+        <div className="auth-panel">
+          <div className="auth-panel__inner">
+            <div className="auth-panel__header">
+              <h2 className="auth-panel__title">
+                {isSignup ? "계정을 만들고 바로 시작하세요" : "작업 공간에 로그인"}
+              </h2>
+              <p className="auth-panel__subtitle">
+                {isSignup
+                  ? "가입 후 즉시 세션이 생성되며 노트 작업 화면으로 이동합니다."
+                  : "이전 세션이 없으면 로그인 화면으로 이동하고 보호 API 접근이 차단됩니다."}
+              </p>
+            </div>
+
+            <div className="auth-switch" role="tablist" aria-label="인증 모드">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isSignup}
+                className={`auth-switch__button${!isSignup ? " is-active" : ""}`}
+                onClick={() => switchMode("login")}
+              >
+                로그인
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isSignup}
+                className={`auth-switch__button${isSignup ? " is-active" : ""}`}
+                onClick={() => switchMode("signup")}
+              >
+                회원가입
+              </button>
+            </div>
+
+            <form className="auth-form" onSubmit={handleSubmit}>
+              <div className="auth-field">
+                <label className="auth-field__label" htmlFor={usernameId}>
+                  사용자명
+                </label>
+                <input
+                  id={usernameId}
+                  className="auth-field__input"
+                  type="text"
+                  placeholder="2~40자 사용자명"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  autoComplete="username"
+                  aria-describedby={error ? errorId : undefined}
+                  required
+                />
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-field__label" htmlFor={passwordId}>
+                  비밀번호
+                </label>
+                <input
+                  id={passwordId}
+                  className="auth-field__input"
+                  type="password"
+                  placeholder="최소 6자"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  aria-describedby={error ? errorId : undefined}
+                  required
+                />
+                <span className="auth-field__hint">세션 TTL 기본값은 7일이며 자동 갱신은 비활성화됩니다.</span>
+              </div>
+
+              {isSignup && (
+                <div className="auth-field">
+                  <label className="auth-field__label" htmlFor={passwordConfirmId}>
+                    비밀번호 확인
+                  </label>
+                  <input
+                    id={passwordConfirmId}
+                    className="auth-field__input"
+                    type="password"
+                    placeholder="동일한 비밀번호를 다시 입력"
+                    value={passwordConfirm}
+                    onChange={(event) => setPasswordConfirm(event.target.value)}
+                    autoComplete="new-password"
+                    aria-describedby={error ? errorId : undefined}
+                    required
+                  />
+                </div>
+              )}
+
+              {error && (
+                <p id={errorId} className="auth-error" role="alert">
+                  {error}
+                </p>
+              )}
+
+              <button className="auth-submit" type="submit" disabled={loading}>
+                {loading ? "처리 중..." : isSignup ? "계정 만들기" : "로그인"}
+              </button>
+            </form>
+
+            <div className="auth-meta">
+              <div className="auth-meta__list" aria-label="인증 보안 정책">
+                <span className="auth-chip">HttpOnly 쿠키</span>
+                <span className="auth-chip">SameSite=Lax</span>
+                <span className="auth-chip">HTTPS 시 Secure</span>
+              </div>
+              <p>로그인 실패가 누적되면 일정 시간 동안 재시도가 제한됩니다.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "100vh",
-    background: "var(--color-bg)",
-  },
-  card: {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius)",
-    boxShadow: "var(--shadow)",
-    padding: "32px",
-    width: "100%",
-    maxWidth: "360px",
-  },
-  title: {
-    fontSize: "20px",
-    fontWeight: 700,
-    textAlign: "center",
-    marginBottom: "24px",
-    color: "var(--color-text-primary)",
-  },
-  tabs: {
-    display: "flex",
-    marginBottom: "20px",
-    borderBottom: "1px solid var(--color-border)",
-  },
-  tab: {
-    flex: 1,
-    padding: "8px",
-    background: "none",
-    border: "none",
-    borderBottom: "2px solid transparent",
-    cursor: "pointer",
-    color: "var(--color-text-secondary)",
-    fontWeight: 500,
-  },
-  activeTab: {
-    borderBottom: "2px solid var(--color-primary)",
-    color: "var(--color-primary)",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  },
-  input: {
-    padding: "10px 12px",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius)",
-    outline: "none",
-    width: "100%",
-  },
-  error: {
-    color: "var(--color-danger)",
-    fontSize: "13px",
-  },
-  submitBtn: {
-    padding: "10px",
-    background: "var(--color-primary)",
-    color: "#fff",
-    border: "none",
-    borderRadius: "var(--radius)",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-};
