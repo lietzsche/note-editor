@@ -7,6 +7,7 @@ declare module "cloudflare:test" {
 }
 
 const BASE = "http://example.com";
+const SECURE_BASE = "https://example.com";
 
 // ── DB 초기화 헬퍼 ─────────────────────────────────────────────────────────
 
@@ -37,6 +38,13 @@ async function setupSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      username TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS login_attempts (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
@@ -55,14 +63,15 @@ async function cleanDb() {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM audit_logs"),
     env.DB.prepare("DELETE FROM login_attempts"),
+    env.DB.prepare("DELETE FROM sessions"),
     env.DB.prepare("DELETE FROM pages"),
     env.DB.prepare("DELETE FROM groups"),
     env.DB.prepare("DELETE FROM users"),
   ]);
 }
 
-async function logout(cookie: string) {
-  return SELF.fetch(`${BASE}/api/auth/logout`, {
+async function logout(cookie: string, base = BASE) {
+  return SELF.fetch(`${base}/api/auth/logout`, {
     method: "POST",
     headers: { Cookie: cookie },
   });
@@ -74,19 +83,42 @@ function extractCookie(res: Response): string {
 
 // ── 요청 헬퍼 ──────────────────────────────────────────────────────────────
 
-async function signup(username: string, password: string) {
-  return SELF.fetch(`${BASE}/api/auth/signup`, {
+async function signup(username: string, password: string, base = BASE) {
+  return SELF.fetch(`${base}/api/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
 }
 
-async function login(username: string, password: string) {
-  return SELF.fetch(`${BASE}/api/auth/login`, {
+async function login(username: string, password: string, base = BASE) {
+  return SELF.fetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
+  });
+}
+
+async function me(cookie: string, base = BASE) {
+  return SELF.fetch(`${base}/api/auth/me`, {
+    headers: { Cookie: cookie },
+  });
+}
+
+async function createNote(cookie: string, body: Record<string, unknown>, base = BASE) {
+  return SELF.fetch(`${base}/api/notes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function listNotes(cookie: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes`, {
+    headers: { Cookie: cookie },
   });
 }
 
@@ -204,5 +236,70 @@ describe("감사 로그 (Audit Logs)", () => {
       "SELECT * FROM audit_logs WHERE username = ? AND event_type = 'logout'"
     ).bind("alice").first();
     expect(log).not.toBeNull();
+  });
+});
+
+describe("TS-01 신규 사용자 온보딩", () => {
+  it("회원가입 후 로그인하고 노트를 생성하면 목록에 즉시 반영된다", async () => {
+    const signupRes = await signup("alice", "password123");
+    expect(signupRes.status).toBe(201);
+
+    const loginRes = await login("alice", "password123");
+    expect(loginRes.status).toBe(200);
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "첫 노트",
+      content: "온보딩 테스트",
+    });
+    expect(createRes.status).toBe(201);
+
+    const listRes = await listNotes(cookie);
+    expect(listRes.status).toBe(200);
+    const body = await listRes.json() as any;
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].title).toBe("첫 노트");
+    expect(body.data[0].content).toBe("온보딩 테스트");
+  });
+});
+
+describe("TS-05 세션/보호 API", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("로그인 후 보호 API 호출 성공, 로그아웃 후 차단, 재로그인 후 복구된다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const meRes = await me(cookie);
+    expect(meRes.status).toBe(200);
+
+    const logoutRes = await logout(cookie);
+    expect(logoutRes.status).toBe(204);
+
+    const afterLogoutRes = await me(cookie);
+    expect(afterLogoutRes.status).toBe(401);
+
+    const reloginRes = await login("alice", "password123");
+    const newCookie = extractCookie(reloginRes);
+    const recoveredRes = await me(newCookie);
+    expect(recoveredRes.status).toBe(200);
+  });
+
+  it("http 요청의 세션 쿠키는 HttpOnly와 SameSite=Lax를 포함한다", async () => {
+    const res = await login("alice", "password123");
+    const cookie = extractCookie(res);
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).not.toContain("Secure");
+  });
+
+  it("https 요청의 세션 쿠키는 Secure를 포함한다", async () => {
+    const res = await login("alice", "password123", SECURE_BASE);
+    const cookie = extractCookie(res);
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Lax");
   });
 });

@@ -128,7 +128,7 @@ async function recordAuditLog(db: D1Database, eventType: string, username: strin
 
 app.post("/api/auth/logout", async (c) => {
   const session = await getSession(c);
-  clearSession(c);
+  await clearSession(c, session?.sessionId);
   if (session) {
     await recordAuditLog(c.env.DB, "logout", session.username);
   }

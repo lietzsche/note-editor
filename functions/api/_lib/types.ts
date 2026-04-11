@@ -32,6 +32,7 @@ export type Group = {
 };
 
 export type SessionData = {
+  sessionId: string;
   userId: string;
   username: string;
 };
