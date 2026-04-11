@@ -23,6 +23,8 @@
 3. 그룹 미지정 상태(기본 그룹)도 정상 지원해야 한다.
 4. 그룹 삭제 시 소속 노트는 기본 그룹(미분류)으로 이동한다.
 5. 기본 그룹은 삭제할 수 없다.
+6. 기본 그룹은 회원가입 시 자동 생성한다.
+7. 그룹 이름은 1~40자, 사용자별 그룹 수는 최대 30개로 제한한다.
 
 ## 4. API/데이터 계약
 
@@ -31,7 +33,7 @@
 - `POST /api/groups`
 - `PUT /api/groups/:id`
 - `DELETE /api/groups/:id`
-- `PATCH /api/pages/:id/group`
+- `PATCH /api/notes/:id/group` (현재 구현 경로: `/api/pages/:id/group`)
 
 2. 데이터 필드(핵심)
 - `groups`: `id`, `user_id`, `name`, `position`, `created_at`, `updated_at`
@@ -57,8 +59,7 @@
 
 ## 7. 오픈 이슈
 
-1. 기본 그룹의 생성 시점(가입 시 자동 생성 vs 최초 그룹 액션 시 생성) 확정 필요
-2. 그룹 최대 개수/이름 길이 제한 확정 필요
+1. 그룹 정렬(position) 업데이트 API의 배치 변경 정책 확정 필요
 
 ## 8. 연계 테스트 시나리오
 

@@ -60,6 +60,8 @@ npx wrangler pages deploy build/ --project-name <NEW_PAGES_PROJECT_NAME>
 1. 필수 스모크: `docs/testing/TEST_PLAN.md`의 TS-01, TS-02, TS-04, TS-05, TS-07, TS-08, TS-10, TS-11 우선 실행
 2. 확장 회귀: TS-09(충돌 처리)는 릴리스 윈도우 내 추가 수행
 3. 필수 스모크 실패 시 배포 승인 보류
+4. 보안 확인: 쿠키 보안 속성(`HttpOnly`, `SameSite`, 운영환경 `Secure`) 점검
+5. 운영 확인: 인증 이벤트 로그(로그인 성공/실패/로그아웃) 수집 여부 점검
 
 ## 7. 장애 대응
 

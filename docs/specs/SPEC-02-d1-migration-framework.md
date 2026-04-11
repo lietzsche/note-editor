@@ -46,9 +46,10 @@ npm run migrate:list:remote
 - 필수 컬럼: `id`, `user_id`, `name`, `position`, `created_at`, `updated_at`
 - 제약: `UNIQUE(user_id, name)`
 
-3. `notes` (기존 `pages`를 노트 엔터티로 간주)
+3. `notes` (v1 호환: 기존 `pages`를 노트 엔터티로 간주)
 - 필수 컬럼: `id`, `user_id/owner_user_id`, `group_id`, `title`, `content`, `sort_order`, `updated_at`
 - 제약: `group_id`는 같은 사용자 소유의 그룹만 참조 가능해야 한다.
+- 명명 원칙: 논리 명칭은 `notes`를 사용하고, 물리 테이블 `pages`는 v1 호환 범위에서만 유지한다.
 
 ### 4.2 권장 인덱스
 
