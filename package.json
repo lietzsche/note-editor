@@ -14,6 +14,7 @@
     "migrate:list:local": "npx wrangler d1 migrations list DB --local",
     "migrate:list:remote": "npx wrangler d1 migrations list DB --remote",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
