@@ -1,6 +1,7 @@
 name = "note-editor"
 compatibility_date = "2024-01-01"
-pages_build_output_dir = "build"
+[assets]
+directory = "./build"
 
 [[d1_databases]]
 binding = "DB"
