@@ -348,7 +348,9 @@ app.delete("/api/notes/:id", async (c) => {
 });
 
 // ── SPA fallback: 정적 파일 서빙 (React 클라이언트 라우팅 포함) ─────────────
+// ASSETS 바인딩은 wrangler v4+ 또는 운영 환경에서만 주입됨
 app.all("*", async (c) => {
+  if (!c.env.ASSETS) return c.notFound();
   const res = await c.env.ASSETS.fetch(c.req.raw);
   if (res.status !== 404) return res;
   // 정적 파일이 없으면 index.html 반환 (SPA 라우팅)

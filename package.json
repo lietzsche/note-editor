@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run build && npx wrangler pages dev build/ --d1=DB --compatibility-date=2024-01-01",
-    "dev:watch": "concurrently \"vite build --watch\" \"npx wrangler pages dev build/ --d1=DB --compatibility-date=2024-01-01\"",
+    "dev": "npm run build && npx wrangler dev",
+    "dev:watch": "concurrently \"vite build --watch\" \"npx wrangler dev\"",
     "build": "vite build",
     "deploy": "npm run build && npx wrangler deploy",
     "migrate:create": "npx wrangler d1 migrations create DB",
