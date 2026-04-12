@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run build && npx wrangler dev",
-    "dev:watch": "concurrently \"vite build --watch\" \"npx wrangler dev\"",
+    "dev": "npm run build && npx wrangler dev --port 8788",
+    "dev:watch": "concurrently \"vite build --watch\" \"npx wrangler dev --port 8788\"",
     "build": "vite build",
     "deploy": "npm run build && npx wrangler deploy",
     "migrate:create": "npx wrangler d1 migrations create DB",

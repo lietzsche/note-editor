@@ -47,7 +47,14 @@ npx wrangler d1 list
 
 ```toml
 name = "<NEW_PAGES_PROJECT_NAME>"
+account_id = "<CLOUDFLARE_ACCOUNT_ID>"
 compatibility_date = "2024-01-01"
+main = "functions/api/[[path]].ts"
+
+[assets]
+directory = "./build"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 [[d1_databases]]
 binding = "DB"
@@ -70,6 +77,7 @@ AUTH_SESSION_TTL_SECONDS=604800
 ```
 
 > `.dev.vars`는 `.gitignore`에 포함되어 있어야 한다.
+> Cloudflare 계정이 여러 개면 `CLOUDFLARE_ACCOUNT_ID`를 확인해 `wrangler.toml`에 함께 반영한다.
 
 ## 6. 로컬 마이그레이션 적용
 

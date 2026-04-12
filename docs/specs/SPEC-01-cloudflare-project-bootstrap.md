@@ -73,11 +73,14 @@ note-editor/
 
 ```toml
 name = "note-editor"
+account_id = "<CLOUDFLARE_ACCOUNT_ID>"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
 main = "functions/api/[[path]].ts"
 
 [assets]
 directory = "./build"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
 
 [[d1_databases]]
@@ -126,7 +129,7 @@ migrations_dir = "migrations"
 - `/api/*` 요청은 Hono Worker가 처리하고, 나머지는 `build/` 정적 파일을 서빙한다.
 
 표준 스크립트 규격:
-- `npm run dev`: 빌드 결과 + Workers를 로컬에서 통합 실행 (`wrangler pages dev build/`)
+- `npm run dev`: 빌드 결과 + Workers를 로컬에서 통합 실행 (`npx wrangler dev --port 8788`)
 - `npm run dev:watch`: 프론트 변경 감시 빌드 + Workers dev 동시 실행
 
 ### 5.2 로컬 테스트 기준
