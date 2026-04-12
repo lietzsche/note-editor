@@ -24,6 +24,7 @@
 - `wrangler.toml` 바인딩 확인
 - `package.json` deploy 스크립트 확인
 - 마이그레이션 파일 최신 상태 확인
+- `npm run verify` 게이트 통과 확인
 
 3. 로컬 통합 모드 사전 확인
 - `npm run dev` 실행 후 `http://localhost:8788` 접속 확인

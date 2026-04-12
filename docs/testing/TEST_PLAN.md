@@ -209,6 +209,15 @@ npm run dev
 - PR 단계: 단위 + 통합 테스트 필수
 - 배포 전: 핵심 E2E 스모크 필수
 
+현재 자동화 스크립트:
+- `npm run test:unit`: 생산성/유틸 단위 테스트
+- `npm run test:integration`: Workers + D1 통합 테스트
+- `npm run verify`: `typecheck + unit + integration` PR 게이트
+
+현재 메모:
+- 브라우저 기반 E2E 러너는 아직 저장소에 도입하지 않았다.
+- 따라서 TS-01/02/08/10/11의 브라우저 스모크는 배포 전 수동 검증으로 유지한다.
+
 ## 8. 후속 시나리오 백로그
 
 ### TS-B1 모바일 설치형 앱(PWA) 설치 확인
