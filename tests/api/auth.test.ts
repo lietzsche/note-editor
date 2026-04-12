@@ -704,6 +704,140 @@ describe("TS-07 그룹 관리", () => {
   });
 });
 
+describe("TS-08 노트 전환 독립성/무결성", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("노트 A/B를 번갈아 수정해도 내용이 서로 섞이거나 유실되지 않는다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const noteARes = await createNote(cookie, {
+      title: "노트 A",
+      content: "A 첫 본문",
+    });
+    const noteBRes = await createNote(cookie, {
+      title: "노트 B",
+      content: "B 첫 본문",
+    });
+    expect(noteARes.status).toBe(201);
+    expect(noteBRes.status).toBe(201);
+
+    const noteABody = await noteARes.json() as any;
+    const noteBBody = await noteBRes.json() as any;
+
+    const updateA1Res = await updateNote(cookie, noteABody.data.id, {
+      title: "노트 A",
+      content: "A 두번째 본문",
+      updated_at: noteABody.data.updated_at,
+    });
+    expect(updateA1Res.status).toBe(200);
+    const updateA1Body = await updateA1Res.json() as any;
+
+    const updateB1Res = await updateNote(cookie, noteBBody.data.id, {
+      title: "노트 B",
+      content: "B 두번째 본문",
+      updated_at: noteBBody.data.updated_at,
+    });
+    expect(updateB1Res.status).toBe(200);
+    const updateB1Body = await updateB1Res.json() as any;
+
+    const updateA2Res = await updateNote(cookie, noteABody.data.id, {
+      title: "노트 A",
+      content: "A 최종 본문",
+      updated_at: updateA1Body.data.updated_at,
+    });
+    expect(updateA2Res.status).toBe(200);
+
+    const updateB2Res = await updateNote(cookie, noteBBody.data.id, {
+      title: "노트 B",
+      content: "B 최종 본문",
+      updated_at: updateB1Body.data.updated_at,
+    });
+    expect(updateB2Res.status).toBe(200);
+
+    const finalNoteARes = await getNote(cookie, noteABody.data.id);
+    const finalNoteBRes = await getNote(cookie, noteBBody.data.id);
+    expect(finalNoteARes.status).toBe(200);
+    expect(finalNoteBRes.status).toBe(200);
+
+    const finalNoteABody = await finalNoteARes.json() as any;
+    const finalNoteBBody = await finalNoteBRes.json() as any;
+    expect(finalNoteABody.data.content).toBe("A 최종 본문");
+    expect(finalNoteBBody.data.content).toBe("B 최종 본문");
+    expect(finalNoteABody.data.content).not.toBe(finalNoteBBody.data.content);
+
+    await logout(cookie);
+
+    const reloginRes = await login("alice", "password123");
+    const newCookie = extractCookie(reloginRes);
+    const reloginNoteARes = await getNote(newCookie, noteABody.data.id);
+    const reloginNoteBRes = await getNote(newCookie, noteBBody.data.id);
+    const reloginNoteABody = await reloginNoteARes.json() as any;
+    const reloginNoteBBody = await reloginNoteBRes.json() as any;
+    expect(reloginNoteABody.data.content).toBe("A 최종 본문");
+    expect(reloginNoteBBody.data.content).toBe("B 최종 본문");
+  });
+});
+
+describe("TS-09 충돌(conflict) 처리", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("stale updated_at 저장은 409를 반환하고 force 저장으로만 덮어쓸 수 있다", async () => {
+    const loginTab1Res = await login("alice", "password123");
+    const cookieTab1 = extractCookie(loginTab1Res);
+    const loginTab2Res = await login("alice", "password123");
+    const cookieTab2 = extractCookie(loginTab2Res);
+
+    const createRes = await createNote(cookieTab1, {
+      title: "충돌 테스트",
+      content: "초기 본문",
+    });
+    expect(createRes.status).toBe(201);
+    const createdBody = await createRes.json() as any;
+    const noteId = createdBody.data.id;
+
+    const tab1SnapshotRes = await getNote(cookieTab1, noteId);
+    const tab2SnapshotRes = await getNote(cookieTab2, noteId);
+    const tab1Snapshot = await tab1SnapshotRes.json() as any;
+    const tab2Snapshot = await tab2SnapshotRes.json() as any;
+
+    const tab1SaveRes = await updateNote(cookieTab1, noteId, {
+      title: "충돌 테스트",
+      content: "탭1 저장",
+      updated_at: tab1Snapshot.data.updated_at,
+    });
+    expect(tab1SaveRes.status).toBe(200);
+
+    const conflictRes = await updateNote(cookieTab2, noteId, {
+      title: "충돌 테스트",
+      content: "탭2 저장 시도",
+      updated_at: tab2Snapshot.data.updated_at,
+    });
+    expect(conflictRes.status).toBe(409);
+    const conflictBody = await conflictRes.json() as any;
+    expect(conflictBody.error.code).toBe("CONFLICT");
+    expect(conflictBody.data.content).toBe("탭1 저장");
+
+    const afterConflictRes = await getNote(cookieTab1, noteId);
+    const afterConflictBody = await afterConflictRes.json() as any;
+    expect(afterConflictBody.data.content).toBe("탭1 저장");
+
+    const forceSaveRes = await updateNote(cookieTab2, noteId, {
+      title: "충돌 테스트",
+      content: "탭2 강제 저장",
+      updated_at: tab2Snapshot.data.updated_at,
+      force: true,
+    });
+    expect(forceSaveRes.status).toBe(200);
+    const forceSaveBody = await forceSaveRes.json() as any;
+    expect(forceSaveBody.data.content).toBe("탭2 강제 저장");
+  });
+});
+
 describe("TS-05 세션/보호 API", () => {
   beforeEach(async () => {
     await signup("alice", "password123");

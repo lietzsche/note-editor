@@ -516,16 +516,25 @@ const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
   if (!noteId) return notFound();
 
   const note = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
+    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
   )
     .bind(noteId, session.userId)
-    .first();
+    .first<{
+      id: string;
+      title: string;
+      content: string;
+      group_id: string | null;
+      sort_order: number;
+      updated_at: string;
+    }>();
   if (!note) return notFound();
 
   const body = await c.req.json<{
     title?: string;
     content?: string;
     group_id?: string | null;
+    updated_at?: string;
+    force?: boolean;
   }>();
 
   const fields: string[] = [];
@@ -539,6 +548,22 @@ const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
   }
   if (body.group_id !== undefined && body.group_id !== null && typeof body.group_id !== "string") {
     return err("VALIDATION", "group_id는 문자열이어야 합니다.");
+  }
+  if (body.updated_at !== undefined && typeof body.updated_at !== "string") {
+    return err("VALIDATION", "updated_at은 문자열이어야 합니다.");
+  }
+  if (body.force !== undefined && typeof body.force !== "boolean") {
+    return err("VALIDATION", "force는 불리언이어야 합니다.");
+  }
+
+  if (body.updated_at !== undefined && body.updated_at !== note.updated_at && body.force !== true) {
+    return Response.json({
+      error: {
+        code: "CONFLICT",
+        message: "다른 세션에서 먼저 저장되어 충돌이 발생했습니다.",
+      },
+      data: note,
+    }, { status: 409 });
   }
 
   if (body.title !== undefined) {

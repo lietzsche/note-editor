@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type Group, type Note } from "../lib/api";
+import { ApiError, api, type Group, type Note } from "../lib/api";
 
 type Props = {
   username: string;
   onLogout: () => void;
 };
 
-type SaveStatus = "saved" | "saving" | "error" | "dirty";
+type SaveStatus = "saved" | "saving" | "error" | "dirty" | "conflict";
 type MobilePanel = "groups" | "notes" | "editor";
+type PendingAction =
+  | { type: "select-note"; note: Note }
+  | { type: "select-group"; groupId: string | null }
+  | { type: "create-note" }
+  | { type: "move-note-group"; groupId: string }
+  | { type: "logout" };
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
 const DEFAULT_GROUP_NAME = "미분류";
@@ -27,8 +33,14 @@ export default function NotesPage({ username, onLogout }: Props) {
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
+  const [conflictNote, setConflictNote] = useState<Note | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedNoteIdRef = useRef<string | null>(null);
+  const selectedNoteUpdatedAtRef = useRef<string | null>(null);
+  const titleRef = useRef(title);
+  const contentRef = useRef(content);
 
   const loadGroups = useCallback(async () => {
     const data = await api.groups.list();
@@ -72,7 +84,35 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }, [isMobile, mobilePanel, selectedNote]);
 
-  function selectGroup(groupId: string | null) {
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
+
+  function cancelScheduledSave() {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  }
+
+  function hasBlockingEdits() {
+    return Boolean(
+      selectedNote &&
+      (saveStatus === "dirty" || saveStatus === "error" || saveStatus === "conflict")
+    );
+  }
+
+  function openTransitionDialog(action: PendingAction) {
+    cancelScheduledSave();
+    setPendingAction(action);
+    setDialogMode(saveStatus === "conflict" ? "conflict" : "transition");
+  }
+
+  function applyGroupSelection(groupId: string | null) {
     setSelectedGroupId(groupId);
     if (groupId !== null && selectedNote && selectedNote.group_id !== groupId) {
       clearSelectedNoteView();
@@ -83,28 +123,86 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
+  function selectGroup(groupId: string | null) {
+    if (groupId === selectedGroupId) return;
+
+    if (hasBlockingEdits() && groupId !== selectedGroupId) {
+      openTransitionDialog({ type: "select-group", groupId });
+      return;
+    }
+    applyGroupSelection(groupId);
+  }
+
   function clearSelectedNoteView() {
+    cancelScheduledSave();
     selectedNoteIdRef.current = null;
+    selectedNoteUpdatedAtRef.current = null;
     setSelectedNote(null);
+    titleRef.current = "";
+    contentRef.current = "";
     setTitle("");
     setContent("");
     setSaveStatus("saved");
     setCopyStatus("idle");
+    setConflictNote(null);
+    setPendingAction(null);
+    setDialogMode(null);
     if (isMobile) {
       setMobilePanel("notes");
     }
   }
 
-  function selectNote(note: Note) {
+  function openNote(note: Note) {
+    cancelScheduledSave();
     selectedNoteIdRef.current = note.id;
+    selectedNoteUpdatedAtRef.current = note.updated_at;
     setSelectedNote(note);
+    titleRef.current = note.title;
+    contentRef.current = note.content;
     setTitle(note.title);
     setContent(note.content);
     setSaveStatus("saved");
     setCopyStatus("idle");
+    setConflictNote(null);
+    setPendingAction(null);
+    setDialogMode(null);
     if (isMobile) {
       setMobilePanel("editor");
     }
+  }
+
+  function selectNote(note: Note) {
+    if (note.id === selectedNote?.id) return;
+
+    if (hasBlockingEdits() && note.id !== selectedNote?.id) {
+      openTransitionDialog({ type: "select-note", note });
+      return;
+    }
+    openNote(note);
+  }
+
+  async function executePendingAction(action: PendingAction) {
+    if (action.type === "select-note") {
+      openNote(action.note);
+      return;
+    }
+
+    if (action.type === "select-group") {
+      applyGroupSelection(action.groupId);
+      return;
+    }
+
+    if (action.type === "create-note") {
+      await createNoteImmediately();
+      return;
+    }
+
+    if (action.type === "move-note-group") {
+      await moveSelectedNoteGroupImmediately(action.groupId);
+      return;
+    }
+
+    await logoutImmediately();
   }
 
   useEffect(() => {
@@ -116,13 +214,21 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }, [notes, selectedGroupId, selectedNote, isMobile]);
 
-  async function createNote() {
+  async function createNoteImmediately() {
     const note = await api.notes.create({
       title: "새 노트",
       group_id: selectedGroupId ?? undefined,
     });
     await loadNotes(selectedGroupId ?? undefined);
-    selectNote(note);
+    openNote(note);
+  }
+
+  async function createNote() {
+    if (hasBlockingEdits()) {
+      openTransitionDialog({ type: "create-note" });
+      return;
+    }
+    await createNoteImmediately();
   }
 
   async function deleteNote(id: string) {
@@ -160,35 +266,99 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
-  function scheduleAutoSave(noteId: string, t: string, c: string) {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  function isConflictNoteData(data: unknown): data is Note {
+    if (typeof data !== "object" || data === null) return false;
+
+    return (
+      "id" in data &&
+      "title" in data &&
+      "content" in data &&
+      "group_id" in data &&
+      "sort_order" in data &&
+      "updated_at" in data
+    );
+  }
+
+  async function persistCurrentNote(force = false) {
+    if (!selectedNote) return true;
+
+    cancelScheduledSave();
+    const noteId = selectedNote.id;
+    const draftTitle = titleRef.current;
+    const draftContent = contentRef.current;
+    const expectedUpdatedAt = force
+      ? conflictNote?.updated_at ?? selectedNoteUpdatedAtRef.current
+      : selectedNoteUpdatedAtRef.current;
+
+    setSaveStatus("saving");
+
+    try {
+      const updated = await api.notes.update(noteId, {
+        title: draftTitle,
+        content: draftContent,
+        updated_at: expectedUpdatedAt ?? undefined,
+        force,
+      });
+
+      setNotes((prev) => prev.map((note) => (note.id === noteId ? updated : note)));
+
+      if (selectedNoteIdRef.current !== noteId) {
+        return true;
+      }
+
+      selectedNoteUpdatedAtRef.current = updated.updated_at;
+      setSelectedNote(updated);
+      setConflictNote(null);
+
+      const draftStillCurrent =
+        titleRef.current === draftTitle && contentRef.current === draftContent;
+      setSaveStatus(draftStillCurrent ? "saved" : "dirty");
+      return true;
+    } catch (error) {
+      if (selectedNoteIdRef.current !== noteId) {
+        return false;
+      }
+
+      if (
+        error instanceof ApiError &&
+        error.code === "CONFLICT" &&
+        isConflictNoteData(error.data)
+      ) {
+        setNotes((prev) => prev.map((note) => (note.id === noteId ? error.data : note)));
+        setSelectedNote(error.data);
+        selectedNoteUpdatedAtRef.current = error.data.updated_at;
+        setConflictNote(error.data);
+        setSaveStatus("conflict");
+        setDialogMode("conflict");
+        return false;
+      }
+
+      setSaveStatus("error");
+      return false;
+    }
+  }
+
+  function scheduleAutoSave(noteId: string) {
+    cancelScheduledSave();
     setSaveStatus("dirty");
     saveTimerRef.current = setTimeout(async () => {
       if (selectedNoteIdRef.current !== noteId) return;
-      setSaveStatus("saving");
-      try {
-        const updated = await api.notes.update(noteId, { title: t, content: c });
-        if (selectedNoteIdRef.current !== noteId) return;
-        setNotes((prev) =>
-          prev.map((n) => (n.id === noteId ? updated : n))
-        );
-        setSaveStatus("saved");
-      } catch {
-        setSaveStatus("error");
-      }
+      await persistCurrentNote();
     }, 800);
   }
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
     setTitle(v);
-    if (selectedNote) scheduleAutoSave(selectedNote.id, v, content);
+    titleRef.current = v;
+    if (selectedNote && saveStatus !== "conflict") scheduleAutoSave(selectedNote.id);
   }
 
   function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const v = e.target.value;
     setContent(v);
-    if (selectedNote) scheduleAutoSave(selectedNote.id, title, v);
+    contentRef.current = v;
+    if (selectedNote && saveStatus !== "conflict") scheduleAutoSave(selectedNote.id);
   }
 
   async function handleCopy() {
@@ -202,9 +372,17 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
-  async function handleLogout() {
+  async function logoutImmediately() {
     await api.auth.logout();
     onLogout();
+  }
+
+  async function handleLogout() {
+    if (hasBlockingEdits()) {
+      openTransitionDialog({ type: "logout" });
+      return;
+    }
+    await logoutImmediately();
   }
 
   async function handleCreateGroup(e: React.FormEvent) {
@@ -247,14 +425,14 @@ export default function NotesPage({ username, onLogout }: Props) {
 
       if (selectedNoteWasInGroup && selectedNote) {
         const refreshedNote = await api.notes.get(selectedNote.id);
-        selectNote(refreshedNote);
+        openNote(refreshedNote);
       }
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "그룹 삭제에 실패했습니다.");
     }
   }
 
-  async function handleMoveSelectedNoteGroup(groupId: string) {
+  async function moveSelectedNoteGroupImmediately(groupId: string) {
     if (!selectedNote) return;
     if (groupId === selectedNote.group_id) return;
 
@@ -264,7 +442,7 @@ export default function NotesPage({ username, onLogout }: Props) {
       if (selectedGroupId !== null && updatedNote.group_id !== selectedGroupId) {
         clearSelectedNoteView();
       } else {
-        selectNote(updatedNote);
+        openNote(updatedNote);
       }
 
       await loadNotes(selectedGroupId ?? undefined);
@@ -273,11 +451,56 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
+  async function handleMoveSelectedNoteGroup(groupId: string) {
+    if (hasBlockingEdits()) {
+      openTransitionDialog({ type: "move-note-group", groupId });
+      return;
+    }
+
+    await moveSelectedNoteGroupImmediately(groupId);
+  }
+
+  async function handleDialogPrimaryAction() {
+    const saved = await persistCurrentNote(dialogMode === "conflict");
+    if (!saved) return;
+
+    const action = pendingAction;
+    setPendingAction(null);
+    setDialogMode(null);
+
+    if (action) {
+      await executePendingAction(action);
+    }
+  }
+
+  async function handleDialogDiscardAction() {
+    const action = pendingAction;
+    cancelScheduledSave();
+    setPendingAction(null);
+    setDialogMode(null);
+    setConflictNote(null);
+    setSaveStatus("saved");
+
+    if (action) {
+      await executePendingAction(action);
+    }
+  }
+
+  function handleDialogCancelAction() {
+    setPendingAction(null);
+    setDialogMode(null);
+  }
+
+  async function handleRetrySave() {
+    await persistCurrentNote(saveStatus === "conflict");
+  }
+
   const charCount = [...new Intl.Segmenter().segment(content)].length;
 
   const saveLabel =
     saveStatus === "saving" ? "저장 중..." :
     saveStatus === "dirty" ? "미저장" :
+    saveStatus === "conflict" ? "충돌 발생" :
     saveStatus === "error" ? "저장 실패" : "저장됨";
 
   const copyLabel =
@@ -298,6 +521,19 @@ export default function NotesPage({ username, onLogout }: Props) {
   const showGroupsPanel = !isMobile || mobilePanel === "groups";
   const showNotesPanel = !isMobile || mobilePanel === "notes";
   const showEditorPanel = !isMobile || mobilePanel === "editor";
+  const isConflictDialog = dialogMode === "conflict";
+  const primaryDialogLabel =
+    isConflictDialog
+      ? pendingAction ? "덮어쓰기 후 이동" : "덮어쓰기"
+      : saveStatus === "error" ? "다시 저장 후 이동" : "저장 후 이동";
+  const dialogTitle =
+    isConflictDialog ? "저장 충돌이 발생했습니다." : "미저장 변경이 있습니다.";
+  const dialogDescription =
+    isConflictDialog
+      ? "다른 세션에서 먼저 저장되었습니다. 최신 서버 내용을 확인한 뒤 덮어쓸지 결정하세요."
+      : saveStatus === "error"
+        ? "마지막 입력값은 유지되어 있습니다. 다시 저장하거나 버리고 이동할 수 있습니다."
+        : "현재 편집 중인 내용을 저장한 뒤 이동할지, 버리고 이동할지 선택하세요.";
 
   return (
     <div
@@ -590,7 +826,7 @@ export default function NotesPage({ username, onLogout }: Props) {
                   style={{
                     ...styles.statusBadge,
                     color:
-                      saveStatus === "error" ? "var(--color-danger)" :
+                      saveStatus === "error" || saveStatus === "conflict" ? "var(--color-danger)" :
                       saveStatus === "dirty" || saveStatus === "saving"
                         ? "var(--color-text-secondary)"
                         : "var(--color-success)",
@@ -599,6 +835,26 @@ export default function NotesPage({ username, onLogout }: Props) {
                   {saveLabel}
                 </span>
                 <span style={styles.charCount}>{charCount}자</span>
+                {saveStatus === "error" && (
+                  <button
+                    type="button"
+                    style={styles.secondaryActionBtn}
+                    onClick={() => { void handleRetrySave(); }}
+                    aria-label="저장 다시 시도"
+                  >
+                    다시 저장
+                  </button>
+                )}
+                {saveStatus === "conflict" && (
+                  <button
+                    type="button"
+                    style={styles.secondaryActionBtn}
+                    onClick={() => setDialogMode("conflict")}
+                    aria-label="저장 충돌 해결"
+                  >
+                    충돌 해결
+                  </button>
+                )}
                 <button
                   type="button"
                   style={{
@@ -628,6 +884,58 @@ export default function NotesPage({ username, onLogout }: Props) {
           <div style={styles.noNote}>노트를 선택하거나 새 노트를 만드세요.</div>
         )}
       </div>
+      )}
+      {dialogMode && (
+        <div style={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="editor-dialog-title">
+          <div style={styles.modalCard}>
+            <h2 id="editor-dialog-title" style={styles.modalTitle}>{dialogTitle}</h2>
+            <p style={styles.modalDescription}>{dialogDescription}</p>
+            {isConflictDialog && conflictNote && (
+              <div style={styles.conflictGrid}>
+                <section style={styles.conflictPanel}>
+                  <strong style={styles.conflictPanelTitle}>로컬 수정본</strong>
+                  <div style={styles.conflictPanelBody}>
+                    {content || "(빈 본문)"}
+                  </div>
+                </section>
+                <section style={styles.conflictPanel}>
+                  <strong style={styles.conflictPanelTitle}>서버 최신본</strong>
+                  <div style={styles.conflictPanelMeta}>
+                    마지막 저장: {new Date(conflictNote.updated_at).toLocaleString("ko-KR")}
+                  </div>
+                  <div style={styles.conflictPanelBody}>
+                    {conflictNote.content || "(빈 본문)"}
+                  </div>
+                </section>
+              </div>
+            )}
+            <div style={styles.modalActions}>
+              <button
+                type="button"
+                style={styles.modalPrimaryButton}
+                onClick={() => { void handleDialogPrimaryAction(); }}
+              >
+                {primaryDialogLabel}
+              </button>
+              {pendingAction && (
+                <button
+                  type="button"
+                  style={styles.modalSecondaryButton}
+                  onClick={() => { void handleDialogDiscardAction(); }}
+                >
+                  버리고 이동
+                </button>
+              )}
+              <button
+                type="button"
+                style={styles.modalGhostButton}
+                onClick={handleDialogCancelAction}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -915,6 +1223,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     color: "var(--color-text-secondary)",
   },
+  secondaryActionBtn: {
+    minHeight: "36px",
+    padding: "4px 10px",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
+    color: "var(--color-text-primary)",
+    fontSize: "12px",
+    fontWeight: 600,
+  },
   copyBtn: {
     minHeight: "44px",
     padding: "4px 12px",
@@ -943,5 +1261,101 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     color: "var(--color-text-secondary)",
     fontSize: "14px",
+  },
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(15, 23, 42, 0.44)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    zIndex: 1000,
+  },
+  modalCard: {
+    width: "min(720px, 100%)",
+    background: "var(--color-surface)",
+    borderRadius: "16px",
+    padding: "20px",
+    boxShadow: "0 24px 80px rgba(15, 23, 42, 0.24)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: "20px",
+    fontWeight: 700,
+    color: "var(--color-text-primary)",
+  },
+  modalDescription: {
+    margin: 0,
+    fontSize: "14px",
+    lineHeight: 1.6,
+    color: "var(--color-text-secondary)",
+  },
+  modalActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  modalPrimaryButton: {
+    minHeight: "44px",
+    padding: "10px 14px",
+    borderRadius: "var(--radius)",
+    border: "none",
+    background: "var(--color-primary)",
+    color: "#fff",
+    fontWeight: 700,
+  },
+  modalSecondaryButton: {
+    minHeight: "44px",
+    padding: "10px 14px",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--color-border)",
+    background: "var(--color-bg)",
+    color: "var(--color-text-primary)",
+    fontWeight: 600,
+  },
+  modalGhostButton: {
+    minHeight: "44px",
+    padding: "10px 14px",
+    borderRadius: "var(--radius)",
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "var(--color-text-secondary)",
+    fontWeight: 600,
+  },
+  conflictGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "12px",
+  },
+  conflictPanel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    padding: "12px",
+    borderRadius: "12px",
+    background: "var(--color-bg)",
+    border: "1px solid var(--color-border)",
+  },
+  conflictPanelTitle: {
+    fontSize: "13px",
+    color: "var(--color-text-primary)",
+  },
+  conflictPanelMeta: {
+    fontSize: "12px",
+    color: "var(--color-text-secondary)",
+  },
+  conflictPanelBody: {
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    maxHeight: "220px",
+    overflowY: "auto",
+    fontSize: "13px",
+    lineHeight: 1.6,
+    color: "var(--color-text-primary)",
   },
 };

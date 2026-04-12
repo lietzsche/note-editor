@@ -26,12 +26,18 @@
 
 ## 4. API/데이터 계약
 
-1. 노트 단건 업데이트는 버전/수정시각 기반 충돌 감지를 고려한다.
-2. 권장 필드
-- `updated_at` (필수)
-- `revision` 또는 `version` (권장)
+1. 노트 단건 업데이트는 `updated_at` 기반 낙관적 충돌 감지를 사용한다.
+2. 요청/응답 필드(핵심)
+- `PATCH /api/notes/:id`
+- request body: `title`, `content`, `group_id?`, `updated_at?`, `force?`
+- `updated_at`: 마지막으로 동기화한 서버 수정 시각
+- `force: true`: 충돌 확인 후 로컬 수정본으로 강제 저장
 
-3. 에러 코드(권장)
+3. 충돌 응답 규격
+- `409 CONFLICT`
+- response body: `error.code = "CONFLICT"` + `data`에 서버 최신 노트 스냅샷 포함
+
+4. 에러 코드(권장)
 - `CONFLICT`
 - `VALIDATION_ERROR`
 - `UNAUTHORIZED`

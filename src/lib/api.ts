@@ -2,14 +2,27 @@ type ApiSuccess<T> = {
   data: T;
 };
 
-type ApiFailure = {
+type ApiFailure<T = unknown> = {
   error: {
     code: string;
     message: string;
   };
+  data?: T;
 };
 
-async function request<T>(
+export class ApiError<T = unknown> extends Error {
+  code: string;
+  data?: T;
+
+  constructor(code: string, message: string, data?: T) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.data = data;
+  }
+}
+
+async function request<T, E = unknown>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
@@ -21,9 +34,16 @@ async function request<T>(
 
   if (res.status === 204) return undefined as T;
 
-  const json = await res.json() as ApiSuccess<T> | ApiFailure;
+  const json = await res.json() as ApiSuccess<T> | ApiFailure<E>;
   if (!res.ok) {
-    throw new Error("error" in json ? json.error.message : "요청에 실패했습니다.");
+    if ("error" in json) {
+      throw new ApiError(json.error.code, json.error.message, json.data);
+    }
+    throw new ApiError("UNKNOWN", "요청에 실패했습니다.");
+  }
+
+  if ("error" in json) {
+    throw new ApiError(json.error.code, json.error.message, json.data);
   }
 
   if (!("data" in json)) {
@@ -81,9 +101,15 @@ export const api = {
       }),
     update: (
       id: string,
-      data: { title?: string; content?: string; group_id?: string | null }
+      data: {
+        title?: string;
+        content?: string;
+        group_id?: string | null;
+        updated_at?: string;
+        force?: boolean;
+      }
     ) =>
-      request<Note>(`/api/notes/${id}`, {
+      request<Note, Note>(`/api/notes/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
