@@ -1008,6 +1008,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     overflowY: "auto",
     padding: "4px 0",
+    minHeight: 0,
   },
   groupRow: {
     display: "flex",
@@ -1043,6 +1044,7 @@ const styles: Record<string, React.CSSProperties> = {
     paddingRight: "4px",
   },
   newGroupForm: {
+    flexShrink: 0,
     display: "flex",
     padding: "8px",
     borderTop: "1px solid var(--color-border)",
@@ -1050,6 +1052,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   groupInput: {
     flex: 1,
+    minWidth: 0,
     padding: "4px 6px",
     border: "1px solid var(--color-border)",
     borderRadius: "var(--radius)",
