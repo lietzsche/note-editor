@@ -7,6 +7,9 @@ type Props = {
 };
 
 type SaveStatus = "saved" | "saving" | "error" | "dirty";
+type MobilePanel = "groups" | "notes" | "editor";
+
+const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
 
 export default function NotesPage({ username, onLogout }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -17,7 +20,12 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [content, setContent] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
+  const [reorderStatus, setReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [newGroupName, setNewGroupName] = useState("");
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
+  );
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedNoteIdRef = useRef<string | null>(null);
 
@@ -40,6 +48,36 @@ export default function NotesPage({ username, onLogout }: Props) {
     loadNotes(selectedGroupId ?? undefined);
   }, [selectedGroupId, loadNotes]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobile(event.matches);
+    };
+
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (mobilePanel === "editor" && !selectedNote) {
+      setMobilePanel("notes");
+    }
+  }, [isMobile, mobilePanel, selectedNote]);
+
+  function selectGroup(groupId: string | null) {
+    setSelectedGroupId(groupId);
+    if (isMobile) {
+      setMobilePanel("notes");
+    }
+  }
+
   function selectNote(note: Note) {
     selectedNoteIdRef.current = note.id;
     setSelectedNote(note);
@@ -47,10 +85,16 @@ export default function NotesPage({ username, onLogout }: Props) {
     setContent(note.content);
     setSaveStatus("saved");
     setCopyStatus("idle");
+    if (isMobile) {
+      setMobilePanel("editor");
+    }
   }
 
   async function createNote() {
-    const note = await api.notes.create({ group_id: selectedGroupId ?? undefined });
+    const note = await api.notes.create({
+      title: "새 노트",
+      group_id: selectedGroupId ?? undefined,
+    });
     await loadNotes(selectedGroupId ?? undefined);
     selectNote(note);
   }
@@ -59,11 +103,41 @@ export default function NotesPage({ username, onLogout }: Props) {
     if (!window.confirm("노트를 삭제할까요?")) return;
     await api.notes.delete(id);
     if (selectedNote?.id === id) {
+      selectedNoteIdRef.current = null;
       setSelectedNote(null);
       setTitle("");
       setContent("");
+      if (isMobile) {
+        setMobilePanel("notes");
+      }
     }
     await loadNotes(selectedGroupId ?? undefined);
+  }
+
+  async function moveNote(noteId: string, direction: -1 | 1) {
+    if (selectedGroupId !== null || reorderStatus === "saving") return;
+
+    const currentIndex = notes.findIndex((note) => note.id === noteId);
+    const nextIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= notes.length) return;
+
+    const previousNotes = notes;
+    const reorderedNotes = [...notes];
+    const [movedNote] = reorderedNotes.splice(currentIndex, 1);
+    reorderedNotes.splice(nextIndex, 0, movedNote);
+
+    setNotes(reorderedNotes);
+    setReorderStatus("saving");
+
+    try {
+      await api.notes.reorder(reorderedNotes.map((note) => note.id));
+      setReorderStatus("idle");
+    } catch {
+      setNotes(previousNotes);
+      setReorderStatus("error");
+      setTimeout(() => setReorderStatus("idle"), 2000);
+    }
   }
 
   function scheduleAutoSave(noteId: string, t: string, c: string) {
@@ -140,13 +214,88 @@ export default function NotesPage({ username, onLogout }: Props) {
     copyStatus === "success" ? "복사됨!" :
     copyStatus === "error" ? "복사 실패" : "전체 복사";
 
+  const reorderLabel =
+    reorderStatus === "saving" ? "정렬 저장 중..." :
+    reorderStatus === "error" ? "정렬 실패" :
+    selectedGroupId === null ? "정렬 가능" : "전체 노트에서 정렬";
+
+  const currentGroupLabel = selectedGroupId
+    ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
+    : "전체 노트";
+
+  const showGroupsPanel = !isMobile || mobilePanel === "groups";
+  const showNotesPanel = !isMobile || mobilePanel === "notes";
+  const showEditorPanel = !isMobile || mobilePanel === "editor";
+
   return (
-    <div style={styles.layout}>
+    <div
+      style={{
+        ...styles.layout,
+        flexDirection: isMobile ? "column" : "row",
+      }}
+    >
+      {isMobile && (
+        <nav style={styles.mobileTabs} aria-label="모바일 패널 전환">
+          <button
+            type="button"
+            style={{
+              ...styles.mobileTabButton,
+              ...(mobilePanel === "groups" ? styles.mobileTabButtonActive : {}),
+            }}
+            onClick={() => setMobilePanel("groups")}
+            aria-pressed={mobilePanel === "groups"}
+          >
+            그룹
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.mobileTabButton,
+              ...(mobilePanel === "notes" ? styles.mobileTabButtonActive : {}),
+            }}
+            onClick={() => setMobilePanel("notes")}
+            aria-pressed={mobilePanel === "notes"}
+          >
+            노트
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.mobileTabButton,
+              ...(mobilePanel === "editor" ? styles.mobileTabButtonActive : {}),
+            }}
+            onClick={() => {
+              if (selectedNote) setMobilePanel("editor");
+            }}
+            aria-pressed={mobilePanel === "editor"}
+            disabled={!selectedNote}
+          >
+            편집
+          </button>
+        </nav>
+      )}
+
       {/* Sidebar */}
-      <aside style={styles.sidebar}>
+      {showGroupsPanel && (
+      <aside
+        style={{
+          ...styles.sidebar,
+          flex: isMobile ? 1 : undefined,
+          minHeight: 0,
+          width: isMobile ? "100%" : styles.sidebar.width,
+          borderRight: isMobile ? "none" : styles.sidebar.borderRight,
+          borderBottom: isMobile ? "1px solid var(--color-border)" : "none",
+        }}
+      >
         <div style={styles.sidebarHeader}>
           <span style={{ fontWeight: 700 }}>노트 에디터</span>
-          <button style={styles.logoutBtn} onClick={handleLogout} title="로그아웃">
+          <button
+            type="button"
+            style={styles.logoutBtn}
+            onClick={handleLogout}
+            title="로그아웃"
+            aria-label="로그아웃"
+          >
             나가기
           </button>
         </div>
@@ -156,35 +305,42 @@ export default function NotesPage({ username, onLogout }: Props) {
         <div style={styles.groupSection}>
           <div
             style={{
-              ...styles.groupItem,
+              ...styles.groupRow,
               ...(selectedGroupId === null ? styles.activeGroup : {}),
             }}
-            onClick={() => setSelectedGroupId(null)}
           >
-            전체 노트
+            <button
+              type="button"
+              style={styles.groupSelectButton}
+              onClick={() => selectGroup(null)}
+              aria-pressed={selectedGroupId === null}
+            >
+              전체 노트
+            </button>
           </div>
           {groups.map((g) => (
             <div
               key={g.id}
               style={{
-                ...styles.groupItem,
+                ...styles.groupRow,
                 ...(selectedGroupId === g.id ? styles.activeGroup : {}),
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
               }}
             >
-              <span
-                style={{ flex: 1, cursor: "pointer" }}
-                onClick={() => setSelectedGroupId(g.id)}
+              <button
+                type="button"
+                style={styles.groupSelectButton}
+                onClick={() => selectGroup(g.id)}
+                aria-pressed={selectedGroupId === g.id}
               >
                 {g.name}
-              </span>
+              </button>
               {g.name !== "미분류" && (
                 <button
+                  type="button"
                   style={styles.iconBtn}
-                  onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.id, g.name); }}
+                  onClick={() => { void handleDeleteGroup(g.id, g.name); }}
                   title="그룹 삭제"
+                  aria-label={`${g.name} 그룹 삭제`}
                 >
                   ×
                 </button>
@@ -200,52 +356,121 @@ export default function NotesPage({ username, onLogout }: Props) {
             placeholder="새 그룹명..."
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
+            aria-label="새 그룹 이름"
           />
-          <button style={styles.addBtn} type="submit">+</button>
+          <button style={styles.addBtn} type="submit" aria-label="그룹 추가">+</button>
         </form>
       </aside>
+      )}
 
       {/* Note list */}
-      <div style={styles.noteList}>
+      {showNotesPanel && (
+      <div
+        style={{
+          ...styles.noteList,
+          flex: isMobile ? 1 : undefined,
+          minHeight: 0,
+          width: isMobile ? "100%" : styles.noteList.width,
+          borderRight: isMobile ? "none" : styles.noteList.borderRight,
+          borderBottom: isMobile ? "1px solid var(--color-border)" : "none",
+        }}
+      >
         <div style={styles.noteListHeader}>
-          <span style={{ fontWeight: 600 }}>
-            {selectedGroupId
-              ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
-              : "전체 노트"}
-            {" "}({notes.length})
-          </span>
-          <button style={styles.newNoteBtn} onClick={createNote}>
+          <div style={styles.noteListMeta}>
+            <span style={{ fontWeight: 600 }}>
+              {currentGroupLabel} ({notes.length})
+            </span>
+            <span style={styles.reorderHint}>{reorderLabel}</span>
+          </div>
+          <button
+            type="button"
+            style={styles.newNoteBtn}
+            onClick={() => { void createNote(); }}
+            aria-label="새 노트 만들기"
+          >
             + 새 노트
           </button>
         </div>
-        {notes.length === 0 && (
-          <div style={styles.empty}>노트가 없습니다.</div>
-        )}
-        {notes.map((n) => (
-          <div
-            key={n.id}
-            style={{
-              ...styles.noteItem,
-              ...(selectedNote?.id === n.id ? styles.activeNote : {}),
-            }}
-            onClick={() => selectNote(n)}
-          >
-            <div style={styles.noteTitle}>{n.title || "(제목 없음)"}</div>
-            <div style={styles.noteDate}>
-              {new Date(n.updated_at).toLocaleDateString("ko-KR")}
-            </div>
-            <button
-              style={styles.deleteBtn}
-              onClick={(e) => { e.stopPropagation(); deleteNote(n.id); }}
-              title="삭제"
-            >
-              ×
-            </button>
-          </div>
-        ))}
+        <div style={styles.noteListBody}>
+          {notes.length === 0 && (
+            <div style={styles.empty}>노트가 없습니다.</div>
+          )}
+          {notes.map((n, index) => {
+            const canMoveUp = selectedGroupId === null && index > 0;
+            const canMoveDown = selectedGroupId === null && index < notes.length - 1;
+
+            return (
+              <div
+                key={n.id}
+                style={{
+                  ...styles.noteItem,
+                  ...(selectedNote?.id === n.id ? styles.activeNote : {}),
+                }}
+              >
+                <div style={styles.noteRow}>
+                  <button
+                    type="button"
+                    style={styles.noteSelectButton}
+                    onClick={() => selectNote(n)}
+                    aria-pressed={selectedNote?.id === n.id}
+                    aria-label={`${n.title || "제목 없음"} 노트 열기`}
+                  >
+                    <div style={styles.noteTitle}>{n.title || "(제목 없음)"}</div>
+                    <div style={styles.noteDate}>
+                      {new Date(n.updated_at).toLocaleDateString("ko-KR")}
+                    </div>
+                  </button>
+                  <div style={styles.noteActions}>
+                    {selectedGroupId === null && (
+                      <>
+                        <button
+                          type="button"
+                          style={styles.orderBtn}
+                          onClick={() => {
+                            void moveNote(n.id, -1);
+                          }}
+                          title="위로 이동"
+                          aria-label={`${n.title || "제목 없음"} 노트를 위로 이동`}
+                          disabled={!canMoveUp || reorderStatus === "saving"}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.orderBtn}
+                          onClick={() => {
+                            void moveNote(n.id, 1);
+                          }}
+                          title="아래로 이동"
+                          aria-label={`${n.title || "제목 없음"} 노트를 아래로 이동`}
+                          disabled={!canMoveDown || reorderStatus === "saving"}
+                        >
+                          ↓
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      style={styles.deleteBtn}
+                      onClick={() => {
+                        void deleteNote(n.id);
+                      }}
+                      title="삭제"
+                      aria-label={`${n.title || "제목 없음"} 노트 삭제`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+      )}
 
       {/* Editor */}
+      {showEditorPanel && (
       <div style={styles.editor}>
         {selectedNote ? (
           <>
@@ -255,8 +480,10 @@ export default function NotesPage({ username, onLogout }: Props) {
                 placeholder="제목"
                 value={title}
                 onChange={handleTitleChange}
+                maxLength={120}
+                aria-label="노트 제목"
               />
-              <div style={styles.toolbarRight}>
+              <div style={styles.toolbarRight} aria-live="polite">
                 <span
                   style={{
                     ...styles.statusBadge,
@@ -271,6 +498,7 @@ export default function NotesPage({ username, onLogout }: Props) {
                 </span>
                 <span style={styles.charCount}>{charCount}자</span>
                 <button
+                  type="button"
                   style={{
                     ...styles.copyBtn,
                     background:
@@ -279,6 +507,7 @@ export default function NotesPage({ username, onLogout }: Props) {
                       "var(--color-primary)",
                   }}
                   onClick={handleCopy}
+                  aria-label="현재 노트 전체 복사"
                 >
                   {copyLabel}
                 </button>
@@ -289,12 +518,15 @@ export default function NotesPage({ username, onLogout }: Props) {
               placeholder="내용을 입력하세요..."
               value={content}
               onChange={handleContentChange}
+              maxLength={20000}
+              aria-label="노트 본문"
             />
           </>
         ) : (
           <div style={styles.noNote}>노트를 선택하거나 새 노트를 만드세요.</div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -304,6 +536,27 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     height: "100vh",
     overflow: "hidden",
+  },
+  mobileTabs: {
+    display: "flex",
+    gap: "8px",
+    padding: "8px 12px",
+    borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
+  },
+  mobileTabButton: {
+    flex: 1,
+    minHeight: "44px",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--color-border)",
+    color: "var(--color-text-secondary)",
+    background: "var(--color-bg)",
+    fontWeight: 600,
+  },
+  mobileTabButtonActive: {
+    background: "var(--color-primary)",
+    color: "#fff",
+    borderColor: "var(--color-primary)",
   },
   sidebar: {
     width: "180px",
@@ -340,26 +593,32 @@ const styles: Record<string, React.CSSProperties> = {
     overflowY: "auto",
     padding: "4px 0",
   },
-  groupItem: {
-    padding: "8px 12px",
-    cursor: "pointer",
-    fontSize: "13px",
-    borderRadius: "4px",
+  groupRow: {
+    display: "flex",
+    alignItems: "center",
     margin: "1px 4px",
+    borderRadius: "4px",
   },
   activeGroup: {
     background: "var(--color-primary)",
     color: "#fff",
   },
+  groupSelectButton: {
+    flex: 1,
+    minHeight: "44px",
+    padding: "8px 12px",
+    textAlign: "left",
+    color: "inherit",
+    fontSize: "13px",
+  },
   iconBtn: {
     background: "none",
-    border: "none",
-    cursor: "pointer",
     color: "inherit",
-    opacity: 0.5,
+    opacity: 0.7,
     fontSize: "14px",
     lineHeight: 1,
-    padding: "0 2px",
+    minWidth: "44px",
+    minHeight: "44px",
   },
   newGroupForm: {
     display: "flex",
@@ -376,7 +635,8 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
   },
   addBtn: {
-    padding: "4px 8px",
+    minWidth: "44px",
+    minHeight: "44px",
     background: "var(--color-primary)",
     color: "#fff",
     border: "none",
@@ -401,9 +661,24 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     background: "var(--color-surface)",
   },
+  noteListBody: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+  },
+  noteListMeta: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+  },
+  reorderHint: {
+    fontSize: "11px",
+    color: "var(--color-text-secondary)",
+  },
   newNoteBtn: {
     fontSize: "12px",
-    padding: "4px 8px",
+    minHeight: "44px",
+    padding: "4px 12px",
     background: "var(--color-primary)",
     color: "#fff",
     border: "none",
@@ -420,8 +695,20 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "10px 12px",
     borderBottom: "1px solid var(--color-border)",
     cursor: "pointer",
-    position: "relative",
     background: "var(--color-surface)",
+  },
+  noteRow: {
+    display: "flex",
+    alignItems: "stretch",
+    justifyContent: "space-between",
+    gap: "8px",
+  },
+  noteSelectButton: {
+    minWidth: 0,
+    flex: 1,
+    textAlign: "left",
+    padding: "0",
+    minHeight: "44px",
   },
   activeNote: {
     background: "#eff6ff",
@@ -433,24 +720,37 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    paddingRight: "20px",
   },
   noteDate: {
     fontSize: "11px",
     color: "var(--color-text-secondary)",
     marginTop: "2px",
   },
-  deleteBtn: {
-    position: "absolute",
-    right: "8px",
-    top: "8px",
+  noteActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    flexShrink: 0,
+  },
+  orderBtn: {
     background: "none",
-    border: "none",
-    cursor: "pointer",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    color: "var(--color-text-secondary)",
+    fontSize: "12px",
+    lineHeight: 1,
+    minWidth: "44px",
+    minHeight: "44px",
+  },
+  deleteBtn: {
+    background: "none",
+    border: "1px solid transparent",
+    borderRadius: "var(--radius)",
     color: "var(--color-text-secondary)",
     fontSize: "16px",
-    opacity: 0,
-    transition: "opacity 0.1s",
+    lineHeight: 1,
+    minWidth: "44px",
+    minHeight: "44px",
   },
   editor: {
     flex: 1,
@@ -461,6 +761,7 @@ const styles: Record<string, React.CSSProperties> = {
   editorToolbar: {
     display: "flex",
     alignItems: "center",
+    flexWrap: "wrap",
     padding: "8px 16px",
     borderBottom: "1px solid var(--color-border)",
     background: "var(--color-surface)",
@@ -488,7 +789,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--color-text-secondary)",
   },
   copyBtn: {
-    padding: "4px 10px",
+    minHeight: "44px",
+    padding: "4px 12px",
     color: "#fff",
     border: "none",
     borderRadius: "var(--radius)",

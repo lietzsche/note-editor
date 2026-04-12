@@ -122,6 +122,46 @@ async function listNotes(cookie: string, base = BASE) {
   });
 }
 
+async function getNote(cookie: string, noteId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/${noteId}`, {
+    headers: { Cookie: cookie },
+  });
+}
+
+async function updateNote(
+  cookie: string,
+  noteId: string,
+  body: Record<string, unknown>,
+  base = BASE
+) {
+  return SELF.fetch(`${base}/api/notes/${noteId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function deleteNote(cookie: string, noteId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/${noteId}`, {
+    method: "DELETE",
+    headers: { Cookie: cookie },
+  });
+}
+
+async function reorderNotes(cookie: string, orderedNoteIds: unknown, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/reorder`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ orderedNoteIds }),
+  });
+}
+
 // ── 테스트 ─────────────────────────────────────────────────────────────────
 
 beforeAll(async () => {
@@ -260,6 +300,191 @@ describe("TS-01 신규 사용자 온보딩", () => {
     expect(body.data).toHaveLength(1);
     expect(body.data[0].title).toBe("첫 노트");
     expect(body.data[0].content).toBe("온보딩 테스트");
+  });
+});
+
+describe("Notes API validation", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("노트가 없으면 빈 배열을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const listRes = await listNotes(cookie);
+    expect(listRes.status).toBe(200);
+
+    const body = await listRes.json() as any;
+    expect(body.data).toEqual([]);
+  });
+
+  it("제목이 비어 있으면 생성 시 400을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "",
+      content: "본문",
+    });
+    expect(createRes.status).toBe(400);
+  });
+
+  it("제목이 120자를 초과하면 생성 시 400을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "a".repeat(121),
+      content: "본문",
+    });
+    expect(createRes.status).toBe(400);
+  });
+
+  it("본문이 20000자를 초과하면 생성 시 400을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "긴 본문 테스트",
+      content: "a".repeat(20001),
+    });
+    expect(createRes.status).toBe(400);
+  });
+
+  it("존재하지 않는 노트 조회는 404를 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const getRes = await getNote(cookie, "missing-note-id");
+    expect(getRes.status).toBe(404);
+  });
+
+  it("잘못된 정렬 payload는 400을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const noteRes = await createNote(cookie, {
+      title: "첫 노트",
+      content: "본문",
+    });
+    const noteBody = await noteRes.json() as any;
+
+    const reorderRes = await reorderNotes(cookie, [
+      noteBody.data.id,
+      noteBody.data.id,
+    ]);
+    expect(reorderRes.status).toBe(400);
+  });
+});
+
+describe("TS-02 노트 CRUD", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("노트 3건 생성, 1건 수정, 1건 삭제 후 재조회 결과가 일치한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createdNotes: Array<{ id: string; title: string }> = [];
+
+    for (const title of ["첫 노트", "둘째 노트", "셋째 노트"]) {
+      const createRes = await createNote(cookie, { title, content: `${title} 본문` });
+      expect(createRes.status).toBe(201);
+      const body = await createRes.json() as any;
+      createdNotes.push({ id: body.data.id, title: body.data.title });
+    }
+
+    const updateRes = await updateNote(cookie, createdNotes[1].id, {
+      title: "수정된 둘째 노트",
+      content: "업데이트된 본문",
+    });
+    expect(updateRes.status).toBe(200);
+
+    const deleteRes = await deleteNote(cookie, createdNotes[0].id);
+    expect(deleteRes.status).toBe(204);
+
+    const listRes = await listNotes(cookie);
+    expect(listRes.status).toBe(200);
+
+    const listBody = await listRes.json() as any;
+    expect(listBody.data).toHaveLength(2);
+    expect(listBody.data.map((note: any) => note.id)).not.toContain(createdNotes[0].id);
+
+    const updatedNote = listBody.data.find((note: any) => note.id === createdNotes[1].id);
+    expect(updatedNote.title).toBe("수정된 둘째 노트");
+    expect(updatedNote.content).toBe("업데이트된 본문");
+  });
+});
+
+describe("TS-03 노트 정렬", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("노트 순서를 변경한 뒤 재조회와 재로그인 후에도 유지된다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const ids: string[] = [];
+
+    for (const title of ["첫 노트", "둘째 노트", "셋째 노트"]) {
+      const createRes = await createNote(cookie, { title, content: `${title} 본문` });
+      expect(createRes.status).toBe(201);
+      const body = await createRes.json() as any;
+      ids.push(body.data.id);
+    }
+
+    const reordered = [ids[2], ids[0], ids[1]];
+    const reorderRes = await reorderNotes(cookie, reordered);
+    expect(reorderRes.status).toBe(200);
+
+    const listRes = await listNotes(cookie);
+    const listBody = await listRes.json() as any;
+    expect(listBody.data.map((note: any) => note.id)).toEqual(reordered);
+
+    await logout(cookie);
+
+    const reloginRes = await login("alice", "password123");
+    const newCookie = extractCookie(reloginRes);
+    const relistRes = await listNotes(newCookie);
+    const relistBody = await relistRes.json() as any;
+    expect(relistBody.data.map((note: any) => note.id)).toEqual(reordered);
+  });
+});
+
+describe("TS-04 계정 격리", () => {
+  beforeEach(async () => {
+    await signup("user_a", "password123");
+    await signup("user_b", "password123");
+  });
+
+  it("다른 사용자는 타인 노트를 조회/수정/삭제할 수 없다", async () => {
+    const loginARes = await login("user_a", "password123");
+    const cookieA = extractCookie(loginARes);
+
+    const createRes = await createNote(cookieA, {
+      title: "user_a 노트",
+      content: "격리 테스트",
+    });
+    expect(createRes.status).toBe(201);
+    const createdBody = await createRes.json() as any;
+    const noteId = createdBody.data.id;
+
+    const loginBRes = await login("user_b", "password123");
+    const cookieB = extractCookie(loginBRes);
+
+    const getRes = await getNote(cookieB, noteId);
+    expect(getRes.status).toBe(404);
+
+    const updateRes = await updateNote(cookieB, noteId, {
+      title: "침범 시도",
+    });
+    expect(updateRes.status).toBe(404);
+
+    const deleteRes = await deleteNote(cookieB, noteId);
+    expect(deleteRes.status).toBe(404);
   });
 });
 

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import type { Env } from "./_lib/types";
 import {
   createSession,
@@ -228,6 +228,43 @@ app.delete("/api/groups/:id", async (c) => {
 
 // ── Notes routes ───────────────────────────────────────────────────────────
 
+const NOTE_TITLE_MAX_LENGTH = 120;
+const NOTE_CONTENT_MAX_LENGTH = 20_000;
+
+function validateNoteTitle(title: string) {
+  const normalizedTitle = title.trim();
+
+  if (normalizedTitle.length < 1 || normalizedTitle.length > NOTE_TITLE_MAX_LENGTH) {
+    return err("VALIDATION", `제목은 1~${NOTE_TITLE_MAX_LENGTH}자여야 합니다.`);
+  }
+
+  return normalizedTitle;
+}
+
+function validateNoteContent(content: string) {
+  if (content.length > NOTE_CONTENT_MAX_LENGTH) {
+    return err("VALIDATION", `본문은 ${NOTE_CONTENT_MAX_LENGTH}자 이하여야 합니다.`);
+  }
+
+  return content;
+}
+
+async function resolveOwnedGroupId(
+  db: D1Database,
+  userId: string,
+  groupId: string | null
+) {
+  if (groupId === null) return null;
+
+  const group = await db.prepare(
+    "SELECT id FROM groups WHERE id = ? AND user_id = ?"
+  )
+    .bind(groupId, userId)
+    .first<{ id: string }>();
+
+  return group?.id ?? false;
+}
+
 app.get("/api/notes", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
@@ -236,6 +273,9 @@ app.get("/api/notes", async (c) => {
   let query: D1PreparedStatement;
 
   if (groupId) {
+    const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, groupId);
+    if (ownedGroupId === false) return forbidden();
+
     query = c.env.DB.prepare(
       "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE user_id = ? AND group_id = ? ORDER BY sort_order ASC"
     ).bind(session.userId, groupId);
@@ -253,21 +293,33 @@ app.post("/api/notes", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
 
-  const { title = "", content = "", group_id } = await c.req.json<{
+  const body = await c.req.json<{
     title?: string;
     content?: string;
     group_id?: string;
   }>();
 
-  // group_id 소유권 검증
-  let resolvedGroupId = group_id ?? null;
-  if (resolvedGroupId) {
-    const g = await c.env.DB.prepare(
-      "SELECT id FROM groups WHERE id = ? AND user_id = ?"
-    )
-      .bind(resolvedGroupId, session.userId)
-      .first();
-    if (!g) return forbidden();
+  if (typeof body.title !== "string") {
+    return err("VALIDATION", "title은 문자열이어야 합니다.");
+  }
+  if (body.content !== undefined && typeof body.content !== "string") {
+    return err("VALIDATION", "content는 문자열이어야 합니다.");
+  }
+  if (body.group_id !== undefined && typeof body.group_id !== "string") {
+    return err("VALIDATION", "group_id는 문자열이어야 합니다.");
+  }
+
+  const title = validateNoteTitle(body.title);
+  if (title instanceof Response) return title;
+
+  const content = validateNoteContent(body.content ?? "");
+  if (content instanceof Response) return content;
+
+  let resolvedGroupId = body.group_id ?? null;
+  if (resolvedGroupId !== null) {
+    const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, resolvedGroupId);
+    if (ownedGroupId === false) return forbidden();
+    resolvedGroupId = ownedGroupId;
   } else {
     const defaultGroup = await c.env.DB.prepare(
       "SELECT id FROM groups WHERE user_id = ? AND name = '미분류'"
@@ -292,31 +344,90 @@ app.post("/api/notes", async (c) => {
     .bind(id, session.userId, resolvedGroupId, title, content, sort_order, now, now)
     .run();
 
-  return created({ id, title, content, group_id: resolvedGroupId, sort_order });
+  return created({
+    id,
+    title,
+    content,
+    group_id: resolvedGroupId,
+    sort_order,
+    updated_at: now,
+  });
+});
+
+app.post("/api/notes/reorder", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+
+  const body = await c.req.json<{ orderedNoteIds?: unknown }>();
+  const orderedNoteIds = body.orderedNoteIds;
+
+  if (
+    !Array.isArray(orderedNoteIds) ||
+    orderedNoteIds.some((noteId) => typeof noteId !== "string" || noteId.length === 0)
+  ) {
+    return err("VALIDATION", "orderedNoteIds는 노트 ID 문자열 배열이어야 합니다.");
+  }
+
+  if (new Set(orderedNoteIds).size !== orderedNoteIds.length) {
+    return err("VALIDATION", "orderedNoteIds에 중복된 노트 ID가 포함되어 있습니다.");
+  }
+
+  const { results } = await c.env.DB.prepare(
+    "SELECT id FROM pages WHERE user_id = ? ORDER BY sort_order ASC"
+  )
+    .bind(session.userId)
+    .all<{ id: string }>();
+
+  const existingNoteIds = results.map((note) => note.id);
+
+  if (existingNoteIds.length !== orderedNoteIds.length) {
+    return err("VALIDATION", "orderedNoteIds는 현재 사용자의 전체 노트 순서를 포함해야 합니다.");
+  }
+
+  const existingNoteIdsSet = new Set(existingNoteIds);
+  if (orderedNoteIds.some((noteId) => !existingNoteIdsSet.has(noteId))) {
+    return err("VALIDATION", "orderedNoteIds에 유효하지 않은 노트 ID가 포함되어 있습니다.");
+  }
+
+  if (orderedNoteIds.length > 0) {
+    await c.env.DB.batch(
+      orderedNoteIds.map((noteId, index) =>
+        c.env.DB.prepare(
+          "UPDATE pages SET sort_order = ? WHERE id = ? AND user_id = ?"
+        ).bind(index, noteId, session.userId)
+      )
+    );
+  }
+
+  return ok({ orderedNoteIds });
 });
 
 app.get("/api/notes/:id", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
 
   const note = await c.env.DB.prepare(
     "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
   )
-    .bind(c.req.param("id"), session.userId)
+    .bind(noteId, session.userId)
     .first();
 
   if (!note) return notFound();
   return ok(note);
 });
 
-app.patch("/api/notes/:id", async (c) => {
+const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
 
   const note = await c.env.DB.prepare(
     "SELECT id FROM pages WHERE id = ? AND user_id = ?"
   )
-    .bind(c.req.param("id"), session.userId)
+    .bind(noteId, session.userId)
     .first();
   if (!note) return notFound();
 
@@ -329,19 +440,37 @@ app.patch("/api/notes/:id", async (c) => {
   const fields: string[] = [];
   const values: (string | number | null)[] = [];
 
-  if (body.title !== undefined) { fields.push("title = ?"); values.push(body.title); }
-  if (body.content !== undefined) { fields.push("content = ?"); values.push(body.content); }
+  if (body.title !== undefined && typeof body.title !== "string") {
+    return err("VALIDATION", "title은 문자열이어야 합니다.");
+  }
+  if (body.content !== undefined && typeof body.content !== "string") {
+    return err("VALIDATION", "content는 문자열이어야 합니다.");
+  }
+  if (body.group_id !== undefined && body.group_id !== null && typeof body.group_id !== "string") {
+    return err("VALIDATION", "group_id는 문자열이어야 합니다.");
+  }
+
+  if (body.title !== undefined) {
+    const title = validateNoteTitle(body.title);
+    if (title instanceof Response) return title;
+    fields.push("title = ?");
+    values.push(title);
+  }
+  if (body.content !== undefined) {
+    const content = validateNoteContent(body.content);
+    if (content instanceof Response) return content;
+    fields.push("content = ?");
+    values.push(content);
+  }
   if (body.group_id !== undefined) {
     if (body.group_id !== null) {
-      const g = await c.env.DB.prepare(
-        "SELECT id FROM groups WHERE id = ? AND user_id = ?"
-      )
-        .bind(body.group_id, session.userId)
-        .first();
-      if (!g) return forbidden();
+      const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, body.group_id);
+      if (ownedGroupId === false) return forbidden();
+      values.push(ownedGroupId);
+    } else {
+      values.push(null);
     }
     fields.push("group_id = ?");
-    values.push(body.group_id);
   }
 
   if (fields.length === 0) return err("VALIDATION", "수정할 필드가 없습니다.");
@@ -349,7 +478,7 @@ app.patch("/api/notes/:id", async (c) => {
   const now = new Date().toISOString();
   fields.push("updated_at = ?");
   values.push(now);
-  values.push(c.req.param("id"));
+  values.push(noteId);
   values.push(session.userId);
 
   await c.env.DB.prepare(
@@ -359,27 +488,32 @@ app.patch("/api/notes/:id", async (c) => {
     .run();
 
   const updated = await c.env.DB.prepare(
-    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ?"
+    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
   )
-    .bind(c.req.param("id"))
+    .bind(noteId, session.userId)
     .first();
 
   return ok(updated);
-});
+};
+
+app.patch("/api/notes/:id", updateNoteHandler);
+app.put("/api/notes/:id", updateNoteHandler);
 
 app.delete("/api/notes/:id", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
 
   const note = await c.env.DB.prepare(
     "SELECT id FROM pages WHERE id = ? AND user_id = ?"
   )
-    .bind(c.req.param("id"), session.userId)
+    .bind(noteId, session.userId)
     .first();
   if (!note) return notFound();
 
   await c.env.DB.prepare("DELETE FROM pages WHERE id = ? AND user_id = ?")
-    .bind(c.req.param("id"), session.userId)
+    .bind(noteId, session.userId)
     .run();
 
   return noContent();

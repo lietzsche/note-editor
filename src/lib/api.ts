@@ -1,3 +1,14 @@
+type ApiSuccess<T> = {
+  data: T;
+};
+
+type ApiFailure = {
+  error: {
+    code: string;
+    message: string;
+  };
+};
+
 async function request<T>(
   path: string,
   options?: RequestInit
@@ -10,11 +21,16 @@ async function request<T>(
 
   if (res.status === 204) return undefined as T;
 
-  const json = await res.json();
+  const json = await res.json() as ApiSuccess<T> | ApiFailure;
   if (!res.ok) {
-    throw new Error(json?.error?.message ?? "요청에 실패했습니다.");
+    throw new Error("error" in json ? json.error.message : "요청에 실패했습니다.");
   }
-  return json.data as T;
+
+  if (!("data" in json)) {
+    throw new Error("응답 형식이 올바르지 않습니다.");
+  }
+
+  return json.data;
 }
 
 export const api = {
@@ -49,7 +65,7 @@ export const api = {
 
   notes: {
     list: (groupId?: string) => {
-      const qs = groupId ? `?group_id=${groupId}` : "";
+      const qs = groupId ? `?group_id=${encodeURIComponent(groupId)}` : "";
       return request<Note[]>(`/api/notes${qs}`);
     },
     get: (id: string) => request<Note>(`/api/notes/${id}`),
@@ -65,6 +81,11 @@ export const api = {
       request<Note>(`/api/notes/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
+      }),
+    reorder: (orderedNoteIds: string[]) =>
+      request<{ orderedNoteIds: string[] }>("/api/notes/reorder", {
+        method: "POST",
+        body: JSON.stringify({ orderedNoteIds }),
       }),
     delete: (id: string) =>
       request<void>(`/api/notes/${id}`, { method: "DELETE" }),

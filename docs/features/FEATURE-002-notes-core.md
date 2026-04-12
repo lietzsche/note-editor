@@ -29,15 +29,17 @@
 ## 4. API/데이터 계약
 
 1. 엔드포인트
-- `GET /api/notes` (현재 구현 경로: `/api/pages`)
-- `POST /api/notes` (현재 구현 경로: `/api/pages`)
-- `GET /api/notes/:id` (현재 구현 경로: `/api/pages/:id`)
-- `PUT /api/notes/:id` (현재 구현 경로: `/api/pages/:id`)
-- `DELETE /api/notes/:id` (현재 구현 경로: `/api/pages/:id`)
-- `POST /api/notes/reorder` (현재 구현 경로: `/api/pages/reorder`)
+- `GET /api/notes`
+- `POST /api/notes`
+- `GET /api/notes/:id`
+- `PUT /api/notes/:id`
+- `PATCH /api/notes/:id` (`PUT` 호환 alias, 자동 저장 경로에서 사용 가능)
+- `DELETE /api/notes/:id`
+- `POST /api/notes/reorder`
 
 2. 데이터 필드(핵심)
-- `id`, `title`, `content`, `sort_order`, `updated_at`, `owner_user_id`
+- API 응답 핵심: `id`, `title`, `content`, `group_id`, `sort_order`, `updated_at`
+- 저장소 내부 소유자 필드: `user_id` (`owner_user_id` 의미론)
 
 3. 정렬 payload 규격
 - `POST /api/notes/reorder`
