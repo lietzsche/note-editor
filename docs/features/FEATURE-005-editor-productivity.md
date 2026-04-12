@@ -30,6 +30,10 @@
 1. 서버 API 추가는 필수가 아니다.
 2. 글자 수 계산은 클라이언트 상태를 기준으로 처리한다.
 3. 전체 복사는 브라우저 Clipboard API를 사용한다.
+4. 구현 단위
+- `countGraphemes(text)`: grapheme cluster 계산 유틸
+- `copyText(clipboard, text)`: Clipboard API 래퍼
+- `CharacterCountIndicator`, `CopyAllButton`: 보조 UI 컴포넌트
 
 ## 5. 상태/예외 처리
 

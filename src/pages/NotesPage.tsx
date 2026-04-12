@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, type Group, type Note } from "../lib/api";
+import { CharacterCountIndicator } from "../components/CharacterCountIndicator";
+import { CopyAllButton } from "../components/CopyAllButton";
+import { copyText, countGraphemes } from "../lib/editorProductivity";
 
 type Props = {
   username: string;
@@ -8,6 +11,8 @@ type Props = {
 
 type SaveStatus = "saved" | "saving" | "error" | "dirty" | "conflict";
 type MobilePanel = "groups" | "notes" | "editor";
+type CopyStatus = "ready" | "copy-success" | "copy-error";
+type CountStatus = "count-ready" | "count-stale";
 type PendingAction =
   | { type: "select-note"; note: Note }
   | { type: "select-group"; groupId: string | null }
@@ -26,7 +31,8 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
-  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("ready");
+  const [countStatus, setCountStatus] = useState<CountStatus>("count-ready");
   const [reorderStatus, setReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [newGroupName, setNewGroupName] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
@@ -92,6 +98,16 @@ export default function NotesPage({ username, onLogout }: Props) {
     contentRef.current = content;
   }, [content]);
 
+  useEffect(() => {
+    if (countStatus !== "count-stale") return undefined;
+
+    const timer = setTimeout(() => {
+      setCountStatus("count-ready");
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [countStatus, selectedNote?.id, content]);
+
   function cancelScheduledSave() {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
@@ -143,7 +159,8 @@ export default function NotesPage({ username, onLogout }: Props) {
     setTitle("");
     setContent("");
     setSaveStatus("saved");
-    setCopyStatus("idle");
+    setCopyStatus("ready");
+    setCountStatus("count-ready");
     setConflictNote(null);
     setPendingAction(null);
     setDialogMode(null);
@@ -162,7 +179,8 @@ export default function NotesPage({ username, onLogout }: Props) {
     setTitle(note.title);
     setContent(note.content);
     setSaveStatus("saved");
-    setCopyStatus("idle");
+    setCopyStatus("ready");
+    setCountStatus("count-stale");
     setConflictNote(null);
     setPendingAction(null);
     setDialogMode(null);
@@ -351,6 +369,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     const v = e.target.value;
     setTitle(v);
     titleRef.current = v;
+    setCountStatus("count-ready");
     if (selectedNote && saveStatus !== "conflict") scheduleAutoSave(selectedNote.id);
   }
 
@@ -358,18 +377,18 @@ export default function NotesPage({ username, onLogout }: Props) {
     const v = e.target.value;
     setContent(v);
     contentRef.current = v;
+    setCountStatus("count-ready");
     if (selectedNote && saveStatus !== "conflict") scheduleAutoSave(selectedNote.id);
   }
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopyStatus("success");
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    } catch {
-      setCopyStatus("error");
-      setTimeout(() => setCopyStatus("idle"), 2000);
-    }
+    const result = await copyText(
+      typeof navigator !== "undefined" ? navigator.clipboard : null,
+      content
+    );
+
+    setCopyStatus(result === "success" ? "copy-success" : "copy-error");
+    setTimeout(() => setCopyStatus("ready"), 2000);
   }
 
   async function logoutImmediately() {
@@ -480,6 +499,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     setDialogMode(null);
     setConflictNote(null);
     setSaveStatus("saved");
+    setCopyStatus("ready");
 
     if (action) {
       await executePendingAction(action);
@@ -495,17 +515,13 @@ export default function NotesPage({ username, onLogout }: Props) {
     await persistCurrentNote(saveStatus === "conflict");
   }
 
-  const charCount = [...new Intl.Segmenter().segment(content)].length;
+  const charCount = countGraphemes(content);
 
   const saveLabel =
     saveStatus === "saving" ? "저장 중..." :
     saveStatus === "dirty" ? "미저장" :
     saveStatus === "conflict" ? "충돌 발생" :
     saveStatus === "error" ? "저장 실패" : "저장됨";
-
-  const copyLabel =
-    copyStatus === "success" ? "복사됨!" :
-    copyStatus === "error" ? "복사 실패" : "전체 복사";
 
   const reorderLabel =
     reorderStatus === "saving" ? "정렬 저장 중..." :
@@ -834,7 +850,7 @@ export default function NotesPage({ username, onLogout }: Props) {
                 >
                   {saveLabel}
                 </span>
-                <span style={styles.charCount}>{charCount}자</span>
+                <CharacterCountIndicator count={charCount} state={countStatus} />
                 {saveStatus === "error" && (
                   <button
                     type="button"
@@ -855,20 +871,10 @@ export default function NotesPage({ username, onLogout }: Props) {
                     충돌 해결
                   </button>
                 )}
-                <button
-                  type="button"
-                  style={{
-                    ...styles.copyBtn,
-                    background:
-                      copyStatus === "success" ? "var(--color-success)" :
-                      copyStatus === "error" ? "var(--color-danger)" :
-                      "var(--color-primary)",
-                  }}
-                  onClick={handleCopy}
-                  aria-label="현재 노트 전체 복사"
-                >
-                  {copyLabel}
-                </button>
+                <CopyAllButton
+                  onCopy={() => { void handleCopy(); }}
+                  state={copyStatus}
+                />
               </div>
             </div>
             <textarea

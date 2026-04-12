@@ -107,9 +107,13 @@ export interface NoteListItemProps {
 
 ## 8. 체크리스트
 
-- [ ] 네이밍 규칙 준수
-- [ ] Props 규약 준수(variant/size/state)
-- [ ] 접근성 기준 준수
-- [ ] 상태 모델 표준 준수
-- [ ] 실시간 글자 수/전체 복사 컴포넌트 규칙 준수
-- [ ] 문서 업데이트(컴포넌트 추가/변경 시)
+- [x] 네이밍 규칙 준수
+- [x] Props 규약 준수(variant/size/state)
+- [x] 접근성 기준 준수
+- [x] 상태 모델 표준 준수
+- [x] 실시간 글자 수/전체 복사 컴포넌트 규칙 준수
+- [x] 문서 업데이트(컴포넌트 추가/변경 시)
+
+2026-04-12 진행 메모:
+- `CharacterCountIndicator`, `CopyAllButton` 반영 완료
+- 화면 orchestration은 `NotesPage`, 렌더링/피드백은 편집 보조 컴포넌트로 분리
