@@ -122,6 +122,12 @@ async function listNotes(cookie: string, base = BASE) {
   });
 }
 
+async function listNotesByGroup(cookie: string, groupId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes?group_id=${encodeURIComponent(groupId)}`, {
+    headers: { Cookie: cookie },
+  });
+}
+
 async function getNote(cookie: string, noteId: string, base = BASE) {
   return SELF.fetch(`${base}/api/notes/${noteId}`, {
     headers: { Cookie: cookie },
@@ -159,6 +165,57 @@ async function reorderNotes(cookie: string, orderedNoteIds: unknown, base = BASE
       Cookie: cookie,
     },
     body: JSON.stringify({ orderedNoteIds }),
+  });
+}
+
+async function listGroups(cookie: string, base = BASE) {
+  return SELF.fetch(`${base}/api/groups`, {
+    headers: { Cookie: cookie },
+  });
+}
+
+async function createGroup(cookie: string, name: string, base = BASE) {
+  return SELF.fetch(`${base}/api/groups`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ name }),
+  });
+}
+
+async function updateGroup(cookie: string, groupId: string, name: string, base = BASE) {
+  return SELF.fetch(`${base}/api/groups/${groupId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ name }),
+  });
+}
+
+async function deleteGroup(cookie: string, groupId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/groups/${groupId}`, {
+    method: "DELETE",
+    headers: { Cookie: cookie },
+  });
+}
+
+async function moveNoteToGroup(
+  cookie: string,
+  noteId: string,
+  groupId: string | null,
+  base = BASE
+) {
+  return SELF.fetch(`${base}/api/notes/${noteId}/group`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ group_id: groupId }),
   });
 }
 
@@ -378,6 +435,82 @@ describe("Notes API validation", () => {
   });
 });
 
+describe("Groups API validation", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("회원가입 직후 기본 그룹(미분류)이 존재한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const groupsRes = await listGroups(cookie);
+    expect(groupsRes.status).toBe(200);
+
+    const body = await groupsRes.json() as any;
+    expect(body.data.some((group: any) => group.name === "미분류")).toBe(true);
+  });
+
+  it("같은 사용자 내 중복 그룹명 생성은 409를 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const firstRes = await createGroup(cookie, "Work");
+    expect(firstRes.status).toBe(201);
+
+    const duplicateRes = await createGroup(cookie, "Work");
+    expect(duplicateRes.status).toBe(409);
+  });
+
+  it("기본 그룹 삭제는 403을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const groupsRes = await listGroups(cookie);
+    const groupsBody = await groupsRes.json() as any;
+    const defaultGroup = groupsBody.data.find((group: any) => group.name === "미분류");
+
+    const deleteRes = await deleteGroup(cookie, defaultGroup.id);
+    expect(deleteRes.status).toBe(403);
+  });
+
+  it("잘못된 group_id로 노트 이동 시 403을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "이동 테스트",
+      content: "본문",
+    });
+    const createdBody = await createRes.json() as any;
+
+    const moveRes = await moveNoteToGroup(cookie, createdBody.data.id, "missing-group-id");
+    expect(moveRes.status).toBe(403);
+  });
+
+  it("다른 사용자 그룹으로 노트를 이동할 수 없다", async () => {
+    await signup("bob", "password123");
+
+    const aliceLoginRes = await login("alice", "password123");
+    const aliceCookie = extractCookie(aliceLoginRes);
+    const bobLoginRes = await login("bob", "password123");
+    const bobCookie = extractCookie(bobLoginRes);
+
+    const bobGroupRes = await createGroup(bobCookie, "Bob Group");
+    expect(bobGroupRes.status).toBe(201);
+    const bobGroupBody = await bobGroupRes.json() as any;
+
+    const aliceNoteRes = await createNote(aliceCookie, {
+      title: "Alice Note",
+      content: "본문",
+    });
+    const aliceNoteBody = await aliceNoteRes.json() as any;
+
+    const moveRes = await moveNoteToGroup(aliceCookie, aliceNoteBody.data.id, bobGroupBody.data.id);
+    expect(moveRes.status).toBe(403);
+  });
+});
+
 describe("TS-02 노트 CRUD", () => {
   beforeEach(async () => {
     await signup("alice", "password123");
@@ -485,6 +618,89 @@ describe("TS-04 계정 격리", () => {
 
     const deleteRes = await deleteNote(cookieB, noteId);
     expect(deleteRes.status).toBe(404);
+  });
+});
+
+describe("TS-07 그룹 관리", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("그룹 생성, 필터 조회, 이름 변경, 노트 이동, 삭제 정책이 의도대로 동작한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const initialGroupsRes = await listGroups(cookie);
+    expect(initialGroupsRes.status).toBe(200);
+    const initialGroupsBody = await initialGroupsRes.json() as any;
+    const defaultGroup = initialGroupsBody.data.find((group: any) => group.name === "미분류");
+    expect(defaultGroup).toBeDefined();
+
+    const workRes = await createGroup(cookie, "Work");
+    const personalRes = await createGroup(cookie, "Personal");
+    expect(workRes.status).toBe(201);
+    expect(personalRes.status).toBe(201);
+
+    const workBody = await workRes.json() as any;
+    const personalBody = await personalRes.json() as any;
+    const workId = workBody.data.id;
+    const personalId = personalBody.data.id;
+
+    const renameRes = await updateGroup(cookie, personalId, "Private");
+    expect(renameRes.status).toBe(200);
+
+    const noteInWorkRes = await createNote(cookie, {
+      title: "업무 노트",
+      content: "업무 본문",
+      group_id: workId,
+    });
+    const noteInDefaultRes = await createNote(cookie, {
+      title: "기본 노트",
+      content: "기본 본문",
+    });
+    expect(noteInWorkRes.status).toBe(201);
+    expect(noteInDefaultRes.status).toBe(201);
+
+    const noteInWorkBody = await noteInWorkRes.json() as any;
+    const noteInDefaultBody = await noteInDefaultRes.json() as any;
+    expect(noteInDefaultBody.data.group_id).toBe(defaultGroup.id);
+
+    const workListRes = await listNotesByGroup(cookie, workId);
+    expect(workListRes.status).toBe(200);
+    const workListBody = await workListRes.json() as any;
+    expect(workListBody.data).toHaveLength(1);
+    expect(workListBody.data[0].id).toBe(noteInWorkBody.data.id);
+
+    const movedRes = await moveNoteToGroup(cookie, noteInWorkBody.data.id, personalId);
+    expect(movedRes.status).toBe(200);
+    const movedBody = await movedRes.json() as any;
+    expect(movedBody.data.group_id).toBe(personalId);
+
+    const renamedGroupListRes = await listGroups(cookie);
+    const renamedGroupListBody = await renamedGroupListRes.json() as any;
+    expect(
+      renamedGroupListBody.data.some((group: any) => group.id === personalId && group.name === "Private")
+    ).toBe(true);
+
+    const emptyWorkListRes = await listNotesByGroup(cookie, workId);
+    const emptyWorkListBody = await emptyWorkListRes.json() as any;
+    expect(emptyWorkListBody.data).toHaveLength(0);
+
+    const privateListRes = await listNotesByGroup(cookie, personalId);
+    const privateListBody = await privateListRes.json() as any;
+    expect(privateListBody.data).toHaveLength(1);
+    expect(privateListBody.data[0].id).toBe(noteInWorkBody.data.id);
+
+    const deleteWorkRes = await deleteGroup(cookie, workId);
+    expect(deleteWorkRes.status).toBe(204);
+
+    const deletePrivateRes = await deleteGroup(cookie, personalId);
+    expect(deletePrivateRes.status).toBe(204);
+
+    const movedBackNoteRes = await getNote(cookie, noteInWorkBody.data.id);
+    expect(movedBackNoteRes.status).toBe(200);
+    const movedBackNoteBody = await movedBackNoteRes.json() as any;
+    expect(movedBackNoteBody.data.group_id).toBe(defaultGroup.id);
   });
 });
 

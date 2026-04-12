@@ -18,6 +18,62 @@ import {
 
 const app = new Hono<{ Bindings: Env }>();
 
+const DEFAULT_GROUP_NAME = "미분류";
+const GROUP_NAME_MAX_LENGTH = 40;
+const GROUP_MAX_COUNT = 30;
+const NOTE_TITLE_MAX_LENGTH = 120;
+const NOTE_CONTENT_MAX_LENGTH = 20_000;
+
+function validateGroupName(name: string) {
+  const normalizedName = name.trim();
+
+  if (normalizedName.length < 1 || normalizedName.length > GROUP_NAME_MAX_LENGTH) {
+    return err("VALIDATION", `그룹명은 1~${GROUP_NAME_MAX_LENGTH}자여야 합니다.`);
+  }
+
+  return normalizedName;
+}
+
+async function findOwnedGroup(
+  db: D1Database,
+  userId: string,
+  groupId: string
+) {
+  return db.prepare(
+    "SELECT id, name, position FROM groups WHERE id = ? AND user_id = ?"
+  )
+    .bind(groupId, userId)
+    .first<{ id: string; name: string; position: number }>();
+}
+
+async function getDefaultGroupId(db: D1Database, userId: string) {
+  const defaultGroup = await db.prepare(
+    "SELECT id FROM groups WHERE user_id = ? AND name = ?"
+  )
+    .bind(userId, DEFAULT_GROUP_NAME)
+    .first<{ id: string }>();
+
+  return defaultGroup?.id ?? null;
+}
+
+async function hasDuplicateGroupName(
+  db: D1Database,
+  userId: string,
+  groupName: string,
+  excludeGroupId?: string
+) {
+  const query = excludeGroupId
+    ? db.prepare(
+      "SELECT id FROM groups WHERE user_id = ? AND name = ? AND id != ?"
+    ).bind(userId, groupName, excludeGroupId)
+    : db.prepare(
+      "SELECT id FROM groups WHERE user_id = ? AND name = ?"
+    ).bind(userId, groupName);
+
+  const existingGroup = await query.first<{ id: string }>();
+  return Boolean(existingGroup);
+}
+
 // ── Auth routes ────────────────────────────────────────────────────────────
 
 app.post("/api/auth/signup", async (c) => {
@@ -53,7 +109,7 @@ app.post("/api/auth/signup", async (c) => {
   await c.env.DB.prepare(
     "INSERT INTO groups (id, user_id, name, position, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)"
   )
-    .bind(groupId, id, "미분류", now, now)
+    .bind(groupId, id, DEFAULT_GROUP_NAME, now, now)
     .run();
 
   await createSession(c, { userId: id, username });
@@ -161,16 +217,21 @@ app.post("/api/groups", async (c) => {
   if (!session) return unauthorized();
 
   const { name } = await c.req.json<{ name: string }>();
-  if (!name || name.length < 1 || name.length > 40)
-    return err("VALIDATION", "그룹명은 1~40자여야 합니다.");
+  if (typeof name !== "string") return err("VALIDATION", "name은 문자열이어야 합니다.");
+
+  const normalizedName = validateGroupName(name);
+  if (normalizedName instanceof Response) return normalizedName;
 
   const count = await c.env.DB.prepare(
     "SELECT COUNT(*) as cnt FROM groups WHERE user_id = ?"
   )
     .bind(session.userId)
     .first<{ cnt: number }>();
-  if ((count?.cnt ?? 0) >= 30)
-    return err("LIMIT", "그룹은 최대 30개까지 생성할 수 있습니다.", 422);
+  if ((count?.cnt ?? 0) >= GROUP_MAX_COUNT)
+    return err("LIMIT", `그룹은 최대 ${GROUP_MAX_COUNT}개까지 생성할 수 있습니다.`, 422);
+
+  const duplicated = await hasDuplicateGroupName(c.env.DB, session.userId, normalizedName);
+  if (duplicated) return err("CONFLICT", "이미 존재하는 그룹명입니다.", 409);
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -184,10 +245,47 @@ app.post("/api/groups", async (c) => {
   await c.env.DB.prepare(
     "INSERT INTO groups (id, user_id, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
   )
-    .bind(id, session.userId, name, position, now, now)
+    .bind(id, session.userId, normalizedName, position, now, now)
     .run();
 
-  return created({ id, name, position });
+  return created({ id, name: normalizedName, position });
+});
+
+app.put("/api/groups/:id", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+
+  const groupId = c.req.param("id");
+  if (!groupId) return notFound();
+
+  const group = await findOwnedGroup(c.env.DB, session.userId, groupId);
+  if (!group) return notFound();
+  if (group.name === DEFAULT_GROUP_NAME) {
+    return err("FORBIDDEN", "기본 그룹(미분류)은 이름을 변경할 수 없습니다.", 403);
+  }
+
+  const { name } = await c.req.json<{ name: string }>();
+  if (typeof name !== "string") return err("VALIDATION", "name은 문자열이어야 합니다.");
+
+  const normalizedName = validateGroupName(name);
+  if (normalizedName instanceof Response) return normalizedName;
+
+  const duplicated = await hasDuplicateGroupName(
+    c.env.DB,
+    session.userId,
+    normalizedName,
+    groupId
+  );
+  if (duplicated) return err("CONFLICT", "이미 존재하는 그룹명입니다.", 409);
+
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    "UPDATE groups SET name = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+  )
+    .bind(normalizedName, now, groupId, session.userId)
+    .run();
+
+  return ok({ id: groupId, name: normalizedName, position: group.position });
 });
 
 app.delete("/api/groups/:id", async (c) => {
@@ -195,27 +293,21 @@ app.delete("/api/groups/:id", async (c) => {
   if (!session) return unauthorized();
 
   const groupId = c.req.param("id");
-  const group = await c.env.DB.prepare(
-    "SELECT id, name FROM groups WHERE id = ? AND user_id = ?"
-  )
-    .bind(groupId, session.userId)
-    .first<{ id: string; name: string }>();
+  if (!groupId) return notFound();
+
+  const group = await findOwnedGroup(c.env.DB, session.userId, groupId);
 
   if (!group) return notFound();
-  if (group.name === "미분류")
+  if (group.name === DEFAULT_GROUP_NAME)
     return err("FORBIDDEN", "기본 그룹(미분류)은 삭제할 수 없습니다.", 403);
 
-  const defaultGroup = await c.env.DB.prepare(
-    "SELECT id FROM groups WHERE user_id = ? AND name = '미분류'"
-  )
-    .bind(session.userId)
-    .first<{ id: string }>();
+  const defaultGroupId = await getDefaultGroupId(c.env.DB, session.userId);
 
-  if (defaultGroup) {
+  if (defaultGroupId) {
     await c.env.DB.prepare(
       "UPDATE pages SET group_id = ? WHERE group_id = ? AND user_id = ?"
     )
-      .bind(defaultGroup.id, groupId, session.userId)
+      .bind(defaultGroupId, groupId, session.userId)
       .run();
   }
 
@@ -227,9 +319,6 @@ app.delete("/api/groups/:id", async (c) => {
 });
 
 // ── Notes routes ───────────────────────────────────────────────────────────
-
-const NOTE_TITLE_MAX_LENGTH = 120;
-const NOTE_CONTENT_MAX_LENGTH = 20_000;
 
 function validateNoteTitle(title: string) {
   const normalizedTitle = title.trim();
@@ -256,13 +345,22 @@ async function resolveOwnedGroupId(
 ) {
   if (groupId === null) return null;
 
-  const group = await db.prepare(
-    "SELECT id FROM groups WHERE id = ? AND user_id = ?"
-  )
-    .bind(groupId, userId)
-    .first<{ id: string }>();
+  const group = await findOwnedGroup(db, userId, groupId);
 
   return group?.id ?? false;
+}
+
+async function resolveNoteGroupId(
+  db: D1Database,
+  userId: string,
+  groupId: string | null
+) {
+  if (groupId === null) {
+    const defaultGroupId = await getDefaultGroupId(db, userId);
+    return defaultGroupId ?? false;
+  }
+
+  return resolveOwnedGroupId(db, userId, groupId);
 }
 
 app.get("/api/notes", async (c) => {
@@ -315,19 +413,12 @@ app.post("/api/notes", async (c) => {
   const content = validateNoteContent(body.content ?? "");
   if (content instanceof Response) return content;
 
-  let resolvedGroupId = body.group_id ?? null;
-  if (resolvedGroupId !== null) {
-    const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, resolvedGroupId);
-    if (ownedGroupId === false) return forbidden();
-    resolvedGroupId = ownedGroupId;
-  } else {
-    const defaultGroup = await c.env.DB.prepare(
-      "SELECT id FROM groups WHERE user_id = ? AND name = '미분류'"
-    )
-      .bind(session.userId)
-      .first<{ id: string }>();
-    resolvedGroupId = defaultGroup?.id ?? null;
-  }
+  const resolvedGroupId = await resolveNoteGroupId(
+    c.env.DB,
+    session.userId,
+    body.group_id ?? null
+  );
+  if (resolvedGroupId === false) return forbidden();
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -463,13 +554,9 @@ const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
     values.push(content);
   }
   if (body.group_id !== undefined) {
-    if (body.group_id !== null) {
-      const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, body.group_id);
-      if (ownedGroupId === false) return forbidden();
-      values.push(ownedGroupId);
-    } else {
-      values.push(null);
-    }
+    const resolvedGroupId = await resolveNoteGroupId(c.env.DB, session.userId, body.group_id);
+    if (resolvedGroupId === false) return forbidden();
+    values.push(resolvedGroupId);
     fields.push("group_id = ?");
   }
 
@@ -498,6 +585,45 @@ const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
 
 app.patch("/api/notes/:id", updateNoteHandler);
 app.put("/api/notes/:id", updateNoteHandler);
+
+app.patch("/api/notes/:id/group", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
+
+  const note = await c.env.DB.prepare(
+    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
+  )
+    .bind(noteId, session.userId)
+    .first<{ id: string }>();
+  if (!note) return notFound();
+
+  const { group_id } = await c.req.json<{ group_id?: string | null }>();
+  if (group_id === undefined) return err("VALIDATION", "group_id를 입력하세요.");
+  if (group_id !== null && typeof group_id !== "string") {
+    return err("VALIDATION", "group_id는 문자열이어야 합니다.");
+  }
+
+  const resolvedGroupId = await resolveNoteGroupId(c.env.DB, session.userId, group_id);
+  if (resolvedGroupId === false) return forbidden();
+
+  const now = new Date().toISOString();
+  await c.env.DB.prepare(
+    "UPDATE pages SET group_id = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+  )
+    .bind(resolvedGroupId, now, noteId, session.userId)
+    .run();
+
+  const updated = await c.env.DB.prepare(
+    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
+  )
+    .bind(noteId, session.userId)
+    .first();
+
+  return ok(updated);
+});
 
 app.delete("/api/notes/:id", async (c) => {
   const session = await getSession(c);

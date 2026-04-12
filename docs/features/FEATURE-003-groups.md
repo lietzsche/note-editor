@@ -33,18 +33,26 @@
 - `POST /api/groups`
 - `PUT /api/groups/:id`
 - `DELETE /api/groups/:id`
-- `PATCH /api/notes/:id/group` (현재 구현 경로: `/api/pages/:id/group`)
+- `PATCH /api/notes/:id/group`
+- `PATCH /api/notes/:id`의 `group_id` 필드 갱신도 호환 경로로 허용한다.
 
 2. 데이터 필드(핵심)
-- `groups`: `id`, `user_id`, `name`, `position`, `created_at`, `updated_at`
+- API 응답 핵심: `id`, `name`, `position`
+- 저장소 내부 필드: `user_id`, `created_at`, `updated_at`
 - `notes/pages`: `group_id`
+
+3. 그룹 이동 payload 규격
+- `PATCH /api/notes/:id/group`
+- body: `{"group_id":"group_x"}`
+- `group_id: null` 요청은 기본 그룹(미분류)로 정규화한다.
 
 ## 5. 상태/예외 처리
 
-1. 그룹명 중복 -> 같은 사용자 내 중복 금지
+1. 그룹명 중복 -> 같은 사용자 내 중복 금지(`409`)
 2. 존재하지 않는 그룹 -> 이동/수정/삭제 실패
 3. 타 사용자 그룹 접근 -> 권한 오류
 4. 삭제 대상 그룹이 기본 그룹일 때 -> 삭제 불가(요청 실패)로 처리
+5. 기본 그룹(미분류)은 이름 변경도 허용하지 않는다.
 
 ## 6. 테스트 기준(TDD 포인트)
 

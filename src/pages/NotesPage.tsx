@@ -10,6 +10,7 @@ type SaveStatus = "saved" | "saving" | "error" | "dirty";
 type MobilePanel = "groups" | "notes" | "editor";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
+const DEFAULT_GROUP_NAME = "미분류";
 
 export default function NotesPage({ username, onLogout }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -73,6 +74,22 @@ export default function NotesPage({ username, onLogout }: Props) {
 
   function selectGroup(groupId: string | null) {
     setSelectedGroupId(groupId);
+    if (groupId !== null && selectedNote && selectedNote.group_id !== groupId) {
+      clearSelectedNoteView();
+      return;
+    }
+    if (isMobile) {
+      setMobilePanel("notes");
+    }
+  }
+
+  function clearSelectedNoteView() {
+    selectedNoteIdRef.current = null;
+    setSelectedNote(null);
+    setTitle("");
+    setContent("");
+    setSaveStatus("saved");
+    setCopyStatus("idle");
     if (isMobile) {
       setMobilePanel("notes");
     }
@@ -90,6 +107,15 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
+  useEffect(() => {
+    if (!selectedNote || selectedGroupId === null) return;
+
+    const noteStillVisible = notes.some((note) => note.id === selectedNote.id);
+    if (!noteStillVisible) {
+      clearSelectedNoteView();
+    }
+  }, [notes, selectedGroupId, selectedNote, isMobile]);
+
   async function createNote() {
     const note = await api.notes.create({
       title: "새 노트",
@@ -103,13 +129,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     if (!window.confirm("노트를 삭제할까요?")) return;
     await api.notes.delete(id);
     if (selectedNote?.id === id) {
-      selectedNoteIdRef.current = null;
-      setSelectedNote(null);
-      setTitle("");
-      setContent("");
-      if (isMobile) {
-        setMobilePanel("notes");
-      }
+      clearSelectedNoteView();
     }
     await loadNotes(selectedGroupId ?? undefined);
   }
@@ -190,17 +210,67 @@ export default function NotesPage({ username, onLogout }: Props) {
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
     if (!newGroupName.trim()) return;
-    await api.groups.create(newGroupName.trim());
-    setNewGroupName("");
-    await loadGroups();
+    try {
+      await api.groups.create(newGroupName.trim());
+      setNewGroupName("");
+      await loadGroups();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "그룹 생성에 실패했습니다.");
+    }
+  }
+
+  async function handleRenameGroup(id: string, currentName: string) {
+    const nextName = window.prompt("새 그룹 이름을 입력하세요.", currentName);
+    if (nextName === null) return;
+
+    const normalizedName = nextName.trim();
+    if (!normalizedName || normalizedName === currentName) return;
+
+    try {
+      await api.groups.update(id, normalizedName);
+      await loadGroups();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "그룹 이름 변경에 실패했습니다.");
+    }
   }
 
   async function handleDeleteGroup(id: string, name: string) {
     if (!window.confirm(`"${name}" 그룹을 삭제할까요? 소속 노트는 미분류로 이동됩니다.`)) return;
-    await api.groups.delete(id);
-    if (selectedGroupId === id) setSelectedGroupId(null);
-    await loadGroups();
-    await loadNotes(selectedGroupId ?? undefined);
+    const wasSelectedGroup = selectedGroupId === id;
+    const selectedNoteWasInGroup = selectedNote?.group_id === id;
+
+    try {
+      await api.groups.delete(id);
+      if (wasSelectedGroup) setSelectedGroupId(null);
+      await loadGroups();
+      await loadNotes(wasSelectedGroup ? undefined : selectedGroupId ?? undefined);
+
+      if (selectedNoteWasInGroup && selectedNote) {
+        const refreshedNote = await api.notes.get(selectedNote.id);
+        selectNote(refreshedNote);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "그룹 삭제에 실패했습니다.");
+    }
+  }
+
+  async function handleMoveSelectedNoteGroup(groupId: string) {
+    if (!selectedNote) return;
+    if (groupId === selectedNote.group_id) return;
+
+    try {
+      const updatedNote = await api.notes.moveGroup(selectedNote.id, groupId || null);
+
+      if (selectedGroupId !== null && updatedNote.group_id !== selectedGroupId) {
+        clearSelectedNoteView();
+      } else {
+        selectNote(updatedNote);
+      }
+
+      await loadNotes(selectedGroupId ?? undefined);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "노트 그룹 이동에 실패했습니다.");
+    }
   }
 
   const charCount = [...new Intl.Segmenter().segment(content)].length;
@@ -222,6 +292,8 @@ export default function NotesPage({ username, onLogout }: Props) {
   const currentGroupLabel = selectedGroupId
     ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
     : "전체 노트";
+  const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
+  const selectedNoteGroupValue = selectedNote?.group_id ?? defaultGroup?.id ?? "";
 
   const showGroupsPanel = !isMobile || mobilePanel === "groups";
   const showNotesPanel = !isMobile || mobilePanel === "notes";
@@ -334,16 +406,27 @@ export default function NotesPage({ username, onLogout }: Props) {
               >
                 {g.name}
               </button>
-              {g.name !== "미분류" && (
-                <button
-                  type="button"
-                  style={styles.iconBtn}
-                  onClick={() => { void handleDeleteGroup(g.id, g.name); }}
-                  title="그룹 삭제"
-                  aria-label={`${g.name} 그룹 삭제`}
-                >
-                  ×
-                </button>
+              {g.name !== DEFAULT_GROUP_NAME && (
+                <div style={styles.groupActionButtons}>
+                  <button
+                    type="button"
+                    style={styles.iconBtn}
+                    onClick={() => { void handleRenameGroup(g.id, g.name); }}
+                    title="그룹 이름 변경"
+                    aria-label={`${g.name} 그룹 이름 변경`}
+                  >
+                    편집
+                  </button>
+                  <button
+                    type="button"
+                    style={styles.iconBtn}
+                    onClick={() => { void handleDeleteGroup(g.id, g.name); }}
+                    title="그룹 삭제"
+                    aria-label={`${g.name} 그룹 삭제`}
+                  >
+                    삭제
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -483,6 +566,25 @@ export default function NotesPage({ username, onLogout }: Props) {
                 maxLength={120}
                 aria-label="노트 제목"
               />
+              {groups.length > 0 && (
+                <label style={styles.groupPicker}>
+                  <span style={styles.groupPickerLabel}>그룹</span>
+                  <select
+                    style={styles.groupPickerSelect}
+                    value={selectedNoteGroupValue}
+                    onChange={(event) => {
+                      void handleMoveSelectedNoteGroup(event.target.value);
+                    }}
+                    aria-label="현재 노트 그룹 선택"
+                  >
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div style={styles.toolbarRight} aria-live="polite">
                 <span
                   style={{
@@ -615,10 +717,16 @@ const styles: Record<string, React.CSSProperties> = {
     background: "none",
     color: "inherit",
     opacity: 0.7,
-    fontSize: "14px",
+    fontSize: "12px",
     lineHeight: 1,
-    minWidth: "44px",
+    minWidth: "48px",
     minHeight: "44px",
+  },
+  groupActionButtons: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    paddingRight: "4px",
   },
   newGroupForm: {
     display: "flex",
@@ -769,17 +877,36 @@ const styles: Record<string, React.CSSProperties> = {
   },
   titleInput: {
     flex: 1,
+    minWidth: "180px",
     border: "none",
     outline: "none",
     fontSize: "16px",
     fontWeight: 600,
     background: "transparent",
   },
+  groupPicker: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  groupPickerLabel: {
+    fontSize: "11px",
+    color: "var(--color-text-secondary)",
+  },
+  groupPickerSelect: {
+    minHeight: "36px",
+    padding: "4px 8px",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    background: "var(--color-surface)",
+    color: "var(--color-text-primary)",
+  },
   toolbarRight: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
     flexShrink: 0,
+    marginLeft: "auto",
   },
   statusBadge: {
     fontSize: "12px",

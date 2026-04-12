@@ -59,6 +59,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ name }),
       }),
+    update: (id: string, name: string) =>
+      request<{ id: string; name: string; position: number }>(`/api/groups/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name }),
+      }),
     delete: (id: string) =>
       request<void>(`/api/groups/${id}`, { method: "DELETE" }),
   },
@@ -86,6 +91,11 @@ export const api = {
       request<{ orderedNoteIds: string[] }>("/api/notes/reorder", {
         method: "POST",
         body: JSON.stringify({ orderedNoteIds }),
+      }),
+    moveGroup: (id: string, group_id: string | null) =>
+      request<Note>(`/api/notes/${id}/group`, {
+        method: "PATCH",
+        body: JSON.stringify({ group_id }),
       }),
     delete: (id: string) =>
       request<void>(`/api/notes/${id}`, { method: "DELETE" }),
