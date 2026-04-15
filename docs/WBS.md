@@ -1,7 +1,7 @@
 # WBS: note-editor 개발 작업 분해 구조
 
-- 문서 버전: v1.2
-- 작성일: 2026-04-11
+- 문서 버전: v1.3
+- 작성일: 2026-04-15
 - 기준 문서: `docs/product/PRD.md`, `docs/testing/TEST_PLAN.md`, `docs/specs/*`, `docs/operations/DEPLOY.md`
 
 ## 1. 목적

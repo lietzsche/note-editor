@@ -22,6 +22,7 @@
 ## 3. Testing
 
 - `docs/testing/TEST_PLAN.md`
+- `docs/testing/backlog/README.md`
 
 ## 4. Features
 
@@ -31,6 +32,7 @@
 - `docs/features/FEATURE-003-groups.md`
 - `docs/features/FEATURE-004-note-isolation.md`
 - `docs/features/FEATURE-005-editor-productivity.md`
+- `docs/features/FEATURE-006-note-list-reorder-and-group-move.md`
 
 ## 5. Operations
 
@@ -53,3 +55,9 @@
 
 - `docs/STATUS-2026-04-11.md`
 - `docs/STATUS-2026-04-12.md`
+
+## 9. Backlog
+
+- `docs/backlog/README.md`
+- `docs/backlog/BACKLOG-001-note-list-reorder-and-group-move.md`
+- `docs/backlog/BACKLOG-002-note-loading-performance-and-caching.md`
