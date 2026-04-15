@@ -1242,12 +1242,20 @@ export default function NotesPage({ username, onLogout }: Props) {
                       {new Date(n.updated_at).toLocaleDateString("ko-KR")}
                     </div>
                   </button>
-                  <div style={styles.noteActions}>
+                  <div
+                    style={{
+                      ...styles.noteActions,
+                      ...(!isMobile ? styles.noteActionsCompact : {}),
+                    }}
+                  >
                     {notes.length > 1 && (
                       <>
                         <button
                           type="button"
-                          style={styles.orderBtn}
+                          style={{
+                            ...styles.orderBtn,
+                            ...(!isMobile ? styles.orderBtnCompact : {}),
+                          }}
                           onClick={() => {
                             void moveNote(n.id, -1);
                           }}
@@ -1259,7 +1267,10 @@ export default function NotesPage({ username, onLogout }: Props) {
                         </button>
                         <button
                           type="button"
-                          style={styles.orderBtn}
+                          style={{
+                            ...styles.orderBtn,
+                            ...(!isMobile ? styles.orderBtnCompact : {}),
+                          }}
                           onClick={() => {
                             void moveNote(n.id, 1);
                           }}
@@ -1273,7 +1284,10 @@ export default function NotesPage({ username, onLogout }: Props) {
                     )}
                     <button
                       type="button"
-                      style={styles.deleteBtn}
+                      style={{
+                        ...styles.deleteBtn,
+                        ...(!isMobile ? styles.deleteBtnCompact : {}),
+                      }}
                       onClick={() => {
                         void deleteNote(n.id);
                       }}
@@ -1583,7 +1597,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
   },
   noteList: {
-    width: "220px",
+    width: "248px",
     flexShrink: 0,
     borderRight: "1px solid var(--color-border)",
     display: "flex",
@@ -1670,6 +1684,9 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "4px",
     flexShrink: 0,
   },
+  noteActionsCompact: {
+    gap: "2px",
+  },
   noteGroupMoveRow: {
     marginTop: "8px",
   },
@@ -1693,6 +1710,11 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: "44px",
     minHeight: "44px",
   },
+  orderBtnCompact: {
+    minWidth: "28px",
+    minHeight: "28px",
+    fontSize: "11px",
+  },
   deleteBtn: {
     background: "none",
     border: "1px solid transparent",
@@ -1702,6 +1724,11 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     minWidth: "44px",
     minHeight: "44px",
+  },
+  deleteBtnCompact: {
+    minWidth: "28px",
+    minHeight: "28px",
+    fontSize: "14px",
   },
   editor: {
     flex: 1,
