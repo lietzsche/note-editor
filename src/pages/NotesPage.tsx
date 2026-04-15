@@ -1,16 +1,10 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, type Group, type Note } from "../lib/api";
-import { CharacterCountIndicator } from "../components/CharacterCountIndicator";
-import { CopyAllButton } from "../components/CopyAllButton";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
 import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
-import {
-  getNoteGroupIdFromSelectValue,
-  getNoteGroupSelectValue,
-} from "../lib/noteGroupSelect";
-import { mergeGroupOrderIntoAllNotes, moveItem } from "../lib/noteOrder";
-import { PerformanceDebugPanel } from "../components/PerformanceDebugPanel";
+import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
+import { mergeGroupOrderIntoAllNotes } from "../lib/noteOrder";
 import {
   appendPerfSample,
   buildPerfConsoleLine,
@@ -350,14 +344,6 @@ export default function NotesPage({ username, onLogout }: Props) {
 
   function sortNotesByOrder(nextNotes: Note[]) {
     return [...nextNotes].sort((a, b) => a.sort_order - b.sort_order);
-  }
-
-  function getSelectableGroupValue(groupId: string | null) {
-    return getNoteGroupSelectValue(groupId, defaultGroupId);
-  }
-
-  function getSelectedGroupIdFromValue(value: string) {
-    return getNoteGroupIdFromSelectValue(value, defaultGroupId);
   }
 
   function updateNoteAcrossCaches(nextNote: Note) {
@@ -1022,7 +1008,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const groupListStatusLabel =
     groupReorderStatus === "saving" ? "그룹 정렬 저장 중..." :
     groupReorderStatus === "error" ? "그룹 정렬 실패" :
-    groups.length < 2 ? "그룹이 2개 이상일 때 정렬 가능" : "드래그로 그룹 순서 변경";
+    groups.length < 2 ? "그룹은 2개 이상이어야 정렬 가능합니다." : "드래그로 그룹 순서를 변경하세요.";
 
   const noteListStatusLabel =
     noteReorderStatus === "saving" ? "정렬 저장 중..." :
@@ -1030,15 +1016,14 @@ export default function NotesPage({ username, onLogout }: Props) {
     notesLoadState === "loading" ? "노트 불러오는 중..." :
     notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
     notesLoadState === "error" ? "목록 갱신 실패" :
-    selectedGroupId === null ? "드래그로 전체 노트 정렬" : "드래그로 현재 그룹 노트 정렬";
+    selectedGroupId === null ? "드래그로 전체 노트를 정렬하세요." : "드래그로 현재 그룹 노트를 정렬하세요.";
 
   const currentGroupLabel = selectedGroupId
     ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
     : "전체 노트";
   const selectedNoteGroupValue = selectedNote
-    ? getSelectableGroupValue(selectedNote.group_id)
+    ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
     : "";
-  const reorderStatus = noteReorderStatus;
 
   const showGroupsPanel = !isMobile || mobilePanel === "groups";
   const showNotesPanel = !isMobile || mobilePanel === "notes";
@@ -1046,7 +1031,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const isConflictDialog = dialogMode === "conflict";
   const primaryDialogLabel =
     isConflictDialog
-      ? pendingAction ? "덮어쓰기 후 이동" : "덮어쓰기"
+      ? pendingAction ? "덮어쓰고 이동" : "덮어쓰기"
       : saveStatus === "error" ? "다시 저장 후 이동" : "저장 후 이동";
   const dialogTitle =
     isConflictDialog ? "저장 충돌이 발생했습니다." : "미저장 변경이 있습니다.";
@@ -1056,15 +1041,6 @@ export default function NotesPage({ username, onLogout }: Props) {
       : saveStatus === "error"
         ? "마지막 입력값은 유지되어 있습니다. 다시 저장하거나 버리고 이동할 수 있습니다."
         : "현재 편집 중인 내용을 저장한 뒤 이동할지, 버리고 이동할지 선택하세요.";
-
-  async function moveNote(noteId: string, direction: -1 | 1) {
-    const currentIndex = notes.findIndex((note) => note.id === noteId);
-    const nextIndex = currentIndex + direction;
-
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= notes.length) return;
-    await handleNoteReorder(moveItem(notes, currentIndex, nextIndex));
-  }
-
   return (
     <NotesPageLayout
       styles={styles}
@@ -1155,447 +1131,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     />
   );
 
-  return (
-    <div
-      style={{
-        ...styles.layout,
-        flexDirection: isMobile ? "column" : "row",
-      }}
-    >
-      {isMobile && (
-        <nav style={styles.mobileTabs} aria-label="모바일 패널 전환">
-          <button
-            type="button"
-            style={{
-              ...styles.mobileTabButton,
-              ...(mobilePanel === "groups" ? styles.mobileTabButtonActive : {}),
-            }}
-            onClick={() => setMobilePanel("groups")}
-            aria-pressed={mobilePanel === "groups"}
-          >
-            그룹
-          </button>
-          <button
-            type="button"
-            style={{
-              ...styles.mobileTabButton,
-              ...(mobilePanel === "notes" ? styles.mobileTabButtonActive : {}),
-            }}
-            onClick={() => setMobilePanel("notes")}
-            aria-pressed={mobilePanel === "notes"}
-          >
-            노트
-          </button>
-          <button
-            type="button"
-            style={{
-              ...styles.mobileTabButton,
-              ...(mobilePanel === "editor" ? styles.mobileTabButtonActive : {}),
-            }}
-            onClick={() => {
-              if (selectedNote) setMobilePanel("editor");
-            }}
-            aria-pressed={mobilePanel === "editor"}
-            disabled={!selectedNote}
-          >
-            편집
-          </button>
-        </nav>
-      )}
-
-      {/* Sidebar */}
-      {showGroupsPanel && (
-      <aside
-        style={{
-          ...styles.sidebar,
-          flex: isMobile ? 1 : undefined,
-          minHeight: 0,
-          width: isMobile ? "100%" : styles.sidebar.width,
-          borderRight: isMobile ? "none" : styles.sidebar.borderRight,
-          borderBottom: isMobile ? "1px solid var(--color-border)" : "none",
-        }}
-      >
-        <div style={styles.sidebarHeader}>
-          <span style={{ fontWeight: 700 }}>노트 에디터</span>
-          <button
-            type="button"
-            style={styles.logoutBtn}
-            onClick={handleLogout}
-            title="로그아웃"
-            aria-label="로그아웃"
-          >
-            나가기
-          </button>
-        </div>
-        <div style={styles.userInfo}>{username}</div>
-
-        {/* Group list */}
-        <div style={styles.groupSection}>
-          <div
-            style={{
-              ...styles.groupRow,
-              ...(selectedGroupId === null ? styles.activeGroup : {}),
-            }}
-          >
-            <button
-              type="button"
-              style={styles.groupSelectButton}
-              onClick={() => selectGroup(null)}
-              aria-pressed={selectedGroupId === null}
-            >
-              전체 노트
-            </button>
-          </div>
-          {groups.map((g) => (
-            <div
-              key={g.id}
-              style={{
-                ...styles.groupRow,
-                ...(selectedGroupId === g.id ? styles.activeGroup : {}),
-              }}
-            >
-              <button
-                type="button"
-                style={styles.groupSelectButton}
-                onClick={() => selectGroup(g.id)}
-                aria-pressed={selectedGroupId === g.id}
-              >
-                {g.name}
-              </button>
-              {g.name !== DEFAULT_GROUP_NAME && (
-                <div style={styles.groupActionButtons}>
-                  <button
-                    type="button"
-                    style={styles.iconBtn}
-                    onClick={() => { void handleRenameGroup(g.id, g.name); }}
-                    title="그룹 이름 변경"
-                    aria-label={`${g.name} 그룹 이름 변경`}
-                  >
-                    편집
-                  </button>
-                  <button
-                    type="button"
-                    style={styles.iconBtn}
-                    onClick={() => { void handleDeleteGroup(g.id, g.name); }}
-                    title="그룹 삭제"
-                    aria-label={`${g.name} 그룹 삭제`}
-                  >
-                    삭제
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* New group form */}
-        <form onSubmit={handleCreateGroup} style={styles.newGroupForm}>
-          <input
-            style={styles.groupInput}
-            placeholder="새 그룹명..."
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            aria-label="새 그룹 이름"
-          />
-          <button style={styles.addBtn} type="submit" aria-label="그룹 추가">+</button>
-        </form>
-      </aside>
-      )}
-
-      {/* Note list */}
-      {showNotesPanel && (
-      <div
-        style={{
-          ...styles.noteList,
-          flex: isMobile ? 1 : undefined,
-          minHeight: 0,
-          width: isMobile ? "100%" : styles.noteList.width,
-          borderRight: isMobile ? "none" : styles.noteList.borderRight,
-          borderBottom: isMobile ? "1px solid var(--color-border)" : "none",
-        }}
-      >
-        <div style={styles.noteListHeader}>
-          <div style={styles.noteListMeta}>
-            <span style={{ fontWeight: 600 }}>
-              {currentGroupLabel} ({notes.length})
-            </span>
-            <span style={styles.reorderHint}>{noteListStatusLabel}</span>
-          </div>
-          <button
-            type="button"
-            style={styles.newNoteBtn}
-            onClick={() => { void createNote(); }}
-            aria-label="새 노트 만들기"
-          >
-            + 새 노트
-          </button>
-        </div>
-        <div style={styles.noteListBody}>
-          {notesLoadState === "loading" && notes.length === 0 && (
-            <div style={styles.empty}>노트를 불러오는 중입니다.</div>
-          )}
-          {notesLoadState === "error" && notes.length === 0 && (
-            <div style={styles.empty}>노트를 불러오지 못했습니다.</div>
-          )}
-          {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && (
-            <div style={styles.empty}>노트가 없습니다.</div>
-          )}
-          {notes.map((n, index) => {
-            const canMoveUp = index > 0;
-            const canMoveDown = index < notes.length - 1;
-            const noteGroupValue = getSelectableGroupValue(n.group_id);
-
-            return (
-              <div
-                key={n.id}
-                style={{
-                  ...styles.noteItem,
-                  ...(selectedNote?.id === n.id ? styles.activeNote : {}),
-                }}
-              >
-                <div style={styles.noteRow}>
-                  <button
-                    type="button"
-                    style={styles.noteSelectButton}
-                    onClick={() => selectNote(n)}
-                    aria-pressed={selectedNote?.id === n.id}
-                    aria-label={`${n.title || "제목 없음"} 노트 열기`}
-                  >
-                    <div style={styles.noteTitle}>{n.title || "(제목 없음)"}</div>
-                    <div style={styles.noteDate}>
-                      {new Date(n.updated_at).toLocaleDateString("ko-KR")}
-                    </div>
-                  </button>
-                  <div
-                    style={{
-                      ...styles.noteActions,
-                      ...(!isMobile ? styles.noteActionsCompact : {}),
-                    }}
-                  >
-                    {notes.length > 1 && (
-                      <>
-                        <button
-                          type="button"
-                          style={{
-                            ...styles.orderBtn,
-                            ...(!isMobile ? styles.orderBtnCompact : {}),
-                          }}
-                          onClick={() => {
-                            void moveNote(n.id, -1);
-                          }}
-                          title="위로 이동"
-                          aria-label={`${n.title || "제목 없음"} 노트를 위로 이동`}
-                          disabled={!canMoveUp || reorderStatus === "saving"}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          style={{
-                            ...styles.orderBtn,
-                            ...(!isMobile ? styles.orderBtnCompact : {}),
-                          }}
-                          onClick={() => {
-                            void moveNote(n.id, 1);
-                          }}
-                          title="아래로 이동"
-                          aria-label={`${n.title || "제목 없음"} 노트를 아래로 이동`}
-                          disabled={!canMoveDown || reorderStatus === "saving"}
-                        >
-                          ↓
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.deleteBtn,
-                        ...(!isMobile ? styles.deleteBtnCompact : {}),
-                      }}
-                      onClick={() => {
-                        void deleteNote(n.id);
-                      }}
-                      title="삭제"
-                      aria-label={`${n.title || "제목 없음"} 노트 삭제`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-                {groups.length > 1 && (
-                  <div style={styles.noteGroupMoveRow}>
-                    <select
-                      style={styles.noteGroupMoveSelect}
-                      value={noteGroupValue}
-                      onChange={(event) => {
-                        void handleMoveNoteGroup(
-                          n,
-                          getSelectedGroupIdFromValue(event.target.value)
-                        );
-                      }}
-                      aria-label={`${n.title || "Untitled"} note group move`}
-                    >
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      )}
-
-      {/* Editor */}
-      {showEditorPanel && (
-      <div style={styles.editor}>
-        {selectedNote ? (
-          <>
-            <div style={styles.editorToolbar}>
-              <input
-                style={styles.titleInput}
-                placeholder="제목"
-                value={title}
-                onChange={handleTitleChange}
-                maxLength={120}
-                aria-label="노트 제목"
-              />
-              {groups.length > 0 && (
-                <label style={styles.groupPicker}>
-                  <span style={styles.groupPickerLabel}>그룹</span>
-                  <select
-                    style={styles.groupPickerSelect}
-                    value={selectedNoteGroupValue}
-                    onChange={(event) => {
-                      void handleMoveSelectedNoteGroup(
-                        getSelectedGroupIdFromValue(event.target.value)
-                      );
-                    }}
-                    aria-label="현재 노트 그룹 선택"
-                  >
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <div style={styles.toolbarRight} aria-live="polite">
-                <span
-                  style={{
-                    ...styles.statusBadge,
-                    color:
-                      saveStatus === "error" || saveStatus === "conflict" ? "var(--color-danger)" :
-                      saveStatus === "dirty" || saveStatus === "saving"
-                        ? "var(--color-text-secondary)"
-                        : "var(--color-success)",
-                  }}
-                >
-                  {saveLabel}
-                </span>
-                <CharacterCountIndicator count={charCount} state={countStatus} />
-                {saveStatus === "error" && (
-                  <button
-                    type="button"
-                    style={styles.secondaryActionBtn}
-                    onClick={() => { void handleRetrySave(); }}
-                    aria-label="저장 다시 시도"
-                  >
-                    다시 저장
-                  </button>
-                )}
-                {saveStatus === "conflict" && (
-                  <button
-                    type="button"
-                    style={styles.secondaryActionBtn}
-                    onClick={() => setDialogMode("conflict")}
-                    aria-label="저장 충돌 해결"
-                  >
-                    충돌 해결
-                  </button>
-                )}
-                <CopyAllButton
-                  onCopy={() => { void handleCopy(); }}
-                  state={copyStatus}
-                />
-              </div>
-            </div>
-            <textarea
-              style={styles.textarea}
-              placeholder="내용을 입력하세요..."
-              value={content}
-              onChange={handleContentChange}
-              maxLength={20000}
-              aria-label="노트 본문"
-            />
-          </>
-        ) : (
-          <div style={styles.noNote}>노트를 선택하거나 새 노트를 만드세요.</div>
-        )}
-      </div>
-      )}
-      {dialogMode && (
-        <div style={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="editor-dialog-title">
-          <div style={styles.modalCard}>
-            <h2 id="editor-dialog-title" style={styles.modalTitle}>{dialogTitle}</h2>
-            <p style={styles.modalDescription}>{dialogDescription}</p>
-            {isConflictDialog && conflictNote && (
-              <div style={styles.conflictGrid}>
-                <section style={styles.conflictPanel}>
-                  <strong style={styles.conflictPanelTitle}>로컬 수정본</strong>
-                  <div style={styles.conflictPanelBody}>
-                    {content || "(빈 본문)"}
-                  </div>
-                </section>
-                <section style={styles.conflictPanel}>
-                  <strong style={styles.conflictPanelTitle}>서버 최신본</strong>
-                  <div style={styles.conflictPanelMeta}>
-                    마지막 저장: {new Date(conflictNote!.updated_at).toLocaleString("ko-KR")}
-                  </div>
-                  <div style={styles.conflictPanelBody}>
-                    {conflictNote!.content || "(빈 본문)"}
-                  </div>
-                </section>
-              </div>
-            )}
-            <div style={styles.modalActions}>
-              <button
-                type="button"
-                style={styles.modalPrimaryButton}
-                onClick={() => { void handleDialogPrimaryAction(); }}
-              >
-                {primaryDialogLabel}
-              </button>
-              {pendingAction && (
-                <button
-                  type="button"
-                  style={styles.modalSecondaryButton}
-                  onClick={() => { void handleDialogDiscardAction(); }}
-                >
-                  버리고 이동
-                </button>
-              )}
-              <button
-                type="button"
-                style={styles.modalGhostButton}
-                onClick={handleDialogCancelAction}
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {PERF_DEBUG_ENABLED && perfSamples.length > 0 && (
-        <PerformanceDebugPanel samples={perfSamples} />
-      )}
-    </div>
-  );
 }
 
 const styles: Record<string, React.CSSProperties> = {
