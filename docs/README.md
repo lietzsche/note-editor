@@ -55,9 +55,10 @@
 
 - `docs/STATUS-2026-04-11.md`
 - `docs/STATUS-2026-04-12.md`
+- `docs/STATUS-2026-04-15.md`
 
 ## 9. Backlog
 
 - `docs/backlog/README.md`
 - `docs/backlog/BACKLOG-001-note-list-reorder-and-group-move.md`
-- `docs/backlog/BACKLOG-002-note-loading-performance-and-caching.md`
+- `docs/backlog/BACKLOG-002-note-loading-performance-and-caching.md` (`Done`)

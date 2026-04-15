@@ -9,6 +9,14 @@
 3. backlog 항목이 구현 범위로 승격되면 PRD/WBS/TEST_PLAN에 반영한다.
 4. backlog 항목별 테스트 초안은 `docs/testing/backlog/`에서 별도로 관리한다.
 
+## 권장 착수 순서
+
+1. `BACKLOG-001-note-list-reorder-and-group-move.md`
+- `BACKLOG-002` 1차 마감 이후 다음 구현 후보
+
+2. `BACKLOG-002-note-loading-performance-and-caching.md`
+- 2026-04-15 기준 1차 저위험 성능 개선 범위 완료, 후속 검토 이력으로 유지
+
 ## 문서 목록
 
 1. `BACKLOG-001-note-list-reorder-and-group-move.md`
@@ -16,3 +24,4 @@
 
 2. `BACKLOG-002-note-loading-performance-and-caching.md`
 - 노트/그룹 전환 체감 속도 개선 및 캐싱 검토
+- 상태: Done (1차 저위험 개선 범위)

@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, type Group, type Note } from "../lib/api";
 import { CharacterCountIndicator } from "../components/CharacterCountIndicator";
 import { CopyAllButton } from "../components/CopyAllButton";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
+import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
+import { PerformanceDebugPanel } from "../components/PerformanceDebugPanel";
+import {
+  appendPerfSample,
+  buildPerfConsoleLine,
+  type PerfSample,
+} from "../lib/performanceDebug";
 
 type Props = {
   username: string;
@@ -13,6 +20,7 @@ type SaveStatus = "saved" | "saving" | "error" | "dirty" | "conflict";
 type MobilePanel = "groups" | "notes" | "editor";
 type CopyStatus = "ready" | "copy-success" | "copy-error";
 type CountStatus = "count-ready" | "count-stale";
+type LoadState = "idle" | "loading" | "refreshing" | "ready" | "error";
 type PendingAction =
   | { type: "select-note"; note: Note }
   | { type: "select-group"; groupId: string | null }
@@ -22,6 +30,15 @@ type PendingAction =
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
 const DEFAULT_GROUP_NAME = "미분류";
+const ALL_NOTES_SCOPE_KEY = "__all__";
+const PERF_DEBUG_ENABLED = import.meta.env.DEV;
+
+type PendingGroupPerf = {
+  groupId: string | null;
+  label: string;
+  startTime: number;
+  source: "cold" | "warm";
+};
 
 export default function NotesPage({ username, onLogout }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -33,6 +50,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("ready");
   const [countStatus, setCountStatus] = useState<CountStatus>("count-ready");
+  const [notesLoadState, setNotesLoadState] = useState<LoadState>("idle");
   const [reorderStatus, setReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [newGroupName, setNewGroupName] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
@@ -42,29 +60,131 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
   const [conflictNote, setConflictNote] = useState<Note | null>(null);
+  const [perfSamples, setPerfSamples] = useState<PerfSample[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedNoteIdRef = useRef<string | null>(null);
   const selectedNoteUpdatedAtRef = useRef<string | null>(null);
   const titleRef = useRef(title);
   const contentRef = useRef(content);
+  const pendingGroupPerfRef = useRef<PendingGroupPerf | null>(null);
+  const groupsCacheRef = useRef<Group[] | null>(null);
+  const notesCacheRef = useRef<Map<string, Note[]>>(new Map());
+  const groupsInFlightRef = useRef<Promise<Group[]> | null>(null);
+  const notesInFlightRef = useRef<Map<string, Promise<Note[]>>>(new Map());
+  const notesRequestSequenceRef = useRef(0);
+  const currentScopeKeyRef = useRef(ALL_NOTES_SCOPE_KEY);
 
-  const loadGroups = useCallback(async () => {
-    const data = await api.groups.list();
-    setGroups(data);
+  const loadGroups = useCallback(async (options?: { preferCache?: boolean }) => {
+    const cached = options?.preferCache && groupsCacheRef.current
+      ? cloneGroups(groupsCacheRef.current)
+      : null;
+
+    if (cached) {
+      setGroups(cached);
+    }
+
+    try {
+      let request = groupsInFlightRef.current;
+      if (!request) {
+        request = api.groups.list().finally(() => {
+          groupsInFlightRef.current = null;
+        });
+        groupsInFlightRef.current = request;
+      }
+
+      const data = await request;
+      const snapshot = cloneGroups(data);
+      groupsCacheRef.current = snapshot;
+      setGroups(snapshot);
+      return snapshot;
+    } catch (error) {
+      if (!cached) throw error;
+      return cached;
+    }
   }, []);
 
-  const loadNotes = useCallback(async (groupId?: string) => {
-    const data = await api.notes.list(groupId);
-    setNotes(data);
+  const loadNotes = useCallback(async (
+    groupId?: string,
+    options?: { preferCache?: boolean }
+  ) => {
+    const normalizedGroupId = groupId ?? null;
+    const scopeKey = getNotesScopeKey(normalizedGroupId);
+    const cached = options?.preferCache
+      ? readCachedNotes(notesCacheRef.current, normalizedGroupId)
+      : null;
+
+    currentScopeKeyRef.current = scopeKey;
+
+    if (cached) {
+      startTransition(() => {
+        setNotes(cached);
+        setNotesLoadState("refreshing");
+      });
+
+      if (
+        pendingGroupPerfRef.current &&
+        pendingGroupPerfRef.current.groupId === normalizedGroupId
+      ) {
+        pendingGroupPerfRef.current.source = "warm";
+      }
+    } else {
+      startTransition(() => {
+        setNotesLoadState("loading");
+      });
+
+      if (
+        pendingGroupPerfRef.current &&
+        pendingGroupPerfRef.current.groupId === normalizedGroupId
+      ) {
+        pendingGroupPerfRef.current.source = "cold";
+      }
+    }
+
+    const requestSequence = ++notesRequestSequenceRef.current;
+
+    try {
+      let request = notesInFlightRef.current.get(scopeKey);
+      if (!request) {
+        request = api.notes.list(groupId).finally(() => {
+          notesInFlightRef.current.delete(scopeKey);
+        });
+        notesInFlightRef.current.set(scopeKey, request);
+      }
+
+      const data = await request;
+      const snapshot = cloneNotes(data);
+      notesCacheRef.current.set(scopeKey, snapshot);
+
+      if (
+        requestSequence === notesRequestSequenceRef.current &&
+        currentScopeKeyRef.current === scopeKey
+      ) {
+        startTransition(() => {
+          setNotes(snapshot);
+          setNotesLoadState("ready");
+        });
+      }
+
+      return snapshot;
+    } catch (error) {
+      if (
+        requestSequence === notesRequestSequenceRef.current &&
+        currentScopeKeyRef.current === scopeKey
+      ) {
+        startTransition(() => {
+          setNotesLoadState(cached ? "ready" : "error");
+        });
+      }
+      throw error;
+    }
   }, []);
 
   useEffect(() => {
-    loadGroups();
-    loadNotes();
-  }, [loadGroups, loadNotes]);
+    void loadGroups({ preferCache: true }).catch(() => {});
+  }, [loadGroups]);
 
   useEffect(() => {
-    loadNotes(selectedGroupId ?? undefined);
+    void loadNotes(selectedGroupId ?? undefined, { preferCache: true }).catch(() => {});
   }, [selectedGroupId, loadNotes]);
 
   useEffect(() => {
@@ -82,6 +202,28 @@ export default function NotesPage({ username, onLogout }: Props) {
       mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!PERF_DEBUG_ENABLED) return;
+
+    const pending = pendingGroupPerfRef.current;
+    if (!pending || pending.groupId !== selectedGroupId) return;
+
+    afterNextPaint(() => {
+      const current = pendingGroupPerfRef.current;
+      if (!current || current.groupId !== selectedGroupId) return;
+
+      pendingGroupPerfRef.current = null;
+      recordPerfSample({
+        id: `group-${selectedGroupId ?? "all"}-${Date.now()}`,
+        kind: "group-switch",
+        label: current.label,
+        durationMs: performance.now() - current.startTime,
+        summary: `${current.source === "warm" ? "캐시" : "네트워크"} · ${notes.length}개 노트 렌더`,
+        measuredAt: new Date().toISOString(),
+      });
+    });
+  }, [notes, selectedGroupId]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -115,6 +257,172 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
+  function afterNextPaint(callback: () => void) {
+    if (typeof window === "undefined") {
+      callback();
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(callback);
+    });
+  }
+
+  function recordPerfSample(sample: PerfSample) {
+    if (!PERF_DEBUG_ENABLED) return;
+
+    setPerfSamples((prev) => appendPerfSample(prev, sample));
+    console.info(buildPerfConsoleLine(sample));
+  }
+
+  function getGroupLabel(groupId: string | null) {
+    if (groupId === null) return "전체 노트";
+    return groups.find((group) => group.id === groupId)?.name ?? "그룹";
+  }
+
+  function setNotesForScope(groupId: string | null, nextNotes: Note[]) {
+    const scopeKey = getNotesScopeKey(groupId);
+    const snapshot = cloneNotes(nextNotes);
+    notesCacheRef.current.set(scopeKey, snapshot);
+
+    if (scopeKey === currentScopeKeyRef.current) {
+      startTransition(() => {
+        setNotes(snapshot);
+        setNotesLoadState("ready");
+      });
+    }
+  }
+
+  function invalidateAllNotesCache() {
+    notesCacheRef.current.clear();
+    notesInFlightRef.current.clear();
+    notesRequestSequenceRef.current += 1;
+  }
+
+  function upsertGroup(nextGroup: Group) {
+    const current = groupsCacheRef.current ?? groups;
+    const nextGroups = [
+      ...current.filter((group) => group.id !== nextGroup.id),
+      nextGroup,
+    ].sort((a, b) => a.position - b.position);
+    const snapshot = cloneGroups(nextGroups);
+    groupsCacheRef.current = snapshot;
+    setGroups(snapshot);
+  }
+
+  function removeGroup(groupId: string) {
+    const current = groupsCacheRef.current ?? groups;
+    const nextGroups = current.filter((group) => group.id !== groupId);
+    const snapshot = cloneGroups(nextGroups);
+    groupsCacheRef.current = snapshot;
+    setGroups(snapshot);
+  }
+
+  function cloneGroups(nextGroups: Group[]) {
+    return nextGroups.map((group) => ({ ...group }));
+  }
+
+  function sortNotesByOrder(nextNotes: Note[]) {
+    return [...nextNotes].sort((a, b) => a.sort_order - b.sort_order);
+  }
+
+  function updateNoteAcrossCaches(nextNote: Note) {
+    for (const [scopeKey, cachedNotes] of notesCacheRef.current.entries()) {
+      if (!cachedNotes.some((note) => note.id === nextNote.id)) continue;
+
+      const nextScopeNotes = cachedNotes.map((note) => (
+        note.id === nextNote.id ? { ...nextNote } : note
+      ));
+      notesCacheRef.current.set(scopeKey, cloneNotes(nextScopeNotes));
+
+      if (scopeKey === currentScopeKeyRef.current) {
+        startTransition(() => {
+          setNotes(nextScopeNotes);
+        });
+      }
+    }
+  }
+
+  function removeNoteFromCaches(noteId: string) {
+    for (const [scopeKey, cachedNotes] of notesCacheRef.current.entries()) {
+      if (!cachedNotes.some((note) => note.id === noteId)) continue;
+
+      const nextScopeNotes = cachedNotes.filter((note) => note.id !== noteId);
+      notesCacheRef.current.set(scopeKey, cloneNotes(nextScopeNotes));
+
+      if (scopeKey === currentScopeKeyRef.current) {
+        startTransition(() => {
+          setNotes(nextScopeNotes);
+        });
+      }
+    }
+  }
+
+  function applyCreatedNoteToCaches(note: Note) {
+    const allNotes = notesCacheRef.current.get(ALL_NOTES_SCOPE_KEY);
+    if (allNotes) {
+      notesCacheRef.current.set(
+        ALL_NOTES_SCOPE_KEY,
+        cloneNotes(sortNotesByOrder([...allNotes, note]))
+      );
+    }
+
+    if (note.group_id !== null) {
+      const groupNotes = notesCacheRef.current.get(note.group_id);
+      if (groupNotes) {
+        notesCacheRef.current.set(
+          note.group_id,
+          cloneNotes(sortNotesByOrder([...groupNotes, note]))
+        );
+      }
+    }
+  }
+
+  function applyMovedNoteToCaches(nextNote: Note, previousGroupId: string | null) {
+    removeNoteFromCaches(nextNote.id);
+
+    const allNotes = notesCacheRef.current.get(ALL_NOTES_SCOPE_KEY);
+    if (allNotes) {
+      notesCacheRef.current.set(
+        ALL_NOTES_SCOPE_KEY,
+        cloneNotes(sortNotesByOrder([...allNotes, nextNote]))
+      );
+    }
+
+    if (nextNote.group_id !== null) {
+      const targetGroupNotes = notesCacheRef.current.get(nextNote.group_id);
+      if (targetGroupNotes) {
+        notesCacheRef.current.set(
+          nextNote.group_id,
+          cloneNotes(sortNotesByOrder([...targetGroupNotes, nextNote]))
+        );
+      }
+    }
+
+    if (previousGroupId && previousGroupId !== nextNote.group_id) {
+      const sourceGroupNotes = notesCacheRef.current.get(previousGroupId);
+      if (sourceGroupNotes) {
+        notesCacheRef.current.set(
+          previousGroupId,
+          cloneNotes(sourceGroupNotes.filter((note) => note.id !== nextNote.id))
+        );
+      }
+    }
+  }
+
+  function syncGroupCachesFromAllNotes(allNotes: Note[]) {
+    notesCacheRef.current.set(ALL_NOTES_SCOPE_KEY, cloneNotes(allNotes));
+
+    for (const scopeKey of notesCacheRef.current.keys()) {
+      if (scopeKey === ALL_NOTES_SCOPE_KEY) continue;
+
+      notesCacheRef.current.set(
+        scopeKey,
+        cloneNotes(allNotes.filter((note) => note.group_id === scopeKey))
+      );
+    }
+  }
+
   function hasBlockingEdits() {
     return Boolean(
       selectedNote &&
@@ -129,6 +437,15 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function applyGroupSelection(groupId: string | null) {
+    if (PERF_DEBUG_ENABLED) {
+      pendingGroupPerfRef.current = {
+        groupId,
+        label: getGroupLabel(groupId),
+        startTime: performance.now(),
+        source: "cold",
+      };
+    }
+
     setSelectedGroupId(groupId);
     if (groupId !== null && selectedNote && selectedNote.group_id !== groupId) {
       clearSelectedNoteView();
@@ -170,22 +487,45 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function openNote(note: Note) {
+    const noteOpenStart = PERF_DEBUG_ENABLED ? performance.now() : 0;
+
     cancelScheduledSave();
     selectedNoteIdRef.current = note.id;
     selectedNoteUpdatedAtRef.current = note.updated_at;
-    setSelectedNote(note);
     titleRef.current = note.title;
     contentRef.current = note.content;
-    setTitle(note.title);
-    setContent(note.content);
-    setSaveStatus("saved");
-    setCopyStatus("ready");
-    setCountStatus("count-stale");
-    setConflictNote(null);
-    setPendingAction(null);
-    setDialogMode(null);
-    if (isMobile) {
-      setMobilePanel("editor");
+    startTransition(() => {
+      setSelectedNote(note);
+      setTitle(note.title);
+      setContent(note.content);
+      setSaveStatus("saved");
+      setCopyStatus("ready");
+      setCountStatus("count-stale");
+      setConflictNote(null);
+      setPendingAction(null);
+      setDialogMode(null);
+      if (isMobile) {
+        setMobilePanel("editor");
+      }
+    });
+
+    if (PERF_DEBUG_ENABLED) {
+      const noteId = note.id;
+      const titleLabel = note.title || "(제목 없음)";
+      const contentLength = note.content.length;
+
+      afterNextPaint(() => {
+        if (selectedNoteIdRef.current !== noteId) return;
+
+        recordPerfSample({
+          id: `note-${noteId}-${Date.now()}`,
+          kind: "note-open",
+          label: titleLabel,
+          durationMs: performance.now() - noteOpenStart,
+          summary: `본문 ${contentLength}자 렌더`,
+          measuredAt: new Date().toISOString(),
+        });
+      });
     }
   }
 
@@ -237,7 +577,8 @@ export default function NotesPage({ username, onLogout }: Props) {
       title: "새 노트",
       group_id: selectedGroupId ?? undefined,
     });
-    await loadNotes(selectedGroupId ?? undefined);
+    applyCreatedNoteToCaches(note);
+    setNotesForScope(selectedGroupId, sortNotesByOrder([...notes, note]));
     openNote(note);
   }
 
@@ -252,10 +593,12 @@ export default function NotesPage({ username, onLogout }: Props) {
   async function deleteNote(id: string) {
     if (!window.confirm("노트를 삭제할까요?")) return;
     await api.notes.delete(id);
+    const nextNotes = notes.filter((note) => note.id !== id);
+    removeNoteFromCaches(id);
+    setNotesForScope(selectedGroupId, nextNotes);
     if (selectedNote?.id === id) {
       clearSelectedNoteView();
     }
-    await loadNotes(selectedGroupId ?? undefined);
   }
 
   async function moveNote(noteId: string, direction: -1 | 1) {
@@ -276,6 +619,8 @@ export default function NotesPage({ username, onLogout }: Props) {
 
     try {
       await api.notes.reorder(reorderedNotes.map((note) => note.id));
+      syncGroupCachesFromAllNotes(reorderedNotes);
+      setNotesForScope(null, reorderedNotes);
       setReorderStatus("idle");
     } catch {
       setNotes(previousNotes);
@@ -318,7 +663,12 @@ export default function NotesPage({ username, onLogout }: Props) {
         force,
       });
 
-      setNotes((prev) => prev.map((note) => (note.id === noteId ? updated : note)));
+      setNotes((prev) => {
+        const nextNotes = prev.map((note) => (note.id === noteId ? updated : note));
+        notesCacheRef.current.set(currentScopeKeyRef.current, cloneNotes(nextNotes));
+        return nextNotes;
+      });
+      updateNoteAcrossCaches(updated);
 
       if (selectedNoteIdRef.current !== noteId) {
         return true;
@@ -342,6 +692,7 @@ export default function NotesPage({ username, onLogout }: Props) {
         error.code === "CONFLICT" &&
         isConflictNoteData(error.data)
       ) {
+        updateNoteAcrossCaches(error.data);
         setNotes((prev) => prev.map((note) => (note.id === noteId ? error.data : note)));
         setSelectedNote(error.data);
         selectedNoteUpdatedAtRef.current = error.data.updated_at;
@@ -408,9 +759,9 @@ export default function NotesPage({ username, onLogout }: Props) {
     e.preventDefault();
     if (!newGroupName.trim()) return;
     try {
-      await api.groups.create(newGroupName.trim());
+      const createdGroup = await api.groups.create(newGroupName.trim());
       setNewGroupName("");
-      await loadGroups();
+      upsertGroup(createdGroup);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "그룹 생성에 실패했습니다.");
     }
@@ -424,8 +775,8 @@ export default function NotesPage({ username, onLogout }: Props) {
     if (!normalizedName || normalizedName === currentName) return;
 
     try {
-      await api.groups.update(id, normalizedName);
-      await loadGroups();
+      const updatedGroup = await api.groups.update(id, normalizedName);
+      upsertGroup(updatedGroup);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "그룹 이름 변경에 실패했습니다.");
     }
@@ -438,9 +789,13 @@ export default function NotesPage({ username, onLogout }: Props) {
 
     try {
       await api.groups.delete(id);
+      removeGroup(id);
+      invalidateAllNotesCache();
       if (wasSelectedGroup) setSelectedGroupId(null);
-      await loadGroups();
-      await loadNotes(wasSelectedGroup ? undefined : selectedGroupId ?? undefined);
+
+      if (!wasSelectedGroup) {
+        await loadNotes(selectedGroupId ?? undefined, { preferCache: true });
+      }
 
       if (selectedNoteWasInGroup && selectedNote) {
         const refreshedNote = await api.notes.get(selectedNote.id);
@@ -456,15 +811,23 @@ export default function NotesPage({ username, onLogout }: Props) {
     if (groupId === selectedNote.group_id) return;
 
     try {
+      const previousGroupId = selectedNote.group_id;
       const updatedNote = await api.notes.moveGroup(selectedNote.id, groupId || null);
+      applyMovedNoteToCaches(updatedNote, previousGroupId);
 
       if (selectedGroupId !== null && updatedNote.group_id !== selectedGroupId) {
+        setNotesForScope(
+          selectedGroupId,
+          notes.filter((note) => note.id !== selectedNote.id)
+        );
         clearSelectedNoteView();
       } else {
+        setNotesForScope(
+          selectedGroupId,
+          notes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
+        );
         openNote(updatedNote);
       }
-
-      await loadNotes(selectedGroupId ?? undefined);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "노트 그룹 이동에 실패했습니다.");
     }
@@ -523,9 +886,12 @@ export default function NotesPage({ username, onLogout }: Props) {
     saveStatus === "conflict" ? "충돌 발생" :
     saveStatus === "error" ? "저장 실패" : "저장됨";
 
-  const reorderLabel =
+  const noteListStatusLabel =
     reorderStatus === "saving" ? "정렬 저장 중..." :
     reorderStatus === "error" ? "정렬 실패" :
+    notesLoadState === "loading" ? "노트 불러오는 중..." :
+    notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
+    notesLoadState === "error" ? "목록 갱신 실패" :
     selectedGroupId === null ? "정렬 가능" : "전체 노트에서 정렬";
 
   const currentGroupLabel = selectedGroupId
@@ -715,7 +1081,7 @@ export default function NotesPage({ username, onLogout }: Props) {
             <span style={{ fontWeight: 600 }}>
               {currentGroupLabel} ({notes.length})
             </span>
-            <span style={styles.reorderHint}>{reorderLabel}</span>
+            <span style={styles.reorderHint}>{noteListStatusLabel}</span>
           </div>
           <button
             type="button"
@@ -727,7 +1093,13 @@ export default function NotesPage({ username, onLogout }: Props) {
           </button>
         </div>
         <div style={styles.noteListBody}>
-          {notes.length === 0 && (
+          {notesLoadState === "loading" && notes.length === 0 && (
+            <div style={styles.empty}>노트를 불러오는 중입니다.</div>
+          )}
+          {notesLoadState === "error" && notes.length === 0 && (
+            <div style={styles.empty}>노트를 불러오지 못했습니다.</div>
+          )}
+          {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && (
             <div style={styles.empty}>노트가 없습니다.</div>
           )}
           {notes.map((n, index) => {
@@ -942,6 +1314,9 @@ export default function NotesPage({ username, onLogout }: Props) {
             </div>
           </div>
         </div>
+      )}
+      {PERF_DEBUG_ENABLED && perfSamples.length > 0 && (
+        <PerformanceDebugPanel samples={perfSamples} />
       )}
     </div>
   );
