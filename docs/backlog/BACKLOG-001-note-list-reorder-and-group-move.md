@@ -1,11 +1,20 @@
 # BACKLOG-001: 그룹 뷰 정렬 개선 및 리스트 기반 그룹 이동
 
-- 문서 버전: v0.2
+- 문서 버전: v1.0
 - 작성일: 2026-04-15
-- 상태: Backlog
+- 상태: Done
 - 우선순위: Medium
 - 성격: 후속 UX 확장
+- 최근 업데이트일: 2026-04-15
 - 기준 문서: `docs/features/FEATURE-006-note-list-reorder-and-group-move.md`, `docs/testing/backlog/TEST-BACKLOG-001-note-list-reorder-and-group-move.md`
+
+## 0. 현재 구현 상태
+
+1. Task 1 `리스트 기반 그룹 이동`은 구현 완료 상태다.
+2. 노트 목록 항목 아래에 그룹 이동 select를 추가했고, 기존 `PATCH /api/notes/:id/group`를 재사용한다.
+3. 현재 선택 중인 노트를 목록에서 이동하는 경우에도 기존 `pendingAction` 기반 전환 보호를 유지한다.
+4. 그룹 scope reorder API와 그룹 뷰 버튼 기반 정렬 UI까지 구현 완료 상태다.
+5. 이번 차수에서는 DnD 대신 기존 위/아래 이동 버튼을 그룹 뷰에서도 재사용하는 방식으로 마감했다.
 
 ## 1. 목적
 
@@ -178,3 +187,14 @@
 - `docs/testing/TEST_PLAN.md`
 - `docs/features/FEATURE-002-notes-core.md`
 - `docs/features/FEATURE-003-groups.md`
+
+## 11. 진행 이력
+
+- 2026-04-15: backlog 초안 작성
+- 2026-04-15: `NotesPage` 노트 목록 항목에 그룹 이동 UI 추가
+- 2026-04-15: 선택 중인 노트 이동 시 전환 보호를 유지하도록 `pendingAction` 경로 확장
+- 2026-04-15: `noteGroupSelect` 유틸 및 단위 테스트 추가
+- 2026-04-15: `POST /api/notes/reorder`에 group scope 계약 추가
+- 2026-04-15: 그룹 뷰에서도 버튼 기반 정렬이 가능하도록 프론트 정렬 경로 확장
+- 2026-04-15: `noteOrder` 유틸, 단위 테스트, 그룹 scope reorder 통합 테스트 추가
+- 2026-04-15: `npm.cmd run typecheck`, `npm.cmd run test:unit`, `npm.cmd run build`, `npm.cmd run test:integration` 통과

@@ -113,10 +113,13 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    reorder: (orderedNoteIds: string[]) =>
-      request<{ orderedNoteIds: string[] }>("/api/notes/reorder", {
+    reorder: (
+      orderedNoteIds: string[],
+      scope?: { type: "group"; group_id: string }
+    ) =>
+      request<{ orderedNoteIds: string[]; scope?: { type: "group"; group_id: string } }>("/api/notes/reorder", {
         method: "POST",
-        body: JSON.stringify({ orderedNoteIds }),
+        body: JSON.stringify({ orderedNoteIds, scope }),
       }),
     moveGroup: (id: string, group_id: string | null) =>
       request<Note>(`/api/notes/${id}/group`, {

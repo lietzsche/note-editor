@@ -449,8 +449,9 @@ app.post("/api/notes/reorder", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
 
-  const body = await c.req.json<{ orderedNoteIds?: unknown }>();
+  const body = await c.req.json<{ orderedNoteIds?: unknown; scope?: unknown }>();
   const orderedNoteIds = body.orderedNoteIds;
+  const scope = body.scope;
 
   if (
     !Array.isArray(orderedNoteIds) ||
@@ -464,25 +465,64 @@ app.post("/api/notes/reorder", async (c) => {
   }
 
   const { results } = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE user_id = ? ORDER BY sort_order ASC"
+    "SELECT id, group_id FROM pages WHERE user_id = ? ORDER BY sort_order ASC"
   )
     .bind(session.userId)
-    .all<{ id: string }>();
+    .all<{ id: string; group_id: string | null }>();
 
-  const existingNoteIds = results.map((note) => note.id);
+  let nextOrderedNoteIds: string[];
 
-  if (existingNoteIds.length !== orderedNoteIds.length) {
-    return err("VALIDATION", "orderedNoteIds는 현재 사용자의 전체 노트 순서를 포함해야 합니다.");
+  if (scope === undefined) {
+    const existingNoteIds = results.map((note) => note.id);
+
+    if (existingNoteIds.length !== orderedNoteIds.length) {
+      return err("VALIDATION", "orderedNoteIds는 현재 사용자의 전체 노트 순서를 포함해야 합니다.");
+    }
+
+    const existingNoteIdsSet = new Set(existingNoteIds);
+    if (orderedNoteIds.some((noteId) => !existingNoteIdsSet.has(noteId))) {
+      return err("VALIDATION", "orderedNoteIds에 유효하지 않은 노트 ID가 포함되어 있습니다.");
+    }
+
+    nextOrderedNoteIds = orderedNoteIds;
+  } else {
+    if (
+      typeof scope !== "object" ||
+      scope === null ||
+      !("type" in scope) ||
+      !("group_id" in scope) ||
+      scope.type !== "group" ||
+      typeof scope.group_id !== "string" ||
+      scope.group_id.length === 0
+    ) {
+      return err("VALIDATION", "scope는 { type: \"group\", group_id: string } 형태여야 합니다.");
+    }
+
+    const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, scope.group_id);
+    if (ownedGroupId === false) return forbidden();
+
+    const existingGroupNoteIds = results
+      .filter((note) => note.group_id === ownedGroupId)
+      .map((note) => note.id);
+
+    if (existingGroupNoteIds.length !== orderedNoteIds.length) {
+      return err("VALIDATION", "orderedNoteIds는 선택한 그룹의 현재 노트 순서를 모두 포함해야 합니다.");
+    }
+
+    const existingGroupNoteIdsSet = new Set(existingGroupNoteIds);
+    if (orderedNoteIds.some((noteId) => !existingGroupNoteIdsSet.has(noteId))) {
+      return err("VALIDATION", "orderedNoteIds에 선택한 그룹 바깥 노트가 포함되어 있습니다.");
+    }
+
+    let groupNoteIndex = 0;
+    nextOrderedNoteIds = results.map((note) => (
+      note.group_id === ownedGroupId ? orderedNoteIds[groupNoteIndex++] : note.id
+    ));
   }
 
-  const existingNoteIdsSet = new Set(existingNoteIds);
-  if (orderedNoteIds.some((noteId) => !existingNoteIdsSet.has(noteId))) {
-    return err("VALIDATION", "orderedNoteIds에 유효하지 않은 노트 ID가 포함되어 있습니다.");
-  }
-
-  if (orderedNoteIds.length > 0) {
+  if (nextOrderedNoteIds.length > 0) {
     await c.env.DB.batch(
-      orderedNoteIds.map((noteId, index) =>
+      nextOrderedNoteIds.map((noteId, index) =>
         c.env.DB.prepare(
           "UPDATE pages SET sort_order = ? WHERE id = ? AND user_id = ?"
         ).bind(index, noteId, session.userId)
@@ -490,7 +530,7 @@ app.post("/api/notes/reorder", async (c) => {
     );
   }
 
-  return ok({ orderedNoteIds });
+  return ok(scope === undefined ? { orderedNoteIds } : { orderedNoteIds, scope });
 });
 
 app.get("/api/notes/:id", async (c) => {

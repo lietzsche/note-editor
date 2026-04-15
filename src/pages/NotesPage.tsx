@@ -4,6 +4,11 @@ import { CharacterCountIndicator } from "../components/CharacterCountIndicator";
 import { CopyAllButton } from "../components/CopyAllButton";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
 import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
+import {
+  getNoteGroupIdFromSelectValue,
+  getNoteGroupSelectValue,
+} from "../lib/noteGroupSelect";
+import { mergeGroupOrderIntoAllNotes, moveItem } from "../lib/noteOrder";
 import { PerformanceDebugPanel } from "../components/PerformanceDebugPanel";
 import {
   appendPerfSample,
@@ -25,7 +30,7 @@ type PendingAction =
   | { type: "select-note"; note: Note }
   | { type: "select-group"; groupId: string | null }
   | { type: "create-note" }
-  | { type: "move-note-group"; groupId: string }
+  | { type: "move-note-group"; noteId: string; groupId: string | null }
   | { type: "logout" };
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
@@ -73,6 +78,8 @@ export default function NotesPage({ username, onLogout }: Props) {
   const notesInFlightRef = useRef<Map<string, Promise<Note[]>>>(new Map());
   const notesRequestSequenceRef = useRef(0);
   const currentScopeKeyRef = useRef(ALL_NOTES_SCOPE_KEY);
+  const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
+  const defaultGroupId = defaultGroup?.id ?? null;
 
   const loadGroups = useCallback(async (options?: { preferCache?: boolean }) => {
     const cached = options?.preferCache && groupsCacheRef.current
@@ -326,6 +333,14 @@ export default function NotesPage({ username, onLogout }: Props) {
     return [...nextNotes].sort((a, b) => a.sort_order - b.sort_order);
   }
 
+  function getSelectableGroupValue(groupId: string | null) {
+    return getNoteGroupSelectValue(groupId, defaultGroupId);
+  }
+
+  function getSelectedGroupIdFromValue(value: string) {
+    return getNoteGroupIdFromSelectValue(value, defaultGroupId);
+  }
+
   function updateNoteAcrossCaches(nextNote: Note) {
     for (const [scopeKey, cachedNotes] of notesCacheRef.current.entries()) {
       if (!cachedNotes.some((note) => note.id === nextNote.id)) continue;
@@ -556,7 +571,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
 
     if (action.type === "move-note-group") {
-      await moveSelectedNoteGroupImmediately(action.groupId);
+      await moveNoteGroupImmediately(action.noteId, action.groupId);
       return;
     }
 
@@ -602,7 +617,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   async function moveNote(noteId: string, direction: -1 | 1) {
-    if (selectedGroupId !== null || reorderStatus === "saving") return;
+    if (reorderStatus === "saving") return;
 
     const currentIndex = notes.findIndex((note) => note.id === noteId);
     const nextIndex = currentIndex + direction;
@@ -610,17 +625,39 @@ export default function NotesPage({ username, onLogout }: Props) {
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= notes.length) return;
 
     const previousNotes = notes;
-    const reorderedNotes = [...notes];
-    const [movedNote] = reorderedNotes.splice(currentIndex, 1);
-    reorderedNotes.splice(nextIndex, 0, movedNote);
+    const reorderedNotes = moveItem(notes, currentIndex, nextIndex);
 
     setNotes(reorderedNotes);
     setReorderStatus("saving");
 
     try {
-      await api.notes.reorder(reorderedNotes.map((note) => note.id));
-      syncGroupCachesFromAllNotes(reorderedNotes);
-      setNotesForScope(null, reorderedNotes);
+      const scope = selectedGroupId
+        ? { type: "group" as const, group_id: selectedGroupId }
+        : undefined;
+
+      await api.notes.reorder(
+        reorderedNotes.map((note) => note.id),
+        scope
+      );
+
+      if (selectedGroupId === null) {
+        syncGroupCachesFromAllNotes(reorderedNotes);
+        setNotesForScope(null, reorderedNotes);
+      } else {
+        const allNotes = readCachedNotes(notesCacheRef.current, null);
+
+        if (allNotes) {
+          const nextAllNotes = mergeGroupOrderIntoAllNotes(
+            allNotes,
+            selectedGroupId,
+            reorderedNotes
+          );
+          syncGroupCachesFromAllNotes(nextAllNotes);
+        }
+
+        setNotesForScope(selectedGroupId, reorderedNotes);
+      }
+
       setReorderStatus("idle");
     } catch {
       setNotes(previousNotes);
@@ -806,40 +843,52 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
-  async function moveSelectedNoteGroupImmediately(groupId: string) {
-    if (!selectedNote) return;
-    if (groupId === selectedNote.group_id) return;
+  async function moveNoteGroupImmediately(noteId: string, groupId: string | null) {
+    const targetNote = selectedNote?.id === noteId
+      ? selectedNote
+      : notes.find((note) => note.id === noteId);
+
+    if (!targetNote) return;
+    if (groupId === targetNote.group_id) return;
 
     try {
-      const previousGroupId = selectedNote.group_id;
-      const updatedNote = await api.notes.moveGroup(selectedNote.id, groupId || null);
+      const previousGroupId = targetNote.group_id;
+      const updatedNote = await api.notes.moveGroup(noteId, groupId);
       applyMovedNoteToCaches(updatedNote, previousGroupId);
 
+      const nextNotes = selectedGroupId !== null && updatedNote.group_id !== selectedGroupId
+        ? notes.filter((note) => note.id !== noteId)
+        : notes.map((note) => (note.id === updatedNote.id ? updatedNote : note));
+
+      setNotesForScope(selectedGroupId, nextNotes);
+
+      if (selectedNote?.id !== noteId) return;
+
       if (selectedGroupId !== null && updatedNote.group_id !== selectedGroupId) {
-        setNotesForScope(
-          selectedGroupId,
-          notes.filter((note) => note.id !== selectedNote.id)
-        );
         clearSelectedNoteView();
-      } else {
-        setNotesForScope(
-          selectedGroupId,
-          notes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
-        );
-        openNote(updatedNote);
+        return;
       }
+
+      openNote(updatedNote);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "노트 그룹 이동에 실패했습니다.");
     }
   }
 
-  async function handleMoveSelectedNoteGroup(groupId: string) {
-    if (hasBlockingEdits()) {
-      openTransitionDialog({ type: "move-note-group", groupId });
+  async function handleMoveNoteGroup(note: Note, groupId: string | null) {
+    if (groupId === note.group_id) return;
+
+    if (selectedNote?.id === note.id && hasBlockingEdits()) {
+      openTransitionDialog({ type: "move-note-group", noteId: note.id, groupId });
       return;
     }
 
-    await moveSelectedNoteGroupImmediately(groupId);
+    await moveNoteGroupImmediately(note.id, groupId);
+  }
+
+  async function handleMoveSelectedNoteGroup(groupId: string | null) {
+    if (!selectedNote) return;
+    await handleMoveNoteGroup(selectedNote, groupId);
   }
 
   async function handleDialogPrimaryAction() {
@@ -892,13 +941,14 @@ export default function NotesPage({ username, onLogout }: Props) {
     notesLoadState === "loading" ? "노트 불러오는 중..." :
     notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
     notesLoadState === "error" ? "목록 갱신 실패" :
-    selectedGroupId === null ? "정렬 가능" : "전체 노트에서 정렬";
+    selectedGroupId === null ? "전체 노트에서 정렬" : "현재 그룹에서 정렬";
 
   const currentGroupLabel = selectedGroupId
     ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
     : "전체 노트";
-  const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
-  const selectedNoteGroupValue = selectedNote?.group_id ?? defaultGroup?.id ?? "";
+  const selectedNoteGroupValue = selectedNote
+    ? getSelectableGroupValue(selectedNote.group_id)
+    : "";
 
   const showGroupsPanel = !isMobile || mobilePanel === "groups";
   const showNotesPanel = !isMobile || mobilePanel === "notes";
@@ -1103,8 +1153,9 @@ export default function NotesPage({ username, onLogout }: Props) {
             <div style={styles.empty}>노트가 없습니다.</div>
           )}
           {notes.map((n, index) => {
-            const canMoveUp = selectedGroupId === null && index > 0;
-            const canMoveDown = selectedGroupId === null && index < notes.length - 1;
+            const canMoveUp = index > 0;
+            const canMoveDown = index < notes.length - 1;
+            const noteGroupValue = getSelectableGroupValue(n.group_id);
 
             return (
               <div
@@ -1128,7 +1179,7 @@ export default function NotesPage({ username, onLogout }: Props) {
                     </div>
                   </button>
                   <div style={styles.noteActions}>
-                    {selectedGroupId === null && (
+                    {notes.length > 1 && (
                       <>
                         <button
                           type="button"
@@ -1169,6 +1220,27 @@ export default function NotesPage({ username, onLogout }: Props) {
                     </button>
                   </div>
                 </div>
+                {groups.length > 1 && (
+                  <div style={styles.noteGroupMoveRow}>
+                    <select
+                      style={styles.noteGroupMoveSelect}
+                      value={noteGroupValue}
+                      onChange={(event) => {
+                        void handleMoveNoteGroup(
+                          n,
+                          getSelectedGroupIdFromValue(event.target.value)
+                        );
+                      }}
+                      aria-label={`${n.title || "Untitled"} note group move`}
+                    >
+                      {groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1197,7 +1269,9 @@ export default function NotesPage({ username, onLogout }: Props) {
                     style={styles.groupPickerSelect}
                     value={selectedNoteGroupValue}
                     onChange={(event) => {
-                      void handleMoveSelectedNoteGroup(event.target.value);
+                      void handleMoveSelectedNoteGroup(
+                        getSelectedGroupIdFromValue(event.target.value)
+                      );
                     }}
                     aria-label="현재 노트 그룹 선택"
                   >
@@ -1531,6 +1605,19 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: "4px",
     flexShrink: 0,
+  },
+  noteGroupMoveRow: {
+    marginTop: "8px",
+  },
+  noteGroupMoveSelect: {
+    width: "100%",
+    minHeight: "36px",
+    padding: "4px 8px",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    background: "var(--color-bg)",
+    color: "var(--color-text-primary)",
+    fontSize: "12px",
   },
   orderBtn: {
     background: "none",

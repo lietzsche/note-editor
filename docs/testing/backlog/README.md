@@ -11,7 +11,7 @@
 ## 권장 준비 순서
 
 1. `TEST-BACKLOG-001-note-list-reorder-and-group-move.md`
-- 다음 backlog 구현 후보 기준 테스트 초안
+- 상태: TB-001, TB-002 구현 반영
 
 2. `TEST-BACKLOG-002-note-loading-performance-and-caching.md`
 - 구현 완료 후 남은 수동 성능 기록과 후속 검토 기준
@@ -20,6 +20,7 @@
 
 1. `TEST-BACKLOG-001-note-list-reorder-and-group-move.md`
 - `BACKLOG-001` 연계 테스트 초안
+- 상태: 구현 검증 완료, 수동 확인 대기
 
 2. `TEST-BACKLOG-002-note-loading-performance-and-caching.md`
 - `BACKLOG-002` 연계 테스트 초안

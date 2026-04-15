@@ -157,14 +157,19 @@ async function deleteNote(cookie: string, noteId: string, base = BASE) {
   });
 }
 
-async function reorderNotes(cookie: string, orderedNoteIds: unknown, base = BASE) {
+async function reorderNotes(
+  cookie: string,
+  orderedNoteIds: unknown,
+  scope?: { type: "group"; group_id: string },
+  base = BASE
+) {
   return SELF.fetch(`${base}/api/notes/reorder`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Cookie: cookie,
     },
-    body: JSON.stringify({ orderedNoteIds }),
+    body: JSON.stringify({ orderedNoteIds, scope }),
   });
 }
 
@@ -584,6 +589,128 @@ describe("TS-03 노트 정렬", () => {
     const relistRes = await listNotes(newCookie);
     const relistBody = await relistRes.json() as any;
     expect(relistBody.data.map((note: any) => note.id)).toEqual(reordered);
+  });
+});
+
+describe("TS-B3 그룹 scope 정렬", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("그룹 필터에서 정렬하면 해당 그룹 슬롯만 다시 배치한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const groupsRes = await listGroups(cookie);
+    const groupsBody = await groupsRes.json() as any;
+    const defaultGroup = groupsBody.data.find((group: any) => group.name === "미분류");
+    expect(defaultGroup).toBeDefined();
+
+    const workRes = await createGroup(cookie, "Work");
+    expect(workRes.status).toBe(201);
+    const workBody = await workRes.json() as any;
+    const workId = workBody.data.id;
+
+    const noteARes = await createNote(cookie, {
+      title: "Work A",
+      content: "A",
+      group_id: workId,
+    });
+    const noteBRes = await createNote(cookie, {
+      title: "Default B",
+      content: "B",
+    });
+    const noteCRes = await createNote(cookie, {
+      title: "Work C",
+      content: "C",
+      group_id: workId,
+    });
+    const noteDRes = await createNote(cookie, {
+      title: "Default D",
+      content: "D",
+    });
+
+    expect(noteARes.status).toBe(201);
+    expect(noteBRes.status).toBe(201);
+    expect(noteCRes.status).toBe(201);
+    expect(noteDRes.status).toBe(201);
+
+    const noteABody = await noteARes.json() as any;
+    const noteBBody = await noteBRes.json() as any;
+    const noteCBody = await noteCRes.json() as any;
+    const noteDBody = await noteDRes.json() as any;
+
+    const reorderRes = await reorderNotes(
+      cookie,
+      [noteCBody.data.id, noteABody.data.id],
+      { type: "group", group_id: workId }
+    );
+    expect(reorderRes.status).toBe(200);
+
+    const workListRes = await listNotesByGroup(cookie, workId);
+    expect(workListRes.status).toBe(200);
+    const workListBody = await workListRes.json() as any;
+    expect(workListBody.data.map((note: any) => note.id)).toEqual([
+      noteCBody.data.id,
+      noteABody.data.id,
+    ]);
+
+    const allListRes = await listNotes(cookie);
+    expect(allListRes.status).toBe(200);
+    const allListBody = await allListRes.json() as any;
+    expect(allListBody.data.map((note: any) => note.id)).toEqual([
+      noteCBody.data.id,
+      noteBBody.data.id,
+      noteABody.data.id,
+      noteDBody.data.id,
+    ]);
+
+    await logout(cookie);
+
+    const reloginRes = await login("alice", "password123");
+    const newCookie = extractCookie(reloginRes);
+    const relistRes = await listNotes(newCookie);
+    const relistBody = await relistRes.json() as any;
+    expect(relistBody.data.map((note: any) => note.id)).toEqual([
+      noteCBody.data.id,
+      noteBBody.data.id,
+      noteABody.data.id,
+      noteDBody.data.id,
+    ]);
+  });
+
+  it("그룹 scope 정렬에 다른 그룹 노트가 섞이면 400을 반환한다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const workRes = await createGroup(cookie, "Work");
+    expect(workRes.status).toBe(201);
+    const workBody = await workRes.json() as any;
+    const workId = workBody.data.id;
+
+    const noteInWorkRes = await createNote(cookie, {
+      title: "Work A",
+      content: "A",
+      group_id: workId,
+    });
+    const noteInDefaultRes = await createNote(cookie, {
+      title: "Default B",
+      content: "B",
+    });
+
+    expect(noteInWorkRes.status).toBe(201);
+    expect(noteInDefaultRes.status).toBe(201);
+
+    const noteInWorkBody = await noteInWorkRes.json() as any;
+    const noteInDefaultBody = await noteInDefaultRes.json() as any;
+
+    const reorderRes = await reorderNotes(
+      cookie,
+      [noteInWorkBody.data.id, noteInDefaultBody.data.id],
+      { type: "group", group_id: workId }
+    );
+
+    expect(reorderRes.status).toBe(400);
   });
 });
 

@@ -12,7 +12,8 @@
 ## 권장 착수 순서
 
 1. `BACKLOG-001-note-list-reorder-and-group-move.md`
-- `BACKLOG-002` 1차 마감 이후 다음 구현 후보
+- 상태: Done
+- 리스트 기반 그룹 이동과 그룹 뷰 버튼 정렬 구현 완료
 
 2. `BACKLOG-002-note-loading-performance-and-caching.md`
 - 2026-04-15 기준 1차 저위험 성능 개선 범위 완료, 후속 검토 이력으로 유지
@@ -21,6 +22,7 @@
 
 1. `BACKLOG-001-note-list-reorder-and-group-move.md`
 - 그룹 뷰 정렬 개선 및 리스트 기반 그룹 이동
+- 상태: Done
 
 2. `BACKLOG-002-note-loading-performance-and-caching.md`
 - 노트/그룹 전환 체감 속도 개선 및 캐싱 검토
