@@ -251,6 +251,52 @@ app.post("/api/groups", async (c) => {
   return created({ id, name: normalizedName, position });
 });
 
+app.post("/api/groups/reorder", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+
+  const body = await c.req.json<{ orderedGroupIds?: unknown }>();
+  const orderedGroupIds = body.orderedGroupIds;
+
+  if (
+    !Array.isArray(orderedGroupIds) ||
+    orderedGroupIds.some((groupId) => typeof groupId !== "string" || groupId.length === 0)
+  ) {
+    return err("VALIDATION", "orderedGroupIds는 그룹 ID 문자열 배열이어야 합니다.");
+  }
+
+  if (new Set(orderedGroupIds).size !== orderedGroupIds.length) {
+    return err("VALIDATION", "orderedGroupIds에 중복된 그룹 ID가 포함되어 있습니다.");
+  }
+
+  const { results } = await c.env.DB.prepare(
+    "SELECT id FROM groups WHERE user_id = ? ORDER BY position ASC"
+  )
+    .bind(session.userId)
+    .all<{ id: string }>();
+
+  const existingGroupIds = results.map((group) => group.id);
+  if (existingGroupIds.length !== orderedGroupIds.length) {
+    return err("VALIDATION", "orderedGroupIds는 현재 사용자의 전체 그룹 순서를 모두 포함해야 합니다.");
+  }
+
+  const existingGroupIdsSet = new Set(existingGroupIds);
+  if (orderedGroupIds.some((groupId) => !existingGroupIdsSet.has(groupId))) {
+    return err("VALIDATION", "orderedGroupIds에 유효하지 않은 그룹 ID가 포함되어 있습니다.");
+  }
+
+  const now = new Date().toISOString();
+  await c.env.DB.batch(
+    orderedGroupIds.map((groupId, index) => (
+      c.env.DB.prepare(
+        "UPDATE groups SET position = ?, updated_at = ? WHERE id = ? AND user_id = ?"
+      ).bind(index, now, groupId, session.userId)
+    ))
+  );
+
+  return ok({ orderedGroupIds });
+});
+
 app.put("/api/groups/:id", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();

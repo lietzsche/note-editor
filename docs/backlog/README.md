@@ -1,5 +1,11 @@
 # Backlog Index
 
+## Current Note (2026-04-16)
+
+For reorder-related work, use `BACKLOG-003-group-and-note-dnd-reorder.md` as the
+current canonical implementation doc. `BACKLOG-001-note-list-reorder-and-group-move.md`
+remains as a historical baseline record and should not be used for current reorder policy.
+
 현재 릴리스 범위 밖의 후속 업무를 관리한다.
 
 ## 운영 원칙
@@ -27,3 +33,6 @@
 2. `BACKLOG-002-note-loading-performance-and-caching.md`
 - 노트/그룹 전환 체감 속도 개선 및 캐싱 검토
 - 상태: Done (1차 저위험 개선 범위)
+3. `BACKLOG-003-group-and-note-dnd-reorder.md`
+- group sidebar reorder and note list reorder via DnD
+- Status: Done

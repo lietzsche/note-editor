@@ -190,6 +190,17 @@ async function createGroup(cookie: string, name: string, base = BASE) {
   });
 }
 
+async function reorderGroups(cookie: string, orderedGroupIds: unknown, base = BASE) {
+  return SELF.fetch(`${base}/api/groups/reorder`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ orderedGroupIds }),
+  });
+}
+
 async function updateGroup(cookie: string, groupId: string, name: string, base = BASE) {
   return SELF.fetch(`${base}/api/groups/${groupId}`, {
     method: "PUT",
@@ -1003,5 +1014,118 @@ describe("TS-05 세션/보호 API", () => {
     expect(cookie).toContain("Secure");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=Lax");
+  });
+});
+
+describe("Group reorder API", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("reorders groups and persists after relogin", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const initialGroupsRes = await listGroups(cookie);
+    expect(initialGroupsRes.status).toBe(200);
+    const initialGroupsBody = await initialGroupsRes.json() as any;
+    const defaultGroup = initialGroupsBody.data.find((group: any) => group.name === "미분류");
+    expect(defaultGroup).toBeDefined();
+
+    const workRes = await createGroup(cookie, "Work");
+    const personalRes = await createGroup(cookie, "Personal");
+    expect(workRes.status).toBe(201);
+    expect(personalRes.status).toBe(201);
+
+    const workBody = await workRes.json() as any;
+    const personalBody = await personalRes.json() as any;
+    const reorderedIds = [personalBody.data.id, defaultGroup.id, workBody.data.id];
+
+    const reorderRes = await reorderGroups(cookie, reorderedIds);
+    expect(reorderRes.status).toBe(200);
+
+    const reorderedListRes = await listGroups(cookie);
+    expect(reorderedListRes.status).toBe(200);
+    const reorderedListBody = await reorderedListRes.json() as any;
+    expect(reorderedListBody.data.map((group: any) => group.id)).toEqual(reorderedIds);
+
+    await logout(cookie);
+
+    const reloginRes = await login("alice", "password123");
+    const reloginCookie = extractCookie(reloginRes);
+    const relistedGroupsRes = await listGroups(reloginCookie);
+    expect(relistedGroupsRes.status).toBe(200);
+    const relistedGroupsBody = await relistedGroupsRes.json() as any;
+    expect(relistedGroupsBody.data.map((group: any) => group.id)).toEqual(reorderedIds);
+  });
+
+  it("rejects duplicate group ids", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const groupsRes = await listGroups(cookie);
+    expect(groupsRes.status).toBe(200);
+    const groupsBody = await groupsRes.json() as any;
+    const defaultGroup = groupsBody.data.find((group: any) => group.name === "미분류");
+    expect(defaultGroup).toBeDefined();
+
+    const workRes = await createGroup(cookie, "Work");
+    expect(workRes.status).toBe(201);
+    const workBody = await workRes.json() as any;
+
+    const reorderRes = await reorderGroups(cookie, [
+      defaultGroup.id,
+      workBody.data.id,
+      workBody.data.id,
+    ]);
+    expect(reorderRes.status).toBe(400);
+  });
+
+  it("rejects missing groups", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const workRes = await createGroup(cookie, "Work");
+    expect(workRes.status).toBe(201);
+    const workBody = await workRes.json() as any;
+
+    const reorderRes = await reorderGroups(cookie, [workBody.data.id]);
+    expect(reorderRes.status).toBe(400);
+  });
+
+  it("rejects foreign group ids", async () => {
+    await signup("bob", "password123");
+
+    const aliceLoginRes = await login("alice", "password123");
+    const aliceCookie = extractCookie(aliceLoginRes);
+    const aliceGroupsRes = await listGroups(aliceCookie);
+    expect(aliceGroupsRes.status).toBe(200);
+    const aliceGroupsBody = await aliceGroupsRes.json() as any;
+    const aliceDefaultGroup = aliceGroupsBody.data.find((group: any) => group.name === "미분류");
+    expect(aliceDefaultGroup).toBeDefined();
+
+    const aliceWorkRes = await createGroup(aliceCookie, "Work");
+    expect(aliceWorkRes.status).toBe(201);
+    const aliceWorkBody = await aliceWorkRes.json() as any;
+
+    const bobLoginRes = await login("bob", "password123");
+    const bobCookie = extractCookie(bobLoginRes);
+    const bobGroupRes = await createGroup(bobCookie, "Bob Group");
+    expect(bobGroupRes.status).toBe(201);
+    const bobGroupBody = await bobGroupRes.json() as any;
+
+    const reorderRes = await reorderGroups(aliceCookie, [
+      bobGroupBody.data.id,
+      aliceDefaultGroup.id,
+    ]);
+    expect(reorderRes.status).toBe(400);
+
+    const groupsRes = await listGroups(aliceCookie);
+    expect(groupsRes.status).toBe(200);
+    const groupsBody = await groupsRes.json() as any;
+    expect(groupsBody.data.map((group: any) => group.id)).toEqual([
+      aliceDefaultGroup.id,
+      aliceWorkBody.data.id,
+    ]);
   });
 });

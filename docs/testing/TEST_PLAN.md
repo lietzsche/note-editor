@@ -222,3 +222,10 @@ npm run dev
 
 1. 현재 범위 밖 테스트 초안은 `docs/testing/backlog/README.md`에서 관리한다.
 2. backlog 항목이 구현 범위로 승격되면 필요한 시나리오를 본 문서로 옮긴다.
+## 9. 2026-04-16 DnD Reorder Addendum
+
+1. Add manual QA coverage for group sidebar DnD reorder on desktop and mobile.
+2. Add manual QA coverage for note list DnD reorder in both `All notes` and group-filtered views.
+3. Confirm keyboard drag-handle reorder for both lists.
+4. Confirm group reorder persistence after reload and relogin.
+5. Confirm group-scoped note reorder still updates the derived `All notes` order.

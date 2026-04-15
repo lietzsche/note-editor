@@ -2,6 +2,7 @@ import { startTransition, useCallback, useEffect, useRef, useState } from "react
 import { ApiError, api, type Group, type Note } from "../lib/api";
 import { CharacterCountIndicator } from "../components/CharacterCountIndicator";
 import { CopyAllButton } from "../components/CopyAllButton";
+import { NotesPageLayout } from "../components/NotesPageLayout";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
 import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
 import {
@@ -67,7 +68,8 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("ready");
   const [countStatus, setCountStatus] = useState<CountStatus>("count-ready");
   const [notesLoadState, setNotesLoadState] = useState<LoadState>("idle");
-  const [reorderStatus, setReorderStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [groupReorderStatus, setGroupReorderStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [noteReorderStatus, setNoteReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [newGroupName, setNewGroupName] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
@@ -325,14 +327,18 @@ export default function NotesPage({ username, onLogout }: Props) {
       ...current.filter((group) => group.id !== nextGroup.id),
       nextGroup,
     ].sort((a, b) => a.position - b.position);
-    const snapshot = cloneGroups(nextGroups);
-    groupsCacheRef.current = snapshot;
-    setGroups(snapshot);
+    setGroupsSnapshot(nextGroups);
   }
 
   function removeGroup(groupId: string) {
     const current = groupsCacheRef.current ?? groups;
-    const nextGroups = current.filter((group) => group.id !== groupId);
+    const nextGroups = current
+      .filter((group) => group.id !== groupId)
+      .map((group, index) => ({ ...group, position: index }));
+    setGroupsSnapshot(nextGroups);
+  }
+
+  function setGroupsSnapshot(nextGroups: Group[]) {
     const snapshot = cloneGroups(nextGroups);
     groupsCacheRef.current = snapshot;
     setGroups(snapshot);
@@ -635,19 +641,33 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
-  async function moveNote(noteId: string, direction: -1 | 1) {
-    if (reorderStatus === "saving") return;
+  async function handleGroupReorder(nextGroups: Group[]) {
+    if (groupReorderStatus === "saving") return;
 
-    const currentIndex = notes.findIndex((note) => note.id === noteId);
-    const nextIndex = currentIndex + direction;
+    const normalizedNextGroups = nextGroups.map((group, index) => ({
+      ...group,
+      position: index,
+    }));
+    const previousGroups = cloneGroups(groupsCacheRef.current ?? groups);
+    setGroupsSnapshot(normalizedNextGroups);
+    setGroupReorderStatus("saving");
 
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= notes.length) return;
+    try {
+      await api.groups.reorder(normalizedNextGroups.map((group) => group.id));
+      setGroupReorderStatus("idle");
+    } catch {
+      setGroupsSnapshot(previousGroups);
+      setGroupReorderStatus("error");
+      setTimeout(() => setGroupReorderStatus("idle"), 2000);
+    }
+  }
+
+  async function handleNoteReorder(reorderedNotes: Note[]) {
+    if (noteReorderStatus === "saving") return;
 
     const previousNotes = notes;
-    const reorderedNotes = moveItem(notes, currentIndex, nextIndex);
-
     setNotes(reorderedNotes);
-    setReorderStatus("saving");
+    setNoteReorderStatus("saving");
 
     try {
       const scope = selectedGroupId
@@ -677,11 +697,11 @@ export default function NotesPage({ username, onLogout }: Props) {
         setNotesForScope(selectedGroupId, reorderedNotes);
       }
 
-      setReorderStatus("idle");
+      setNoteReorderStatus("idle");
     } catch {
       setNotes(previousNotes);
-      setReorderStatus("error");
-      setTimeout(() => setReorderStatus("idle"), 2000);
+      setNoteReorderStatus("error");
+      setTimeout(() => setNoteReorderStatus("idle"), 2000);
     }
   }
 
@@ -999,13 +1019,18 @@ export default function NotesPage({ username, onLogout }: Props) {
     saveStatus === "conflict" ? "충돌 발생" :
     saveStatus === "error" ? "저장 실패" : "저장됨";
 
+  const groupListStatusLabel =
+    groupReorderStatus === "saving" ? "그룹 정렬 저장 중..." :
+    groupReorderStatus === "error" ? "그룹 정렬 실패" :
+    groups.length < 2 ? "그룹이 2개 이상일 때 정렬 가능" : "드래그로 그룹 순서 변경";
+
   const noteListStatusLabel =
-    reorderStatus === "saving" ? "정렬 저장 중..." :
-    reorderStatus === "error" ? "정렬 실패" :
+    noteReorderStatus === "saving" ? "정렬 저장 중..." :
+    noteReorderStatus === "error" ? "정렬 실패" :
     notesLoadState === "loading" ? "노트 불러오는 중..." :
     notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
     notesLoadState === "error" ? "목록 갱신 실패" :
-    selectedGroupId === null ? "전체 노트에서 정렬" : "현재 그룹에서 정렬";
+    selectedGroupId === null ? "드래그로 전체 노트 정렬" : "드래그로 현재 그룹 노트 정렬";
 
   const currentGroupLabel = selectedGroupId
     ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
@@ -1013,6 +1038,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const selectedNoteGroupValue = selectedNote
     ? getSelectableGroupValue(selectedNote.group_id)
     : "";
+  const reorderStatus = noteReorderStatus;
 
   const showGroupsPanel = !isMobile || mobilePanel === "groups";
   const showNotesPanel = !isMobile || mobilePanel === "notes";
@@ -1030,6 +1056,104 @@ export default function NotesPage({ username, onLogout }: Props) {
       : saveStatus === "error"
         ? "마지막 입력값은 유지되어 있습니다. 다시 저장하거나 버리고 이동할 수 있습니다."
         : "현재 편집 중인 내용을 저장한 뒤 이동할지, 버리고 이동할지 선택하세요.";
+
+  async function moveNote(noteId: string, direction: -1 | 1) {
+    const currentIndex = notes.findIndex((note) => note.id === noteId);
+    const nextIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= notes.length) return;
+    await handleNoteReorder(moveItem(notes, currentIndex, nextIndex));
+  }
+
+  return (
+    <NotesPageLayout
+      styles={styles}
+      isMobile={isMobile}
+      mobilePanel={mobilePanel}
+      setMobilePanel={setMobilePanel}
+      showGroupsPanel={showGroupsPanel}
+      showNotesPanel={showNotesPanel}
+      showEditorPanel={showEditorPanel}
+      username={username}
+      groups={groups}
+      selectedGroupId={selectedGroupId}
+      currentGroupLabel={currentGroupLabel}
+      defaultGroupId={defaultGroupId}
+      defaultGroupName={DEFAULT_GROUP_NAME}
+      groupListStatusLabel={groupListStatusLabel}
+      noteListStatusLabel={noteListStatusLabel}
+      notes={notes}
+      notesLoadState={notesLoadState}
+      selectedNote={selectedNote}
+      selectedNoteGroupValue={selectedNoteGroupValue}
+      title={title}
+      content={content}
+      saveLabel={saveLabel}
+      saveStatus={saveStatus}
+      charCount={charCount}
+      countStatus={countStatus}
+      copyStatus={copyStatus}
+      newGroupName={newGroupName}
+      groupReorderBusy={groupReorderStatus === "saving"}
+      noteReorderBusy={noteReorderStatus === "saving"}
+      dialogMode={dialogMode}
+      dialogTitle={dialogTitle}
+      dialogDescription={dialogDescription}
+      primaryDialogLabel={primaryDialogLabel}
+      isConflictDialog={isConflictDialog}
+      conflictNote={conflictNote}
+      hasPendingAction={Boolean(pendingAction)}
+      perfDebugEnabled={PERF_DEBUG_ENABLED}
+      perfSamples={perfSamples}
+      onLogout={handleLogout}
+      onSelectGroup={selectGroup}
+      onRenameGroup={(groupId, groupName) => {
+        void handleRenameGroup(groupId, groupName);
+      }}
+      onDeleteGroup={(groupId, groupName) => {
+        void handleDeleteGroup(groupId, groupName);
+      }}
+      onReorderGroups={(nextGroups) => {
+        void handleGroupReorder(nextGroups);
+      }}
+      onCreateGroup={(event) => {
+        void handleCreateGroup(event);
+      }}
+      onNewGroupNameChange={(event) => setNewGroupName(event.target.value)}
+      onCreateNote={() => {
+        void createNote();
+      }}
+      onSelectNote={selectNote}
+      onDeleteNote={(noteId) => {
+        void deleteNote(noteId);
+      }}
+      onMoveNoteGroup={(note, groupId) => {
+        void handleMoveNoteGroup(note, groupId);
+      }}
+      onReorderNotes={(nextNotes) => {
+        void handleNoteReorder(nextNotes);
+      }}
+      onTitleChange={handleTitleChange}
+      onContentChange={handleContentChange}
+      onMoveSelectedNoteGroup={(groupId) => {
+        void handleMoveSelectedNoteGroup(groupId);
+      }}
+      onRetrySave={() => {
+        void handleRetrySave();
+      }}
+      onOpenConflictDialog={() => setDialogMode("conflict")}
+      onCopy={() => {
+        void handleCopy();
+      }}
+      onDialogPrimaryAction={() => {
+        void handleDialogPrimaryAction();
+      }}
+      onDialogDiscardAction={() => {
+        void handleDialogDiscardAction();
+      }}
+      onDialogCancelAction={handleDialogCancelAction}
+    />
+  );
 
   return (
     <div
@@ -1431,10 +1555,10 @@ export default function NotesPage({ username, onLogout }: Props) {
                 <section style={styles.conflictPanel}>
                   <strong style={styles.conflictPanelTitle}>서버 최신본</strong>
                   <div style={styles.conflictPanelMeta}>
-                    마지막 저장: {new Date(conflictNote.updated_at).toLocaleString("ko-KR")}
+                    마지막 저장: {new Date(conflictNote!.updated_at).toLocaleString("ko-KR")}
                   </div>
                   <div style={styles.conflictPanelBody}>
-                    {conflictNote.content || "(빈 본문)"}
+                    {conflictNote!.content || "(빈 본문)"}
                   </div>
                 </section>
               </div>
@@ -1530,6 +1654,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "12px",
     color: "var(--color-text-secondary)",
     borderBottom: "1px solid var(--color-border)",
+  },
+  groupSectionHeader: {
+    padding: "8px 12px 4px",
+    borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
   },
   groupSection: {
     flex: 1,

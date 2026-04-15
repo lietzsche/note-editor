@@ -198,3 +198,13 @@
 - 2026-04-15: 그룹 뷰에서도 버튼 기반 정렬이 가능하도록 프론트 정렬 경로 확장
 - 2026-04-15: `noteOrder` 유틸, 단위 테스트, 그룹 scope reorder 통합 테스트 추가
 - 2026-04-15: `npm.cmd run typecheck`, `npm.cmd run test:unit`, `npm.cmd run build`, `npm.cmd run test:integration` 통과
+# Historical Note (2026-04-16)
+
+This document reflects the earlier button-based reorder baseline that shipped before DnD.
+The current canonical reorder policy and implementation are documented in:
+
+- `docs/backlog/BACKLOG-003-group-and-note-dnd-reorder.md`
+- `docs/testing/backlog/TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
+
+Any references below to up/down button fallback, limited mobile DnD, or "DnD not included"
+should be treated as historical context only, not as current requirements.

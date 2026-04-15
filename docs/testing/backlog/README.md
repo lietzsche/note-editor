@@ -1,5 +1,11 @@
 # Testing Backlog Index
 
+## Current Note (2026-04-16)
+
+For reorder-related QA, use `TEST-BACKLOG-004-group-and-note-dnd-reorder.md` as the
+current canonical test backlog. `TEST-BACKLOG-001-note-list-reorder-and-group-move.md`
+remains as historical baseline coverage only.
+
 현재 릴리스 범위 밖 기능의 테스트 초안과 수동 검증 시나리오를 관리한다.
 
 ## 위치 정책
@@ -28,3 +34,5 @@
 
 3. `TEST-BACKLOG-003-pwa-installation.md`
 - PWA 설치형 앱 지원 관련 테스트 초안
+4. `TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
+- automated and manual verification for DnD-only group/note reorder

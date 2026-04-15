@@ -70,3 +70,13 @@
 - 2026-04-15: `npm.cmd run build` 통과
 - 2026-04-15: `npm.cmd run test:integration` 통과
 - 남은 확인: 실제 브라우저에서 `TB-001`, `TB-002` 수동 검증
+# Historical Note (2026-04-16)
+
+This test backlog describes the earlier pre-DnD baseline.
+The current canonical DnD reorder QA and acceptance criteria are documented in:
+
+- `docs/backlog/BACKLOG-003-group-and-note-dnd-reorder.md`
+- `docs/testing/backlog/TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
+
+Any references below to button-based reorder fallback or "DnD not included"
+should be treated as historical coverage only.

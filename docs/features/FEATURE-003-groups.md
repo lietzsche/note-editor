@@ -72,3 +72,9 @@
 ## 8. 연계 테스트 시나리오
 
 - `docs/testing/TEST_PLAN.md` TS-07
+## 9. 2026-04-16 DnD Update
+
+1. Groups now support persisted reorder through `POST /api/groups/reorder`.
+2. Sidebar group order is managed with `@dnd-kit` drag-and-drop on desktop, mobile, and keyboard flows.
+3. The default group participates in reorder, but rename/delete restrictions remain unchanged.
+4. Automated coverage for group reorder success and validation failures lives in `tests/api/auth.test.ts`.

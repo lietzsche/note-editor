@@ -1,5 +1,15 @@
 # Docs Index
 
+## Current Note (2026-04-16)
+
+For group/note reorder behavior, the current canonical docs are:
+
+- `docs/backlog/BACKLOG-003-group-and-note-dnd-reorder.md`
+- `docs/testing/backlog/TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
+- `docs/STATUS-2026-04-16.md`
+
+Older reorder docs remain in the tree as historical baseline records.
+
 현재 저장소는 문서 중심으로 시작하며, 실행 구조 정렬은 `docs/specs/SPEC-01-cloudflare-project-bootstrap.md`를 따른다.
 
 ## 0. 초기 세팅
@@ -23,6 +33,7 @@
 
 - `docs/testing/TEST_PLAN.md`
 - `docs/testing/backlog/README.md`
+- `docs/testing/backlog/TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
 
 ## 4. Features
 
@@ -57,9 +68,11 @@
 - `docs/STATUS-2026-04-11.md`
 - `docs/STATUS-2026-04-12.md`
 - `docs/STATUS-2026-04-15.md`
+- `docs/STATUS-2026-04-16.md`
 
 ## 9. Backlog
 
 - `docs/backlog/README.md`
-- `docs/backlog/BACKLOG-001-note-list-reorder-and-group-move.md`
+- `docs/backlog/BACKLOG-001-note-list-reorder-and-group-move.md` (`Historical baseline`)
 - `docs/backlog/BACKLOG-002-note-loading-performance-and-caching.md` (`Done`)
+- `docs/backlog/BACKLOG-003-group-and-note-dnd-reorder.md` (`Done`, current canonical reorder doc)

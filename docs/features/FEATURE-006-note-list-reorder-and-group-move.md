@@ -239,3 +239,22 @@
 1. 구현 순서는 `리스트 기반 그룹 이동 -> 그룹 뷰 DnD 정렬` 순으로 잡는 것이 가장 안전하다.
 2. 1차 도입에서는 DB 스키마 변경 없이 기존 `sort_order` 모델을 유지하는 편이 낫다.
 3. 이후 요구사항이 `그룹별 독립 정렬`과 `전체 노트 정렬`을 서로 다른 규칙으로 분리하는 수준까지 커질 때만 신규 정렬 컬럼 또는 별도 정렬 모델을 검토한다.
+## 11. 2026-04-16 Implementation Update
+
+1. The originally proposed DnD work is now implemented.
+2. Note reorder uses `@dnd-kit` in both `All notes` and group-filtered views.
+3. Group-scoped note reorder still persists through `POST /api/notes/reorder` with `scope`.
+4. Group order now persists through `POST /api/groups/reorder`.
+5. The previous up/down button fallback was removed and replaced by explicit drag handles.
+# Implementation Note (2026-04-16)
+
+This document started as a proposal and now contains both historical design discussion
+and implemented behavior. The shipped reorder behavior is documented canonically in:
+
+- `docs/backlog/BACKLOG-003-group-and-note-dnd-reorder.md`
+- `docs/testing/backlog/TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
+- `docs/STATUS-2026-04-16.md`
+
+Sections below that mention keeping up/down button fallback, limiting mobile DnD,
+or treating DnD as non-primary are historical proposal content and should not be
+used as current requirements.

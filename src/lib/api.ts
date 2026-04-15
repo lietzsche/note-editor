@@ -84,6 +84,11 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ name }),
       }),
+    reorder: (orderedGroupIds: string[]) =>
+      request<{ orderedGroupIds: string[] }>("/api/groups/reorder", {
+        method: "POST",
+        body: JSON.stringify({ orderedGroupIds }),
+      }),
     delete: (id: string) =>
       request<void>(`/api/groups/${id}`, { method: "DELETE" }),
   },
