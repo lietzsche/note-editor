@@ -72,7 +72,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
-  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("groups");
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
   const [conflictNote, setConflictNote] = useState<Note | null>(null);
