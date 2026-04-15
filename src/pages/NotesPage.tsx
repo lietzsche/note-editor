@@ -15,6 +15,10 @@ import {
   buildPerfConsoleLine,
   type PerfSample,
 } from "../lib/performanceDebug";
+import {
+  createSerializedAutoSaveRunner,
+  type SerializedAutoSaveRunner,
+} from "../lib/noteAutoSave";
 
 type Props = {
   username: string;
@@ -45,6 +49,13 @@ type PendingGroupPerf = {
   source: "cold" | "warm";
 };
 
+type NoteSaveSnapshot = {
+  noteId: string;
+  title: string;
+  content: string;
+  expectedUpdatedAt: string | null;
+};
+
 export default function NotesPage({ username, onLogout }: Props) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -71,6 +82,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const selectedNoteUpdatedAtRef = useRef<string | null>(null);
   const titleRef = useRef(title);
   const contentRef = useRef(content);
+  const conflictNoteRef = useRef<Note | null>(null);
   const pendingGroupPerfRef = useRef<PendingGroupPerf | null>(null);
   const groupsCacheRef = useRef<Group[] | null>(null);
   const notesCacheRef = useRef<Map<string, Note[]>>(new Map());
@@ -78,6 +90,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const notesInFlightRef = useRef<Map<string, Promise<Note[]>>>(new Map());
   const notesRequestSequenceRef = useRef(0);
   const currentScopeKeyRef = useRef(ALL_NOTES_SCOPE_KEY);
+  const autoSaveRunnerRef = useRef<SerializedAutoSaveRunner | null>(null);
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
 
@@ -483,6 +496,8 @@ export default function NotesPage({ username, onLogout }: Props) {
 
   function clearSelectedNoteView() {
     cancelScheduledSave();
+    autoSaveRunnerRef.current?.reset();
+    autoSaveRunnerRef.current = null;
     selectedNoteIdRef.current = null;
     selectedNoteUpdatedAtRef.current = null;
     setSelectedNote(null);
@@ -493,6 +508,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     setSaveStatus("saved");
     setCopyStatus("ready");
     setCountStatus("count-ready");
+    conflictNoteRef.current = null;
     setConflictNote(null);
     setPendingAction(null);
     setDialogMode(null);
@@ -505,10 +521,13 @@ export default function NotesPage({ username, onLogout }: Props) {
     const noteOpenStart = PERF_DEBUG_ENABLED ? performance.now() : 0;
 
     cancelScheduledSave();
+    autoSaveRunnerRef.current?.reset();
     selectedNoteIdRef.current = note.id;
     selectedNoteUpdatedAtRef.current = note.updated_at;
     titleRef.current = note.title;
     contentRef.current = note.content;
+    conflictNoteRef.current = null;
+    autoSaveRunnerRef.current = createNoteAutoSaveRunner(note.id);
     startTransition(() => {
       setSelectedNote(note);
       setTitle(note.title);
@@ -679,16 +698,29 @@ export default function NotesPage({ username, onLogout }: Props) {
     );
   }
 
-  async function persistCurrentNote(force = false) {
-    if (!selectedNote) return true;
+  function createNoteAutoSaveRunner(noteId: string) {
+    return createSerializedAutoSaveRunner({
+      readSnapshot: () => {
+        if (selectedNoteIdRef.current !== noteId) return null;
 
-    cancelScheduledSave();
-    const noteId = selectedNote.id;
-    const draftTitle = titleRef.current;
-    const draftContent = contentRef.current;
-    const expectedUpdatedAt = force
-      ? conflictNote?.updated_at ?? selectedNoteUpdatedAtRef.current
-      : selectedNoteUpdatedAtRef.current;
+        return {
+          noteId,
+          title: titleRef.current,
+          content: contentRef.current,
+          expectedUpdatedAt: selectedNoteUpdatedAtRef.current,
+        };
+      },
+      run: (snapshot) => performNoteSave(snapshot),
+    });
+  }
+
+  async function performNoteSave(snapshot: NoteSaveSnapshot, force = false) {
+    const {
+      noteId,
+      title: draftTitle,
+      content: draftContent,
+      expectedUpdatedAt,
+    } = snapshot;
 
     setSaveStatus("saving");
 
@@ -713,6 +745,7 @@ export default function NotesPage({ username, onLogout }: Props) {
 
       selectedNoteUpdatedAtRef.current = updated.updated_at;
       setSelectedNote(updated);
+      conflictNoteRef.current = null;
       setConflictNote(null);
 
       const draftStillCurrent =
@@ -733,6 +766,7 @@ export default function NotesPage({ username, onLogout }: Props) {
         setNotes((prev) => prev.map((note) => (note.id === noteId ? error.data : note)));
         setSelectedNote(error.data);
         selectedNoteUpdatedAtRef.current = error.data.updated_at;
+        conflictNoteRef.current = error.data;
         setConflictNote(error.data);
         setSaveStatus("conflict");
         setDialogMode("conflict");
@@ -744,9 +778,38 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }
 
+  async function persistCurrentNote(force = false) {
+    const noteId = selectedNoteIdRef.current;
+    if (!noteId) return true;
+
+    cancelScheduledSave();
+
+    if (force) {
+      return performNoteSave({
+        noteId,
+        title: titleRef.current,
+        content: contentRef.current,
+        expectedUpdatedAt:
+          conflictNoteRef.current?.updated_at ?? selectedNoteUpdatedAtRef.current,
+      }, true);
+    }
+
+    if (!autoSaveRunnerRef.current) {
+      autoSaveRunnerRef.current = createNoteAutoSaveRunner(noteId);
+    }
+
+    return autoSaveRunnerRef.current.requestRun();
+  }
+
   function scheduleAutoSave(noteId: string) {
     cancelScheduledSave();
     setSaveStatus("dirty");
+
+    if (autoSaveRunnerRef.current?.isRunning()) {
+      void autoSaveRunnerRef.current.requestRun();
+      return;
+    }
+
     saveTimerRef.current = setTimeout(async () => {
       if (selectedNoteIdRef.current !== noteId) return;
       await persistCurrentNote();
@@ -909,6 +972,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     cancelScheduledSave();
     setPendingAction(null);
     setDialogMode(null);
+    conflictNoteRef.current = null;
     setConflictNote(null);
     setSaveStatus("saved");
     setCopyStatus("ready");

@@ -33,6 +33,7 @@
 - `docs/features/FEATURE-004-note-isolation.md`
 - `docs/features/FEATURE-005-editor-productivity.md`
 - `docs/features/FEATURE-006-note-list-reorder-and-group-move.md`
+- `docs/features/FEATURE-007-auto-save-conflict-serialization.md`
 
 ## 5. Operations
 

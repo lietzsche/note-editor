@@ -22,6 +22,9 @@
 6. `FEATURE-006-note-list-reorder-and-group-move.md`
 - 그룹 뷰 정렬 개선 및 리스트 기반 그룹 이동 계획
 
+7. `FEATURE-007-auto-save-conflict-serialization.md`
+- 자동 저장 직렬화 및 오탐 충돌 방지 계획
+
 ## 공통 작성 규칙
 
 1. 기능 단위 문서는 아래 섹션을 포함한다.
