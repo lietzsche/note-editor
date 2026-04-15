@@ -126,6 +126,37 @@ describe("FEATURE-007 auto-save serialization", () => {
     await drainPromise;
   });
 
+  it("does not drop a follow-up request queued right after a drain cycle completes", async () => {
+    const seenRevisions: number[] = [];
+    let state = { revision: 1 };
+    let followUpPromise: Promise<boolean> | null = null;
+
+    const runner = createSerializedAutoSaveRunner({
+      readSnapshot: () => ({ ...state }),
+      run: async (snapshot) => {
+        seenRevisions.push(snapshot.revision);
+
+        if (snapshot.revision === 1) {
+          queueMicrotask(() => {
+            queueMicrotask(() => {
+              state = { revision: 2 };
+              followUpPromise = runner.requestRun();
+            });
+          });
+        }
+
+        return true;
+      },
+    });
+
+    const drainPromise = runner.requestRun();
+
+    await drainPromise;
+    await followUpPromise;
+
+    expect(seenRevisions).toEqual([1, 2]);
+  });
+
   it("stops queued follow-up runs when the snapshot is no longer available", async () => {
     let active = true;
     const firstGate = createDeferred();
