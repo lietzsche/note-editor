@@ -38,7 +38,7 @@ export default function ThemeToggle({ compact = false }: ThemeToggleProps) {
       </div>
       {!compact && (
         <span className="theme-toggle__label">
-          {theme === "light" ? "다크 모드" : "라이트 모드"}
+          {theme === "light" ? "라이트 모드" : "다크 모드"}
         </span>
       )}
     </button>
