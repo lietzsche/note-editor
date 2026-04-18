@@ -196,7 +196,7 @@ const styles = {
   } satisfies CSSProperties,
   activeGroup: {
     background: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
   } satisfies CSSProperties,
   groupSelectButton: {
     flex: 1,

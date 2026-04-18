@@ -226,8 +226,9 @@ const styles = {
     borderLeft: "3px solid transparent",
   } satisfies CSSProperties,
   activeNote: {
-    background: "#eff6ff",
+    background: "var(--color-bg-accent-soft)",
     borderLeft: "3px solid var(--color-primary)",
+    color: "var(--color-text-primary)",
   } satisfies CSSProperties,
   noteRow: {
     display: "flex",
@@ -243,6 +244,7 @@ const styles = {
     minHeight: "44px",
     background: "none",
     border: "none",
+    color: "inherit",
   } satisfies CSSProperties,
   noteTitle: {
     fontWeight: 500,

@@ -10,7 +10,7 @@ type Props = {
 const baseStyle: CSSProperties = {
   minHeight: "44px",
   padding: "4px 12px",
-  color: "#fff",
+  color: "var(--color-brand-contrast)",
   border: "none",
   borderRadius: "var(--radius)",
   cursor: "pointer",

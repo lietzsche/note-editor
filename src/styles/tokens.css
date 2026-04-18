@@ -1,4 +1,5 @@
 :root {
+  /* Light theme (default) */
   --color-bg-canvas: #f7f8fa;
   --color-bg-surface: #ffffff;
   --color-bg-elevated: #ffffff;
@@ -76,4 +77,37 @@
   --color-success: var(--color-feedback-success);
   --radius: var(--radius-sm);
   --shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] {
+  /* Dark theme - sleek and modern */
+  --color-bg-canvas: #0a0a0a;
+  --color-bg-surface: #1a1a1a;
+  --color-bg-elevated: #252525;
+  --color-bg-emphasis: #2a2a2a;
+  --color-bg-accent-soft: rgba(66, 153, 255, 0.15);
+  --color-bg-accent-warm: rgba(255, 170, 66, 0.15);
+
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: #b0b0b0;
+  --color-text-muted: #888888;
+  --color-text-inverse: #0a0a0a;
+
+  --color-border-subtle: #333333;
+  --color-border-default: #444444;
+  --color-border-strong: #555555;
+
+  --color-brand-primary: #4299ff;
+  --color-brand-primary-hover: #66b3ff;
+  --color-brand-contrast: #ffffff;
+
+  --color-feedback-success: #34c759;
+  --color-feedback-warning: #ff9500;
+  --color-feedback-danger: #ff3b30;
+  --color-feedback-info: #5ac8fa;
+
+  /* Dark theme shadows - more subtle and depth-oriented */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.5);
 }

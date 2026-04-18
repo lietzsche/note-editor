@@ -1157,7 +1157,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   mobileTabButtonActive: {
     background: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
     borderColor: "var(--color-primary)",
   },
   sidebar: {
@@ -1209,7 +1209,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   activeGroup: {
     background: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
   },
   groupSelectButton: {
     flex: 1,
@@ -1254,7 +1254,7 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: "44px",
     minHeight: "44px",
     background: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
     border: "none",
     borderRadius: "var(--radius)",
     cursor: "pointer",
@@ -1296,7 +1296,7 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "44px",
     padding: "4px 12px",
     background: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
     border: "none",
     borderRadius: "var(--radius)",
     cursor: "pointer",
@@ -1327,8 +1327,9 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "44px",
   },
   activeNote: {
-    background: "#eff6ff",
+    background: "var(--color-bg-accent-soft)",
     borderLeft: "3px solid var(--color-primary)",
+    color: "var(--color-text-primary)",
   },
   noteTitle: {
     fontWeight: 500,
@@ -1336,6 +1337,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    color: "var(--color-text-primary)",
   },
   noteDate: {
     fontSize: "11px",
@@ -1417,6 +1419,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "16px",
     fontWeight: 600,
     background: "transparent",
+    color: "var(--color-text-primary)",
   },
   groupPicker: {
     display: "flex",
@@ -1462,7 +1465,7 @@ const styles: Record<string, React.CSSProperties> = {
   copyBtn: {
     minHeight: "44px",
     padding: "4px 12px",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
     border: "none",
     borderRadius: "var(--radius)",
     cursor: "pointer",
@@ -1532,7 +1535,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "var(--radius)",
     border: "none",
     background: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-brand-contrast)",
     fontWeight: 700,
   },
   modalSecondaryButton: {

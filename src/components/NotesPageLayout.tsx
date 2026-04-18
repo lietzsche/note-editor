@@ -9,6 +9,7 @@ import { CopyAllButton } from "./CopyAllButton";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
+import ThemeToggle from "./ThemeToggle";
 import type { PerfSample } from "../lib/performanceDebug";
 
 type MobilePanel = "groups" | "notes" | "editor";
@@ -198,16 +199,21 @@ export function NotesPageLayout({
           }}
         >
           <div style={styles.sidebarHeader}>
-            <span style={{ fontWeight: 700 }}>노트 그룹</span>
-            <button
-              type="button"
-              style={styles.logoutBtn}
-              onClick={onLogout}
-              title="로그아웃"
-              aria-label="로그아웃"
-            >
-              로그아웃
-            </button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span style={{ fontWeight: 700, fontSize: "var(--font-size-lg)", whiteSpace: "nowrap" }}>노트 그룹</span>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <ThemeToggle compact={!isMobile} />
+                <button
+                  type="button"
+                  style={styles.logoutBtn}
+                  onClick={onLogout}
+                  title="로그아웃"
+                  aria-label="로그아웃"
+                >
+                  로그아웃
+                </button>
+              </div>
+            </div>
           </div>
           <div style={styles.userInfo}>{username}</div>
           <div style={styles.groupSectionHeader}>
