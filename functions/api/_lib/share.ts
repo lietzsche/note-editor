@@ -1,4 +1,3 @@
-import type { Env } from "./types";
 
 /**
  * 공유 토큰 생성 (예측 불가능한 32자 랜덤 문자열)

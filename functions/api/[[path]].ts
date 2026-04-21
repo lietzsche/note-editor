@@ -16,7 +16,6 @@ import {
   forbidden,
 } from "./_lib/response";
 import {
-  generateShareToken,
   validateShareToken,
   incrementAccessCount,
   getShareTokenForNote,
@@ -784,7 +783,7 @@ app.post("/api/notes/:id/share", async (c) => {
   const body = await c.req.json<{ expires_at?: string }>();
   const expiresAt = body.expires_at && typeof body.expires_at === "string" ? body.expires_at : null;
 
-  const shareToken = await upsertShareToken(c.env.DB, noteId, expiresAt);
+  await upsertShareToken(c.env.DB, noteId, expiresAt);
   const shareInfo = await getShareTokenForNote(c.env.DB, noteId);
   if (!shareInfo) return err("INTERNAL", "공유 정보를 생성하지 못했습니다.");
 
