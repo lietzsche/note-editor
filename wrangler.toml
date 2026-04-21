@@ -1,15 +1,74 @@
-name = "note-editor"
-compatibility_date = "2024-01-01"
+name = "note-editor-v2"
+compatibility_date = "2026-04-21"
+main = "functions/api/index.ts"
 compatibility_flags = ["nodejs_compat"]
-main = "functions/api/[[path]].ts"
 
-[assets]
-directory = "./build"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-
+# D1 데이터베이스 바인딩 (로컬 개발용)
 [[d1_databases]]
 binding = "DB"
-database_name = "note-editor-db"
-database_id = "c633c65e-4033-4ae7-ba5b-d753e1cb557e"
-migrations_dir = "migrations"
+database_name = "note-editor-v2-db"
+database_id = "LOCAL_DEVELOPMENT"  # 로컬 개발용, 원격 배포시 실제 ID로 교체
+
+# 환경 변수 (로컬 개발용)
+[vars]
+SESSION_SECRET = "local-development-secret-key-change-in-production"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "qwer135!"
+JWT_SECRET = "local-jwt-secret-key-change-in-production"
+APP_ENV = "development"
+LOG_LEVEL = "debug"
+
+# 개발 환경 설정
+[env.development]
+vars = { APP_ENV = "development" }
+
+# 스테이징 환경 설정
+[env.staging]
+vars = { APP_ENV = "staging" }
+
+# 프로덕션 환경 설정  
+[env.production]
+vars = { APP_ENV = "production" }
+
+# 배포 설정
+[build]
+command = "npm run build"
+watch_dir = "src"
+
+[build.upload]
+format = "service-worker"
+
+# 트리거 설정 (도메인)
+# [[routes]]
+#   pattern = "note-editor-v2.your-domain.workers.dev"
+#   zone_name = "your-domain.com"
+
+# [[triggers]]
+#   crons = ["0 2 * * *"]  # 매일 새벽 2시 백업 등
+
+# 로깅 설정
+[logpush]
+enabled = true
+
+# 분석 설정
+[analytics_engine_datasets]
+binding = "ANALYTICS"
+
+# KV 네임스페이스 (필요시)
+# [[kv_namespaces]]
+# binding = "KV_CACHE"
+# id = "cache-namespace-id"
+
+# R2 버킷 (필요시)
+# [[r2_buckets]]
+# binding = "MEDIA_BUCKET"
+# bucket_name = "note-media-bucket"
+
+# Durable Objects (필요시)
+# [[durable_objects.bindings]]
+# name = "SESSION_STORE"
+# class_name = "SessionStore"
+
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["SessionStore"]
