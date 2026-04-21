@@ -783,16 +783,21 @@ app.post("/api/notes/:id/share", async (c) => {
   const body = await c.req.json<{ expires_at?: string }>();
   const expiresAt = body.expires_at && typeof body.expires_at === "string" ? body.expires_at : null;
 
-  await upsertShareToken(c.env.DB, noteId, expiresAt);
-  const shareInfo = await getShareTokenForNote(c.env.DB, noteId);
-  if (!shareInfo) return err("INTERNAL", "공유 정보를 생성하지 못했습니다.");
+  const shareToken = await upsertShareToken(c.env.DB, noteId, expiresAt);
+  // 만료된 토큰도 포함하여 정보 조회
+  const shareInfo = await getShareTokenForNote(c.env.DB, noteId, true);
+
+  // shareInfo가 null인 경우 기본값 사용 (이론상 발생하지 않아야 함)
+  const isActive = shareInfo?.isActive ?? true;
+  const expiresAtValue = shareInfo?.expiresAt ?? expiresAt;
+  const accessCount = shareInfo?.accessCount ?? 0;
 
   return ok({
-    share_token: shareInfo.shareToken,
-    is_active: shareInfo.isActive,
-    expires_at: shareInfo.expiresAt,
-    access_count: shareInfo.accessCount,
-    share_url: `/shared/${shareInfo.shareToken}`,
+    share_token: shareToken,
+    is_active: isActive,
+    expires_at: expiresAtValue,
+    access_count: accessCount,
+    share_url: `/shared/${shareToken}`,
   });
 });
 

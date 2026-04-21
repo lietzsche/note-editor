@@ -61,17 +61,34 @@ export async function incrementAccessCount(
 
 /**
  * 노트에 대한 공유 토큰이 존재하면 반환
+ * @param includeExpired 만료된 토큰도 포함할지 여부 (기본값: false)
  */
 export async function getShareTokenForNote(
   db: D1Database,
-  noteId: string
+  noteId: string,
+  includeExpired: boolean = false
 ): Promise<{ shareToken: string; isActive: boolean; expiresAt: string | null; accessCount: number } | null> {
-  const row = await db.prepare(
-    `SELECT share_token, is_active, expires_at, access_count
-     FROM share_tokens
-     WHERE note_id = ?`
-  )
-    .bind(noteId)
+  const now = new Date().toISOString();
+  let query: string;
+  let params: any[];
+
+  if (includeExpired) {
+    // 만료된 토큰도 포함하여 조회
+    query = `SELECT share_token, is_active, expires_at, access_count
+             FROM share_tokens
+             WHERE note_id = ?`;
+    params = [noteId];
+  } else {
+    // 활성 상태이고 만료되지 않은 토큰만 조회
+    query = `SELECT share_token, is_active, expires_at, access_count
+             FROM share_tokens
+             WHERE note_id = ? AND is_active = 1
+               AND (expires_at IS NULL OR expires_at > ?)`;
+    params = [noteId, now];
+  }
+
+  const row = await db.prepare(query)
+    .bind(...params)
     .first<{ share_token: string; is_active: number; expires_at: string | null; access_count: number }>();
   
   if (!row) {
@@ -95,10 +112,13 @@ export async function upsertShareToken(
   noteId: string,
   expiresAt: string | null = null
 ): Promise<string> {
-  const existing = await getShareTokenForNote(db, noteId);
+  // 기존 토큰 조회 (만료된 토큰도 포함)
+  const existing = await getShareTokenForNote(db, noteId, true);
   let shareToken: string;
+  
   if (existing) {
-    // 기존 토큰 갱신 (만료일만 변경)
+    // 기존 토큰 갱신 (활성화하고 만료일 업데이트)
+    shareToken = existing.shareToken;
     await db.prepare(
       `UPDATE share_tokens
        SET expires_at = ?, is_active = 1
@@ -106,7 +126,6 @@ export async function upsertShareToken(
     )
       .bind(expiresAt, noteId)
       .run();
-    shareToken = existing.shareToken;
   } else {
     // 새 토큰 생성
     shareToken = generateShareToken();
