@@ -31,6 +31,9 @@
 9. `FEATURE-009-admin-password-reset.md`
 - 관리자 비밀번호 초기화 기능
 
+10. `FEATURE-010-spell-check-integration.md`
+- 맞춤법 검사 통합 기능
+
 ## 공통 작성 규칙
 
 1. 기능 단위 문서는 아래 섹션을 포함한다.
