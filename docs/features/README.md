@@ -25,6 +25,12 @@
 7. `FEATURE-007-auto-save-conflict-serialization.md`
 - 자동 저장 직렬화 및 오탐 충돌 방지 계획
 
+8. `FEATURE-008-note-public-sharing.md`
+- 노트 공개 공유 기능
+
+9. `FEATURE-009-admin-password-reset.md`
+- 관리자 비밀번호 초기화 기능
+
 ## 공통 작성 규칙
 
 1. 기능 단위 문서는 아래 섹션을 포함한다.
