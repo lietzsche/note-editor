@@ -133,6 +133,33 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/api/notes/${id}`, { method: "DELETE" }),
+    share: {
+      activate: (id: string, expiresAt?: string) =>
+        request<{
+          share_token: string;
+          is_active: boolean;
+          expires_at: string | null;
+          access_count: number;
+          share_url: string;
+        }>(`/api/notes/${id}/share`, {
+          method: "POST",
+          body: JSON.stringify({ expires_at: expiresAt }),
+        }),
+      deactivate: (id: string) =>
+        request<void>(`/api/notes/${id}/share`, { method: "DELETE" }),
+      get: (id: string) =>
+        request<{
+          share_token: string | null;
+          is_active: boolean;
+          expires_at: string | null;
+          access_count: number;
+          share_url: string | null;
+        }>(`/api/notes/${id}/share`),
+    },
+  },
+  shared: {
+    get: (shareToken: string) =>
+      request<Note>(`/api/shared/${shareToken}`),
   },
 };
 

@@ -76,6 +76,15 @@ type Props = {
   onDialogPrimaryAction: () => void;
   onDialogDiscardAction: () => void;
   onDialogCancelAction: () => void;
+  shareInfo: {
+    share_token: string | null;
+    is_active: boolean;
+    expires_at: string | null;
+    access_count: number;
+    share_url: string | null;
+  } | null;
+  shareLoading: boolean;
+  onShareToggle: () => void;
 };
 
 export function NotesPageLayout({
@@ -138,6 +147,9 @@ export function NotesPageLayout({
   onDialogPrimaryAction,
   onDialogDiscardAction,
   onDialogCancelAction,
+  shareInfo,
+  shareLoading,
+  onShareToggle,
 }: Props) {
   return (
     <div
@@ -383,6 +395,42 @@ export function NotesPageLayout({
                     </button>
                   )}
                   <CopyAllButton onCopy={onCopy} state={copyStatus} />
+                  {selectedNote && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
+                      {shareInfo?.is_active ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>공유 중:</span>
+                          <a
+                            href={shareInfo.share_url ?? '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '12px', color: 'var(--color-primary)', textDecoration: 'underline' }}
+                          >
+                            링크 열기
+                          </a>
+                          <button
+                            type="button"
+                            style={{ ...styles.secondaryActionBtn, marginLeft: '4px' }}
+                            onClick={onShareToggle}
+                            disabled={shareLoading}
+                            aria-label="공유 비활성화"
+                          >
+                            끄기
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          style={styles.secondaryActionBtn}
+                          onClick={onShareToggle}
+                          disabled={shareLoading}
+                          aria-label="공유 활성화"
+                        >
+                          {shareLoading ? '처리 중...' : '공유하기'}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <textarea

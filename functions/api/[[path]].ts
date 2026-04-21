@@ -15,6 +15,14 @@ import {
   notFound,
   forbidden,
 } from "./_lib/response";
+import {
+  generateShareToken,
+  validateShareToken,
+  incrementAccessCount,
+  getShareTokenForNote,
+  upsertShareToken,
+  deactivateShareToken,
+} from "./_lib/share";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -754,6 +762,115 @@ app.delete("/api/notes/:id", async (c) => {
     .run();
 
   return noContent();
+});
+
+// ── Note sharing routes ──────────────────────────────────────────────────
+
+// 공유 활성화/갱신
+app.post("/api/notes/:id/share", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
+
+  // 노트 소유권 확인
+  const note = await c.env.DB.prepare(
+    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
+  )
+    .bind(noteId, session.userId)
+    .first();
+  if (!note) return notFound();
+
+  const body = await c.req.json<{ expires_at?: string }>();
+  const expiresAt = body.expires_at && typeof body.expires_at === "string" ? body.expires_at : null;
+
+  const shareToken = await upsertShareToken(c.env.DB, noteId, expiresAt);
+  const shareInfo = await getShareTokenForNote(c.env.DB, noteId);
+  if (!shareInfo) return err("INTERNAL", "공유 정보를 생성하지 못했습니다.");
+
+  return ok({
+    share_token: shareInfo.shareToken,
+    is_active: shareInfo.isActive,
+    expires_at: shareInfo.expiresAt,
+    access_count: shareInfo.accessCount,
+    share_url: `/shared/${shareInfo.shareToken}`,
+  });
+});
+
+// 공유 비활성화
+app.delete("/api/notes/:id/share", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
+
+  const note = await c.env.DB.prepare(
+    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
+  )
+    .bind(noteId, session.userId)
+    .first();
+  if (!note) return notFound();
+
+  await deactivateShareToken(c.env.DB, noteId);
+  return noContent();
+});
+
+// 공유 상태 조회
+app.get("/api/notes/:id/share", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
+
+  const note = await c.env.DB.prepare(
+    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
+  )
+    .bind(noteId, session.userId)
+    .first();
+  if (!note) return notFound();
+
+  const shareInfo = await getShareTokenForNote(c.env.DB, noteId);
+  if (!shareInfo) {
+    return ok({
+      is_active: false,
+      share_token: null,
+      expires_at: null,
+      access_count: 0,
+      share_url: null,
+    });
+  }
+
+  return ok({
+    share_token: shareInfo.shareToken,
+    is_active: shareInfo.isActive,
+    expires_at: shareInfo.expiresAt,
+    access_count: shareInfo.accessCount,
+    share_url: `/shared/${shareInfo.shareToken}`,
+  });
+});
+
+// 공유된 노트 읽기 (인증 불필요)
+app.get("/api/shared/:shareToken", async (c) => {
+  const shareToken = c.req.param("shareToken");
+  if (!shareToken) return notFound();
+
+  const validation = await validateShareToken(c.env.DB, shareToken);
+  if (!validation) return notFound();
+
+  const note = await c.env.DB.prepare(
+    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ?"
+  )
+    .bind(validation.noteId)
+    .first();
+  if (!note) return notFound();
+
+  // 접근 횟수 증가 (비동기, 실패해도 무시)
+  incrementAccessCount(c.env.DB, shareToken).catch(() => {});
+
+  return ok({
+    ...note,
+    shared: true,
+  });
 });
 
 // ── SPA fallback: 정적 파일 서빙 (React 클라이언트 라우팅 포함) ─────────────

@@ -73,6 +73,14 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
   const [conflictNote, setConflictNote] = useState<Note | null>(null);
   const [perfSamples, setPerfSamples] = useState<PerfSample[]>([]);
+  const [shareInfo, setShareInfo] = useState<{
+    share_token: string | null;
+    is_active: boolean;
+    expires_at: string | null;
+    access_count: number;
+    share_url: string | null;
+  } | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedNoteIdRef = useRef<string | null>(null);
   const selectedNoteUpdatedAtRef = useRef<string | null>(null);
@@ -265,6 +273,24 @@ export default function NotesPage({ username, onLogout }: Props) {
 
     return () => clearTimeout(timer);
   }, [countStatus, selectedNote?.id, content]);
+
+  useEffect(() => {
+    if (!selectedNote) {
+      setShareInfo(null);
+      return;
+    }
+    setShareLoading(true);
+    api.notes.share.get(selectedNote.id)
+      .then((info) => {
+        setShareInfo(info);
+      })
+      .catch(() => {
+        setShareInfo(null);
+      })
+      .finally(() => {
+        setShareLoading(false);
+      });
+  }, [selectedNote?.id]);
 
   function cancelScheduledSave() {
     if (saveTimerRef.current) {
@@ -848,6 +874,24 @@ export default function NotesPage({ username, onLogout }: Props) {
     setTimeout(() => setCopyStatus("ready"), 2000);
   }
 
+  async function handleShareToggle() {
+    if (!selectedNote || shareLoading) return;
+    setShareLoading(true);
+    try {
+      if (shareInfo?.is_active && shareInfo.share_token) {
+        await api.notes.share.deactivate(selectedNote.id);
+        setShareInfo(null);
+      } else {
+        const info = await api.notes.share.activate(selectedNote.id);
+        setShareInfo(info);
+      }
+    } catch (error) {
+      console.error('공유 설정 변경 실패:', error);
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
   async function logoutImmediately() {
     await api.auth.logout();
     onLogout();
@@ -1128,6 +1172,9 @@ export default function NotesPage({ username, onLogout }: Props) {
         void handleDialogDiscardAction();
       }}
       onDialogCancelAction={handleDialogCancelAction}
+      shareInfo={shareInfo}
+      shareLoading={shareLoading}
+      onShareToggle={handleShareToggle}
     />
   );
 
