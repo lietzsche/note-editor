@@ -1,0 +1,260 @@
+# FEATURE-006: 그룹 뷰 정렬 개선 및 리스트 기반 그룹 이동
+
+- 문서 버전: v0.1
+- 작성일: 2026-04-14
+- 상태: Proposal
+- 연계 PRD: SR-6, SR-8, SR-9
+- 연계 테스트: TS-03, TS-07, TS-08
+
+## 1. 배경
+
+현재 문서/구현 기준으로 다음 상태가 확인된다.
+
+1. 노트 정렬은 `전체 노트` 화면에서만 가능하며, `POST /api/notes/reorder`는 사용자 전체 노트 ID 순서를 요구한다.
+2. 그룹 필터 화면에서는 정렬이 비활성화되어 있다.
+3. 노트 그룹 이동은 편집기 상단 그룹 선택에서만 가능하고, 목록 항목에서는 직접 처리할 수 없다.
+
+이 구조는 `그룹별로 노트를 보면서 우선순위를 정리`하는 흐름과 `목록에서 바로 다른 그룹으로 보내는 흐름`을 끊는다.
+
+## 2. 목표
+
+1. 그룹 선택 상태에서도 노트 순서를 직관적으로 바꿀 수 있어야 한다.
+2. 노트를 열지 않고 목록에서 바로 그룹 이동을 수행할 수 있어야 한다.
+3. 기존 SR-8, SR-9 정책을 깨지 않고 상태 일관성, 권한, 미저장 변경 보호를 유지해야 한다.
+
+## 3. 권장 범위
+
+### 3.1 포함 범위
+
+1. 특정 그룹 뷰에서 노트 순서를 드래그앤드롭으로 변경
+2. 노트 목록 항목에서 단건 그룹 이동 UI 제공
+3. 정렬 실패 시 롤백, 이동 실패 시 오류 피드백 제공
+4. 키보드 접근 가능한 보조 정렬 수단 유지
+
+### 3.2 제외 범위
+
+1. 여러 노트 동시 선택 후 일괄 그룹 이동
+2. 그룹 컬럼 사이로 직접 끌어다 놓는 칸반형 UI
+3. 그룹 자체의 순서 변경
+4. 협업 편집 상황의 실시간 공동 정렬
+
+## 4. 핵심 정책 결정
+
+### 4.1 정렬 모델
+
+권장안:
+
+1. 1차 도입에서는 기존 단일 `sort_order` 모델을 유지한다.
+2. 그룹 뷰 정렬은 `해당 그룹 노트의 상대 순서만 바꾸는 전역 재정렬`로 정의한다.
+3. 다른 그룹 노트의 상대 순서는 보존하고, 대상 그룹 노트들만 새 순서로 다시 끼워 넣는다.
+
+이 방식을 택하면 초기 도입에서 DB 마이그레이션 없이 진행할 수 있다.
+
+예시:
+
+- 기존 전체 순서: `A(g1) -> B(g2) -> C(g1) -> D(g3)`
+- 그룹 `g1` 화면에서 `C -> A`로 변경
+- 결과 전체 순서: `C(g1) -> B(g2) -> A(g1) -> D(g3)`
+
+즉, 그룹 내부 상대 순서만 바뀌고 `B`, `D`의 상대 위치는 유지한다.
+
+### 4.2 API 계약
+
+1. 리스트 기반 그룹 이동은 기존 `PATCH /api/notes/:id/group`를 그대로 재사용한다.
+2. 그룹 뷰 정렬은 기존 `POST /api/notes/reorder`를 확장해 `scope`를 명시하는 방식을 권장한다.
+
+권장 payload:
+
+```json
+{
+  "orderedNoteIds": ["note_3", "note_1"],
+  "scope": {
+    "type": "group",
+    "group_id": "group_x"
+  }
+}
+```
+
+서버 처리 원칙:
+
+1. `scope.type = "group"`이면 해당 그룹의 현재 노트 ID 집합과 `orderedNoteIds`가 정확히 일치하는지 검증한다.
+2. 검증이 통과하면 전체 순서를 다시 계산해 `sort_order`를 재배치한다.
+3. `scope`가 없으면 기존 전체 재정렬 동작을 그대로 유지한다.
+
+대안:
+
+- 프론트엔드가 전체 노트 순서를 별도 캐시해 기존 API에 전체 배열을 보내는 방식도 가능하다.
+- 다만 현재 구조에서는 그룹 필터 시 전체 노트가 메모리에 없을 수 있으므로, 계약을 명시적으로 확장하는 쪽이 문서/테스트 정합성이 좋다.
+
+### 4.3 접근성/반응형
+
+1. 드래그앤드롭은 유일한 정렬 수단이 되면 안 된다.
+2. 데스크톱에서는 드래그 핸들을 제공하되, 키보드/스크린리더 사용자를 위해 `위로/아래로 이동` 보조 액션을 유지한다.
+3. 모바일에서는 초기 버전에서 드래그를 제한하고 보조 액션만 유지해도 된다.
+
+이 정책은 `docs/design/DESIGN_GUIDELINES.md`, `docs/design/COMPONENT_GUIDE.md`의 접근성 기준과 맞춘다.
+
+## 5. 권장 구현 순서
+
+### Phase 0. 정책 확정 및 문서 반영
+
+1. `SR-6` 확장 범위를 `그룹 뷰 정렬`까지 포함할지 결정
+2. `SR-8` 확장 범위를 `리스트 기반 그룹 이동`까지 명시
+3. `TEST_PLAN`에 그룹 뷰 정렬 및 리스트 이동 시나리오 추가
+
+완료 기준:
+
+- 정렬 모델, API 계약, 모바일 fallback 정책이 확정됨
+
+### Phase 1. 리스트 기반 그룹 이동
+
+목표:
+
+1. 노트 목록 항목에 `그룹 이동` 액션 추가
+2. 노트를 열지 않고 다른 그룹으로 이동 가능
+
+프론트엔드:
+
+1. `NotesPage`의 노트 아이템 액션에 그룹 이동 메뉴 또는 드롭다운 추가
+2. 현재 선택된 노트를 이동하는 경우 기존 `pendingAction` 흐름과 재사용해 미저장 변경을 보호
+3. 그룹 필터 화면에서 현재 그룹 밖으로 이동되면 목록에서 즉시 제거
+4. 이동 성공/실패 피드백을 인라인 상태 또는 alert로 제공
+
+백엔드:
+
+1. 기존 `PATCH /api/notes/:id/group` 재사용
+2. 추가 API는 만들지 않음
+
+테스트:
+
+1. 목록에서 다른 그룹으로 이동 후 재조회 일치
+2. 현재 선택 노트를 이동할 때 미저장 변경 보호 동작 확인
+3. 현재 필터 그룹에서 빠진 노트가 목록에서 즉시 제거되는지 확인
+
+권장 이유:
+
+- 현재 API와 상태 모델을 거의 그대로 활용 가능
+- 체감 효용이 크고 구현 리스크가 낮다
+
+### Phase 2. 그룹 뷰 드래그앤드롭 정렬
+
+목표:
+
+1. 그룹 필터 화면에서도 노트 순서를 바꿀 수 있게 한다.
+2. 정렬 결과가 재조회 후에도 유지되게 한다.
+
+프론트엔드:
+
+1. 노트 아이템에 드래그 핸들 추가
+2. 드래그 중 임시 순서 반영, 저장 실패 시 롤백
+3. 접근성 fallback으로 `위로/아래로 이동` 또는 동등한 키보드 액션 유지
+4. `reorderStatus`를 `saving/error` 중심으로 재사용
+
+백엔드:
+
+1. `POST /api/notes/reorder`에 그룹 scope 검증 로직 추가
+2. 그룹 내 새 순서를 전체 순서로 병합하는 유틸 추가
+3. 사용자 경계, 그룹 소유권, 누락/중복 ID 검증 강화
+
+테스트:
+
+1. 그룹 `g1` 내부 순서 변경 후 그룹 재조회 일치
+2. 전체 노트 재조회 시 비대상 그룹 순서는 유지되고, 대상 그룹 노트 상대 순서만 반영
+3. 잘못된 `group_id`, 누락/중복 ID, 타 사용자 그룹에 대한 실패 응답 확인
+
+### Phase 3. 안정화 및 리팩터링
+
+1. `NotesPage` 내 노트 목록 렌더링/액션 로직을 분리해 복잡도 완화
+2. 수동 회귀 테스트로 전환 보호, 충돌 상태, 모바일 사용성 재확인
+3. 문서(PRD/TEST/WBS 또는 후속 STATUS) 반영
+
+## 6. 작업 분해(WBS 초안)
+
+| WBS ID | 작업 | 상세 | 선행 | 완료 기준 | 러프 공수 |
+|---|---|---|---|---|---|
+| A1 | 정책 확정 | 정렬 scope, UI 노출 방식, 모바일 fallback 확정 | 없음 | 문서 합의 완료 | 0.5d |
+| A2 | 리스트 그룹 이동 | 목록 액션 추가, 상태 동기화, 회귀 테스트 | A1 | 목록에서 이동 가능 | 1.0d |
+| A3 | 그룹 정렬 API 확장 | scope 검증, 전체 순서 병합 로직 추가 | A1 | 그룹 정렬 저장 가능 | 1.0d |
+| A4 | 그룹 뷰 DnD UI | 드래그 상태, 낙관적 반영, 실패 롤백, 접근성 fallback | A3 | 그룹 화면 정렬 가능 | 1.5d |
+| A5 | 안정화/문서 | 통합 테스트, 수동 회귀, 문서 갱신 | A2,A4 | `verify` + 수동 점검 통과 | 1.0d |
+
+총 러프 공수: 약 5.0d
+
+## 7. 영향 예상 파일
+
+기존 파일:
+
+- `src/pages/NotesPage.tsx`
+- `src/lib/api.ts`
+- `functions/api/[[path]].ts`
+- `tests/api/auth.test.ts`
+- `docs/product/PRD.md`
+- `docs/testing/TEST_PLAN.md`
+
+분리 후보:
+
+- `src/components/NoteListItem.tsx`
+- `src/components/NoteGroupMoveMenu.tsx`
+- `src/lib/noteOrder.ts`
+
+## 8. 테스트 계획
+
+### 8.1 수동 시나리오
+
+1. `TS-07` 확장: 목록에서 그룹 이동
+2. `TS-03` 확장: 그룹 필터 상태에서 정렬 후 재조회
+3. `TS-08` 회귀: 선택 노트 이동/정렬 중 전환 독립성 유지
+
+### 8.2 자동화 시나리오
+
+1. 단위 테스트
+- 그룹 scope 정렬 결과를 전체 순서로 병합하는 유틸
+
+2. 통합 테스트
+- 그룹 scope reorder 성공
+- 그룹 scope reorder 실패(누락/중복/타 사용자 그룹)
+- 리스트 이동 후 그룹 필터 결과 변경
+
+3. 수동 UI 회귀
+- 데스크톱 마우스 조작
+- 키보드 fallback
+- 모바일 좁은 폭에서 액션 접근 가능 여부
+
+## 9. 주요 리스크
+
+1. 정렬 의미 혼선
+- 그룹 화면에서의 정렬 결과가 전체 노트 화면에도 영향을 준다는 점을 명확히 안내해야 한다.
+
+2. 접근성 리스크
+- 드래그앤드롭만 제공하면 키보드 사용자가 정렬할 수 없으므로 보조 액션이 필요하다.
+
+3. 상태 관리 리스크
+- 현재 `NotesPage`가 큰 편이어서 DnD 상태까지 한 파일에 누적되면 회귀 위험이 커진다.
+
+4. 선택 노트 이동 리스크
+- 현재 보고 있는 그룹에서 노트를 다른 그룹으로 보내는 순간, 선택 노트/편집기/목록 상태가 동시에 바뀐다.
+
+## 10. 권장 결론
+
+1. 구현 순서는 `리스트 기반 그룹 이동 -> 그룹 뷰 DnD 정렬` 순으로 잡는 것이 가장 안전하다.
+2. 1차 도입에서는 DB 스키마 변경 없이 기존 `sort_order` 모델을 유지하는 편이 낫다.
+3. 이후 요구사항이 `그룹별 독립 정렬`과 `전체 노트 정렬`을 서로 다른 규칙으로 분리하는 수준까지 커질 때만 신규 정렬 컬럼 또는 별도 정렬 모델을 검토한다.
+## 11. 2026-04-16 Implementation Update
+
+1. The originally proposed DnD work is now implemented.
+2. Note reorder uses `@dnd-kit` in both `All notes` and group-filtered views.
+3. Group-scoped note reorder still persists through `POST /api/notes/reorder` with `scope`.
+4. Group order now persists through `POST /api/groups/reorder`.
+5. The previous up/down button fallback was removed and replaced by explicit drag handles.
+# Implementation Note (2026-04-16)
+
+This document started as a proposal and now contains both historical design discussion
+and implemented behavior. The shipped reorder behavior is documented canonically in:
+
+- `docs/backlog/BACKLOG-003-group-and-note-dnd-reorder.md`
+- `docs/testing/backlog/TEST-BACKLOG-004-group-and-note-dnd-reorder.md`
+- `docs/STATUS-2026-04-16.md`
+
+Sections below that mention keeping up/down button fallback, limiting mobile DnD,
+or treating DnD as non-primary are historical proposal content and should not be
+used as current requirements.

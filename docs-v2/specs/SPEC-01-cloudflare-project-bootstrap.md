@@ -1,0 +1,174 @@
+# SPEC-01: Cloudflare 프로젝트 설정 및 로컬 통합 실행 구조
+
+## 1. 목적
+
+Cloudflare Pages 프로젝트 설정, 프론트/백엔드 소스 배치, 로컬 통합 실행 동작, 소스 가이드라인을 표준화한다.
+
+## 2. 입력값
+
+- `note-editor` (Pages/Workers 프로젝트명)
+- `note-editor-db` (D1 데이터베이스명)
+- `c633c65e-4033-4ae7-ba5b-d753e1cb557e` (D1 database_id)
+
+## 2.1 기술 스택 명세 (Current / Target)
+
+1. Frontend
+- Current: React.js
+- Target: React.js (유지)
+
+2. Backend
+- Current: Hono.js on Cloudflare Workers (`functions/api/[[path]].ts` → `main` 엔트리)
+- Target: Hono.js on Cloudflare Workers (유지)
+
+3. Database
+- Current: Cloudflare D1
+- Target: Cloudflare D1 (유지)
+
+## 2.2 현재 상태와 목표 상태
+
+1. 현재 저장소는 문서 중심 구조일 수 있다.
+2. 실행 가능한 애플리케이션 구조는 본 스펙의 부트스트랩 단계에서 생성/정렬한다.
+3. 배포 절차(`docs/operations/DEPLOY.md`)는 부트스트랩 완료 후 수행한다.
+
+## 3. 권장 폴더 구조
+
+```text
+note-editor/
+  README.md                 # 루트 진입 문서
+  index.html                # Vite HTML 엔트리
+  vite.config.ts            # Vite 빌드 설정
+  tsconfig.json             # TypeScript 설정
+  package.json              # 스크립트/의존성
+  wrangler.toml             # Cloudflare Workers/D1 바인딩 설정
+  schema.sql                # 초기 스키마(부트스트랩 기준)
+  .dev.vars.example         # 로컬 환경변수 템플릿
+  docs/
+    README.md               # 문서 인덱스
+    product/PRD.md          # 서비스 요구사항
+    testing/TEST_PLAN.md    # 테스트 시나리오
+    operations/DEPLOY.md    # 배포 실행 절차
+    specs/                  # 인프라 스펙
+  src/                      # Frontend 소스 (React)
+    main.tsx                # React 엔트리
+    App.tsx                 # 인증 상태 라우팅
+    index.css               # 전역 스타일
+    lib/api.ts              # API 클라이언트
+    pages/                  # 페이지 컴포넌트
+  functions/
+    api/
+      [[path]].ts           # Backend 엔트리 (Hono, Workers main)
+      _lib/                 # Backend 공통 유틸/인증 로직
+  migrations/               # D1 migration 파일 (append-only)
+  build/                    # Vite 빌드 산출물 (gitignore)
+```
+
+구조 원칙:
+- 프론트엔드는 `src/`에서만 관리한다.
+- 백엔드는 `functions/api/`에서만 관리한다. (Target: Hono 라우트 구성)
+- D1 스키마 변경은 `migrations/`에서만 관리한다.
+
+## 4. Cloudflare 설정 스펙
+
+### 4.1 `wrangler.toml`
+
+```toml
+name = "note-editor"
+account_id = "<CLOUDFLARE_ACCOUNT_ID>"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+main = "functions/api/[[path]].ts"
+
+[assets]
+directory = "./build"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "note-editor-db"
+database_id = "c633c65e-4033-4ae7-ba5b-d753e1cb557e"
+migrations_dir = "migrations"
+```
+
+### 4.2 `package.json` 배포 스크립트
+
+```json
+"deploy": "npm run build && npx wrangler deploy"
+```
+
+### 4.3 환경변수/시크릿
+
+- `AUTH_SESSION_SECRET` (필수, 32자 이상 임의 문자열)
+- `AUTH_SESSION_TTL_SECONDS` (선택, 기본값 604800 = 7일)
+
+## 4.4 Hono 엔트리 계약 (현행)
+
+1. API 엔트리는 `functions/api/[[path]].ts` 단일 진입점을 사용하며, `wrangler.toml`의 `main`으로 등록된다.
+2. 라우팅은 Hono 앱에서 `/api/*` 하위 경로를 관리한다.
+3. 미들웨어 순서는 아래를 따른다.
+- request-id/로깅
+- 인증/세션 검증
+- 권한 검사(리소스 소유권)
+- 핸들러 실행
+- 에러 변환(JSON 응답)
+4. 에러 응답 포맷은 `{"error":{"code":"...","message":"..."}}`로 통일한다.
+
+## 4.5 리소스 명명/호환 계약
+
+1. 대외 API 명명은 `note/notes`를 표준으로 사용한다.
+2. v1에서는 기존 클라이언트 호환을 위해 `page/pages` 경로 alias를 허용할 수 있다.
+3. 내부 모듈/신규 코드 식별자는 `note` 명명으로 통일한다.
+
+## 5. 로컬 실행 동작 (통합 모드 표준)
+
+### 5.1 통합 모드
+
+동작 개념:
+- 단일 오리진으로 프론트+백엔드를 함께 띄운다.
+- 브라우저는 하나의 URL(예: `http://localhost:8788`)만 사용한다.
+- `/api/*` 요청은 Hono Worker가 처리하고, 나머지는 `build/` 정적 파일을 서빙한다.
+
+표준 스크립트 규격:
+- `npm run dev`: 빌드 결과 + Workers를 로컬에서 통합 실행 (`npx wrangler dev --port 8788`)
+- `npm run dev:watch`: 프론트 변경 감시 빌드 + Workers dev 동시 실행
+
+### 5.2 로컬 테스트 기준
+
+- 로컬 기능 테스트와 인수 테스트는 통합 모드에서 수행한다.
+- 테스트 수행 URL은 단일 오리진(`http://localhost:8788`)을 기준으로 한다.
+- 분리 모드는 본 프로젝트의 기본 개발/검증 모드로 채택하지 않는다.
+
+## 6. 소스 가이드라인
+
+### 6.1 파일/함수 길이 기준
+
+| 대상 | 권장 | 상한(초과 시 분리) |
+|---|---:|---:|
+| React 페이지/컨테이너 파일 | 250 lines 이하 | 350 lines |
+| React 공용 컴포넌트 파일 | 180 lines 이하 | 250 lines |
+| API 라우트 파일(`functions/api/*`) | 180 lines 이하 | 260 lines |
+| 공용 유틸 파일(`_lib`/`src/lib`) | 150 lines 이하 | 220 lines |
+| 함수 1개 길이 | 40 lines 이하 | 60 lines |
+
+### 6.2 함수 설계 기준
+
+- 함수는 한 가지 책임만 수행한다.
+- 함수 파라미터는 5개 이하를 권장한다.
+- 중첩 깊이(`if/for`)는 3단계 이하를 권장한다.
+- 라우트 핸들러는 `입력 검증 -> 권한 확인 -> 비즈니스 로직 -> 응답 생성` 순서를 유지한다.
+
+### 6.3 분리 규칙
+
+- 상한을 초과하면 즉시 분리한다.
+- API 파일이 커지면 검증/쿼리/응답 매핑을 `_lib`로 분리한다.
+- UI 파일이 커지면 화면 컨테이너와 프리젠테이셔널 컴포넌트를 분리한다.
+
+## 7. 확인 항목
+
+- [x] 프로젝트명 반영 완료 (`note-editor`)
+- [x] D1 바인딩 반영 완료 (`note-editor-db`)
+- [x] deploy 스크립트 반영 완료 (`npm run build && npx wrangler deploy`)
+- [x] 프론트/백엔드 폴더 구조 반영 완료
+- [ ] 통합 모드 로컬 실행 확인 완료
+- [ ] 파일/함수 길이 기준 준수 확인 완료
+- [ ] 로컬 개발 환경 변수 준비 완료 (`.dev.vars` 생성 필요)
