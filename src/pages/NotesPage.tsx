@@ -1,14 +1,13 @@
 import { startTransition, useEffect, useRef, useState } from "react";
-import { ApiError, api, type Note } from "../lib/api";
+import { api, type Note } from "../lib/api";
 import { NotesPageLayout } from "../components/NotesPageLayout";
-import { copyText, countGraphemes } from "../lib/editorProductivity";
+import { countGraphemes } from "../lib/editorProductivity";
 import {
   getClearedNoteEditorState,
   getOpenedNoteEditorState,
   type CopyStatus,
   type CountStatus,
 } from "../lib/noteEditorSession";
-import { cloneNotes } from "../lib/noteCache";
 import { sortNotesByOrder } from "../lib/noteCollections";
 import {
   getNextMobilePanelAfterGroupSelection,
@@ -26,15 +25,12 @@ import {
   type PerfSample,
 } from "../lib/performanceDebug";
 import {
-  createSerializedAutoSaveRunner,
-  type SerializedAutoSaveRunner,
-} from "../lib/noteAutoSave";
-import {
   deriveNotesPageState,
   type MobilePanel,
   type SaveStatus,
 } from "./notesPageDerivations";
 import { useNotesData } from "./useNotesData";
+import { useNotePersistence } from "./useNotePersistence";
 
 type Props = {
   username: string;
@@ -50,13 +46,6 @@ type PendingGroupPerf = {
   label: string;
   startTime: number;
   source: "cold" | "warm";
-};
-
-type NoteSaveSnapshot = {
-  noteId: string;
-  title: string;
-  content: string;
-  expectedUpdatedAt: string | null;
 };
 
 export default function NotesPage({ username, onLogout }: Props) {
@@ -85,14 +74,12 @@ export default function NotesPage({ username, onLogout }: Props) {
     share_url: string | null;
   } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedNoteIdRef = useRef<string | null>(null);
   const selectedNoteUpdatedAtRef = useRef<string | null>(null);
   const titleRef = useRef(title);
   const contentRef = useRef(content);
   const conflictNoteRef = useRef<Note | null>(null);
   const pendingGroupPerfRef = useRef<PendingGroupPerf | null>(null);
-  const autoSaveRunnerRef = useRef<SerializedAutoSaveRunner | null>(null);
   const {
     groups,
     notes,
@@ -116,6 +103,36 @@ export default function NotesPage({ username, onLogout }: Props) {
   } = useNotesData({
     selectedGroupId,
     pendingGroupPerfRef,
+  });
+  const {
+    cancelScheduledSave,
+    resetPersistenceSession,
+    activateAutoSaveRunner,
+    persistCurrentNote,
+    handleTitleChange,
+    handleContentChange,
+    handleCopy,
+  } = useNotePersistence({
+    selectedNote,
+    saveStatus,
+    content,
+    selectedNoteIdRef,
+    selectedNoteUpdatedAtRef,
+    titleRef,
+    contentRef,
+    conflictNoteRef,
+    notesCacheRef,
+    currentScopeKeyRef,
+    setNotes,
+    setSelectedNote,
+    setTitle,
+    setContent,
+    setSaveStatus,
+    setCopyStatus,
+    setCountStatus,
+    setConflictNote,
+    setDialogMode,
+    updateNoteAcrossCaches,
   });
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
@@ -201,13 +218,6 @@ export default function NotesPage({ username, onLogout }: Props) {
       });
   }, [selectedNote?.id]);
 
-  function cancelScheduledSave() {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
-  }
-
   function afterNextPaint(callback: () => void) {
     if (typeof window === "undefined") {
       callback();
@@ -279,9 +289,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   function clearSelectedNoteView() {
     const nextEditorState = getClearedNoteEditorState({ isMobile });
 
-    cancelScheduledSave();
-    autoSaveRunnerRef.current?.reset();
-    autoSaveRunnerRef.current = null;
+    resetPersistenceSession();
     selectedNoteIdRef.current = null;
     selectedNoteUpdatedAtRef.current = null;
     setSelectedNote(nextEditorState.selectedNote);
@@ -305,14 +313,13 @@ export default function NotesPage({ username, onLogout }: Props) {
     const noteOpenStart = PERF_DEBUG_ENABLED ? performance.now() : 0;
     const nextEditorState = getOpenedNoteEditorState({ note, isMobile });
 
-    cancelScheduledSave();
-    autoSaveRunnerRef.current?.reset();
+    resetPersistenceSession();
     selectedNoteIdRef.current = note.id;
     selectedNoteUpdatedAtRef.current = note.updated_at;
     titleRef.current = note.title;
     contentRef.current = note.content;
     conflictNoteRef.current = null;
-    autoSaveRunnerRef.current = createNoteAutoSaveRunner(note.id);
+    activateAutoSaveRunner(note.id);
     startTransition(() => {
       setSelectedNote(nextEditorState.selectedNote);
       setTitle(nextEditorState.title);
@@ -421,163 +428,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     if (selectedNote?.id === id) {
       clearSelectedNoteView();
     }
-  }
-
-  function isConflictNoteData(data: unknown): data is Note {
-    if (typeof data !== "object" || data === null) return false;
-
-    return (
-      "id" in data &&
-      "title" in data &&
-      "content" in data &&
-      "group_id" in data &&
-      "sort_order" in data &&
-      "updated_at" in data
-    );
-  }
-
-  function createNoteAutoSaveRunner(noteId: string) {
-    return createSerializedAutoSaveRunner({
-      readSnapshot: () => {
-        if (selectedNoteIdRef.current !== noteId) return null;
-
-        return {
-          noteId,
-          title: titleRef.current,
-          content: contentRef.current,
-          expectedUpdatedAt: selectedNoteUpdatedAtRef.current,
-        };
-      },
-      run: (snapshot) => performNoteSave(snapshot),
-    });
-  }
-
-  async function performNoteSave(snapshot: NoteSaveSnapshot, force = false) {
-    const {
-      noteId,
-      title: draftTitle,
-      content: draftContent,
-      expectedUpdatedAt,
-    } = snapshot;
-
-    setSaveStatus("saving");
-
-    try {
-      const updated = await api.notes.update(noteId, {
-        title: draftTitle,
-        content: draftContent,
-        updated_at: expectedUpdatedAt ?? undefined,
-        force,
-      });
-
-      setNotes((prev) => {
-        const nextNotes = prev.map((note) => (note.id === noteId ? updated : note));
-        notesCacheRef.current.set(currentScopeKeyRef.current, cloneNotes(nextNotes));
-        return nextNotes;
-      });
-      updateNoteAcrossCaches(updated);
-
-      if (selectedNoteIdRef.current !== noteId) {
-        return true;
-      }
-
-      selectedNoteUpdatedAtRef.current = updated.updated_at;
-      setSelectedNote(updated);
-      conflictNoteRef.current = null;
-      setConflictNote(null);
-
-      const draftStillCurrent =
-        titleRef.current === draftTitle && contentRef.current === draftContent;
-      setSaveStatus(draftStillCurrent ? "saved" : "dirty");
-      return true;
-    } catch (error) {
-      if (selectedNoteIdRef.current !== noteId) {
-        return false;
-      }
-
-      if (
-        error instanceof ApiError &&
-        error.code === "CONFLICT" &&
-        isConflictNoteData(error.data)
-      ) {
-        updateNoteAcrossCaches(error.data);
-        setNotes((prev) => prev.map((note) => (note.id === noteId ? error.data : note)));
-        setSelectedNote(error.data);
-        selectedNoteUpdatedAtRef.current = error.data.updated_at;
-        conflictNoteRef.current = error.data;
-        setConflictNote(error.data);
-        setSaveStatus("conflict");
-        setDialogMode("conflict");
-        return false;
-      }
-
-      setSaveStatus("error");
-      return false;
-    }
-  }
-
-  async function persistCurrentNote(force = false) {
-    const noteId = selectedNoteIdRef.current;
-    if (!noteId) return true;
-
-    cancelScheduledSave();
-
-    if (force) {
-      return performNoteSave({
-        noteId,
-        title: titleRef.current,
-        content: contentRef.current,
-        expectedUpdatedAt:
-          conflictNoteRef.current?.updated_at ?? selectedNoteUpdatedAtRef.current,
-      }, true);
-    }
-
-    if (!autoSaveRunnerRef.current) {
-      autoSaveRunnerRef.current = createNoteAutoSaveRunner(noteId);
-    }
-
-    return autoSaveRunnerRef.current.requestRun();
-  }
-
-  function scheduleAutoSave(noteId: string) {
-    cancelScheduledSave();
-    setSaveStatus("dirty");
-
-    if (autoSaveRunnerRef.current?.isRunning()) {
-      void autoSaveRunnerRef.current.requestRun();
-      return;
-    }
-
-    saveTimerRef.current = setTimeout(async () => {
-      if (selectedNoteIdRef.current !== noteId) return;
-      await persistCurrentNote();
-    }, 800);
-  }
-
-  function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value;
-    setTitle(v);
-    titleRef.current = v;
-    setCountStatus("count-ready");
-    if (selectedNote && saveStatus !== "conflict") scheduleAutoSave(selectedNote.id);
-  }
-
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const v = e.target.value;
-    setContent(v);
-    contentRef.current = v;
-    setCountStatus("count-ready");
-    if (selectedNote && saveStatus !== "conflict") scheduleAutoSave(selectedNote.id);
-  }
-
-  async function handleCopy() {
-    const result = await copyText(
-      typeof navigator !== "undefined" ? navigator.clipboard : null,
-      content
-    );
-
-    setCopyStatus(result === "success" ? "copy-success" : "copy-error");
-    setTimeout(() => setCopyStatus("ready"), 2000);
   }
 
   async function handleShareToggle() {
