@@ -8,7 +8,7 @@ import {
   type CopyStatus,
   type CountStatus,
 } from "../lib/noteEditorSession";
-import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
+import { cloneNotes, readCachedNotes } from "../lib/noteCache";
 import {
   applyCreatedNoteToCache,
   applyMovedNoteToCache,
@@ -38,6 +38,13 @@ import {
   buildPerfConsoleLine,
   type PerfSample,
 } from "../lib/performanceDebug";
+import {
+  buildLoadNotesStartState,
+  buildSetNotesForScopeCache,
+  getLoadNotesErrorState,
+  invalidateNotesRequestState,
+  shouldApplyLoadedNotes,
+} from "../lib/noteRequestState";
 import {
   createSerializedAutoSaveRunner,
   type SerializedAutoSaveRunner,
@@ -154,36 +161,37 @@ export default function NotesPage({ username, onLogout }: Props) {
     groupId?: string,
     options?: { preferCache?: boolean }
   ) => {
-    const normalizedGroupId = groupId ?? null;
-    const scopeKey = getNotesScopeKey(normalizedGroupId);
-    const cached = options?.preferCache
-      ? readCachedNotes(notesCacheRef.current, normalizedGroupId)
-      : null;
+    const startState = buildLoadNotesStartState({
+      cache: notesCacheRef.current,
+      groupId,
+      preferCache: options?.preferCache,
+    });
+    const { normalizedGroupId, scopeKey, cached } = startState;
 
     currentScopeKeyRef.current = scopeKey;
 
     if (cached) {
       startTransition(() => {
         setNotes(cached);
-        setNotesLoadState("refreshing");
+        setNotesLoadState(startState.loadState);
       });
 
       if (
         pendingGroupPerfRef.current &&
         pendingGroupPerfRef.current.groupId === normalizedGroupId
       ) {
-        pendingGroupPerfRef.current.source = "warm";
+        pendingGroupPerfRef.current.source = startState.perfSource;
       }
     } else {
       startTransition(() => {
-        setNotesLoadState("loading");
+        setNotesLoadState(startState.loadState);
       });
 
       if (
         pendingGroupPerfRef.current &&
         pendingGroupPerfRef.current.groupId === normalizedGroupId
       ) {
-        pendingGroupPerfRef.current.source = "cold";
+        pendingGroupPerfRef.current.source = startState.perfSource;
       }
     }
 
@@ -202,10 +210,12 @@ export default function NotesPage({ username, onLogout }: Props) {
       const snapshot = cloneNotes(data);
       notesCacheRef.current.set(scopeKey, snapshot);
 
-      if (
-        requestSequence === notesRequestSequenceRef.current &&
-        currentScopeKeyRef.current === scopeKey
-      ) {
+      if (shouldApplyLoadedNotes({
+        requestSequence,
+        latestRequestSequence: notesRequestSequenceRef.current,
+        currentScopeKey: currentScopeKeyRef.current,
+        scopeKey,
+      })) {
         startTransition(() => {
           setNotes(snapshot);
           setNotesLoadState("ready");
@@ -214,12 +224,18 @@ export default function NotesPage({ username, onLogout }: Props) {
 
       return snapshot;
     } catch (error) {
-      if (
-        requestSequence === notesRequestSequenceRef.current &&
-        currentScopeKeyRef.current === scopeKey
-      ) {
+      const nextErrorState = getLoadNotesErrorState({
+        shouldApply: shouldApplyLoadedNotes({
+          requestSequence,
+          latestRequestSequence: notesRequestSequenceRef.current,
+          currentScopeKey: currentScopeKeyRef.current,
+          scopeKey,
+        }),
+        hasCachedNotes: Boolean(cached),
+      });
+      if (nextErrorState) {
         startTransition(() => {
-          setNotesLoadState(cached ? "ready" : "error");
+          setNotesLoadState(nextErrorState);
         });
       }
       throw error;
@@ -346,22 +362,22 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function setNotesForScope(groupId: string | null, nextNotes: Note[]) {
-    const scopeKey = getNotesScopeKey(groupId);
-    const snapshot = cloneNotes(nextNotes);
-    notesCacheRef.current.set(scopeKey, snapshot);
+    const nextState = buildSetNotesForScopeCache(notesCacheRef.current, groupId, nextNotes);
+    notesCacheRef.current = nextState.cache;
 
-    if (scopeKey === currentScopeKeyRef.current) {
+    if (nextState.scopeKey === currentScopeKeyRef.current) {
       startTransition(() => {
-        setNotes(snapshot);
+        setNotes(nextState.snapshot);
         setNotesLoadState("ready");
       });
     }
   }
 
   function invalidateAllNotesCache() {
-    notesCacheRef.current.clear();
-    notesInFlightRef.current.clear();
-    notesRequestSequenceRef.current += 1;
+    const nextState = invalidateNotesRequestState(notesRequestSequenceRef.current);
+    notesCacheRef.current = nextState.cache;
+    notesInFlightRef.current = nextState.inFlight;
+    notesRequestSequenceRef.current = nextState.requestSequence;
   }
 
   function upsertGroup(nextGroup: Group) {
