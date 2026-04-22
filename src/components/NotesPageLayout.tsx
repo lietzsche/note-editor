@@ -7,6 +7,7 @@ import type { Group, Note } from "../lib/api";
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
 import { CopyAllButton } from "./CopyAllButton";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
+import { SpellCheckLink } from "./SpellCheckLink";
 import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
 import ThemeToggle from "./ThemeToggle";
@@ -360,7 +361,20 @@ export function NotesPageLayout({
                     </select>
                   </label>
                 )}
-                <div style={styles.toolbarRight} aria-live="polite">
+                <div
+                  style={{
+                    ...styles.toolbarRight,
+                    ...(isMobile
+                      ? {
+                          width: "100%",
+                          marginLeft: 0,
+                          flexWrap: "wrap",
+                          justifyContent: "flex-start",
+                        }
+                      : {}),
+                  }}
+                  aria-live="polite"
+                >
                   <span
                     style={{
                       ...styles.statusBadge,
@@ -394,6 +408,10 @@ export function NotesPageLayout({
                       충돌 해결
                     </button>
                   )}
+                  <SpellCheckLink
+                    style={styles.secondaryActionBtn}
+                    containerStyle={isMobile ? { width: "100%" } : undefined}
+                  />
                   <CopyAllButton onCopy={onCopy} state={copyStatus} />
                   {selectedNote && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
