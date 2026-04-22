@@ -5,30 +5,31 @@ import { SpellCheckLink } from "../src/components/SpellCheckLink";
 import {
   SPELL_CHECK_GUIDANCE,
   SPELL_CHECK_TOOLTIP,
+  SPELL_CHECK_URL,
 } from "../src/lib/externalLinks";
 import type { Group, Note } from "../src/lib/api";
 
-describe("FEATURE-010 spell check helper", () => {
-  it("renders a helper button and copy guidance", () => {
-    const markup = renderToStaticMarkup(<SpellCheckLink content="A short note." />);
+describe("FEATURE-010 spell check link", () => {
+  it("renders the external spell check link with secure target attributes", () => {
+    const markup = renderToStaticMarkup(<SpellCheckLink />);
 
+    expect(markup).toContain(`href="${SPELL_CHECK_URL}"`);
+    expect(markup).toContain('target="_blank"');
+    expect(markup).toContain('rel="noopener noreferrer"');
     expect(markup).toContain(`title="${SPELL_CHECK_TOOLTIP}"`);
-    expect(markup).toContain('aria-label="맞춤법 검사 도우미 열기"');
+    expect(markup).toContain('aria-label="맞춤법 검사 새 탭에서 열기"');
     expect(markup).toContain("맞춤법 검사");
-    expect(markup).toContain(SPELL_CHECK_GUIDANCE);
   });
 
-  it("shows chunk guidance for longer content", () => {
-    const markup = renderToStaticMarkup(
-      <SpellCheckLink content={"문장 ".repeat(300)} />
-    );
+  it("shows the copy-paste guidance text", () => {
+    const markup = renderToStaticMarkup(<SpellCheckLink />);
 
-    expect(markup).toContain("현재 문서는");
+    expect(markup).toContain(SPELL_CHECK_GUIDANCE);
   });
 });
 
 describe("FEATURE-010 editor toolbar integration", () => {
-  it("renders the spell check helper in the editor toolbar", () => {
+  it("renders the spell check link in the editor toolbar", () => {
     const markup = renderToStaticMarkup(
       <NotesPageLayout
         styles={buildStyles()}
@@ -101,7 +102,7 @@ describe("FEATURE-010 editor toolbar integration", () => {
     );
 
     expect(markup).toContain("맞춤법 검사");
-    expect(markup).toContain(SPELL_CHECK_GUIDANCE);
+    expect(markup).toContain(SPELL_CHECK_URL);
   });
 });
 
