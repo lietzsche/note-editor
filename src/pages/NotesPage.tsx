@@ -3,6 +3,13 @@ import { ApiError, api, type Group, type Note } from "../lib/api";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
 import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
+import {
+  applyCreatedNoteToCache,
+  applyMovedNoteToCache,
+  removeNoteFromCache,
+  syncGroupCachesFromAllNotes as buildGroupCachesFromAllNotes,
+  updateNoteAcrossCache,
+} from "../lib/noteCacheMutations";
 import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
 import { mergeGroupOrderIntoAllNotes } from "../lib/noteOrder";
 import {
@@ -377,100 +384,41 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function updateNoteAcrossCaches(nextNote: Note) {
-    for (const [scopeKey, cachedNotes] of notesCacheRef.current.entries()) {
-      if (!cachedNotes.some((note) => note.id === nextNote.id)) continue;
+    notesCacheRef.current = updateNoteAcrossCache(notesCacheRef.current, nextNote);
 
-      const nextScopeNotes = cachedNotes.map((note) => (
-        note.id === nextNote.id ? { ...nextNote } : note
-      ));
-      notesCacheRef.current.set(scopeKey, cloneNotes(nextScopeNotes));
-
-      if (scopeKey === currentScopeKeyRef.current) {
-        startTransition(() => {
-          setNotes(nextScopeNotes);
-        });
-      }
+    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
+    if (currentNotes) {
+      startTransition(() => {
+        setNotes(cloneNotes(currentNotes));
+      });
     }
   }
 
   function removeNoteFromCaches(noteId: string) {
-    for (const [scopeKey, cachedNotes] of notesCacheRef.current.entries()) {
-      if (!cachedNotes.some((note) => note.id === noteId)) continue;
+    notesCacheRef.current = removeNoteFromCache(notesCacheRef.current, noteId);
 
-      const nextScopeNotes = cachedNotes.filter((note) => note.id !== noteId);
-      notesCacheRef.current.set(scopeKey, cloneNotes(nextScopeNotes));
-
-      if (scopeKey === currentScopeKeyRef.current) {
-        startTransition(() => {
-          setNotes(nextScopeNotes);
-        });
-      }
+    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
+    if (currentNotes) {
+      startTransition(() => {
+        setNotes(cloneNotes(currentNotes));
+      });
     }
   }
 
   function applyCreatedNoteToCaches(note: Note) {
-    const allNotes = notesCacheRef.current.get(ALL_NOTES_SCOPE_KEY);
-    if (allNotes) {
-      notesCacheRef.current.set(
-        ALL_NOTES_SCOPE_KEY,
-        cloneNotes(sortNotesByOrder([...allNotes, note]))
-      );
-    }
-
-    if (note.group_id !== null) {
-      const groupNotes = notesCacheRef.current.get(note.group_id);
-      if (groupNotes) {
-        notesCacheRef.current.set(
-          note.group_id,
-          cloneNotes(sortNotesByOrder([...groupNotes, note]))
-        );
-      }
-    }
+    notesCacheRef.current = applyCreatedNoteToCache(notesCacheRef.current, note);
   }
 
   function applyMovedNoteToCaches(nextNote: Note, previousGroupId: string | null) {
-    removeNoteFromCaches(nextNote.id);
-
-    const allNotes = notesCacheRef.current.get(ALL_NOTES_SCOPE_KEY);
-    if (allNotes) {
-      notesCacheRef.current.set(
-        ALL_NOTES_SCOPE_KEY,
-        cloneNotes(sortNotesByOrder([...allNotes, nextNote]))
-      );
-    }
-
-    if (nextNote.group_id !== null) {
-      const targetGroupNotes = notesCacheRef.current.get(nextNote.group_id);
-      if (targetGroupNotes) {
-        notesCacheRef.current.set(
-          nextNote.group_id,
-          cloneNotes(sortNotesByOrder([...targetGroupNotes, nextNote]))
-        );
-      }
-    }
-
-    if (previousGroupId && previousGroupId !== nextNote.group_id) {
-      const sourceGroupNotes = notesCacheRef.current.get(previousGroupId);
-      if (sourceGroupNotes) {
-        notesCacheRef.current.set(
-          previousGroupId,
-          cloneNotes(sourceGroupNotes.filter((note) => note.id !== nextNote.id))
-        );
-      }
-    }
+    notesCacheRef.current = applyMovedNoteToCache(
+      notesCacheRef.current,
+      nextNote,
+      previousGroupId
+    );
   }
 
   function syncGroupCachesFromAllNotes(allNotes: Note[]) {
-    notesCacheRef.current.set(ALL_NOTES_SCOPE_KEY, cloneNotes(allNotes));
-
-    for (const scopeKey of notesCacheRef.current.keys()) {
-      if (scopeKey === ALL_NOTES_SCOPE_KEY) continue;
-
-      notesCacheRef.current.set(
-        scopeKey,
-        cloneNotes(allNotes.filter((note) => note.group_id === scopeKey))
-      );
-    }
+    notesCacheRef.current = buildGroupCachesFromAllNotes(notesCacheRef.current, allNotes);
   }
 
   function hasBlockingEdits() {
