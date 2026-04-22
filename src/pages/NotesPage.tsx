@@ -14,17 +14,20 @@ import {
   createSerializedAutoSaveRunner,
   type SerializedAutoSaveRunner,
 } from "../lib/noteAutoSave";
+import {
+  deriveNotesPageState,
+  type LoadState,
+  type MobilePanel,
+  type SaveStatus,
+} from "./notesPageDerivations";
 
 type Props = {
   username: string;
   onLogout: () => void;
 };
 
-type SaveStatus = "saved" | "saving" | "error" | "dirty" | "conflict";
-type MobilePanel = "groups" | "notes" | "editor";
 type CopyStatus = "ready" | "copy-success" | "copy-error";
 type CountStatus = "count-ready" | "count-stale";
-type LoadState = "idle" | "loading" | "refreshing" | "ready" | "error";
 type PendingAction =
   | { type: "select-note"; note: Note }
   | { type: "select-group"; groupId: string | null }
@@ -1043,11 +1046,24 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   const charCount = countGraphemes(content);
-  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
-  const filteredNotes = normalizedSearchQuery
-    ? notes.filter((note) => matchesNoteSearch(note, normalizedSearchQuery))
-    : notes;
-  const isSearchActive = normalizedSearchQuery.length > 0;
+  const {
+    filteredNotes,
+    isSearchActive,
+    showGroupsPanel,
+    showNotesPanel,
+    showEditorPanel,
+  } = deriveNotesPageState({
+    groups,
+    notes,
+    searchQuery,
+    saveStatus,
+    groupReorderStatus,
+    noteReorderStatus,
+    notesLoadState,
+    selectedGroupId,
+    isMobile,
+    mobilePanel,
+  });
 
   const saveLabel =
     saveStatus === "saving" ? "저장 중..." :
@@ -1079,9 +1095,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
     : "";
 
-  const showGroupsPanel = !isMobile || mobilePanel === "groups";
-  const showNotesPanel = !isMobile || mobilePanel === "notes";
-  const showEditorPanel = !isMobile || mobilePanel === "editor";
   const isConflictDialog = dialogMode === "conflict";
   const primaryDialogLabel =
     isConflictDialog
@@ -1193,11 +1206,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     />
   );
 
-}
-
-function matchesNoteSearch(note: Note, normalizedQuery: string) {
-  const haystack = `${note.title}\n${note.content}`.toLocaleLowerCase();
-  return haystack.includes(normalizedQuery);
 }
 
 const styles: Record<string, React.CSSProperties> = {
