@@ -10,6 +10,12 @@ import {
   syncGroupCachesFromAllNotes as buildGroupCachesFromAllNotes,
   updateNoteAcrossCache,
 } from "../lib/noteCacheMutations";
+import {
+  cloneGroups,
+  removeGroupFromList,
+  sortNotesByOrder,
+  upsertGroupInList,
+} from "../lib/noteCollections";
 import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
 import { mergeGroupOrderIntoAllNotes } from "../lib/noteOrder";
 import {
@@ -354,19 +360,12 @@ export default function NotesPage({ username, onLogout }: Props) {
 
   function upsertGroup(nextGroup: Group) {
     const current = groupsCacheRef.current ?? groups;
-    const nextGroups = [
-      ...current.filter((group) => group.id !== nextGroup.id),
-      nextGroup,
-    ].sort((a, b) => a.position - b.position);
-    setGroupsSnapshot(nextGroups);
+    setGroupsSnapshot(upsertGroupInList(current, nextGroup));
   }
 
   function removeGroup(groupId: string) {
     const current = groupsCacheRef.current ?? groups;
-    const nextGroups = current
-      .filter((group) => group.id !== groupId)
-      .map((group, index) => ({ ...group, position: index }));
-    setGroupsSnapshot(nextGroups);
+    setGroupsSnapshot(removeGroupFromList(current, groupId));
   }
 
   function setGroupsSnapshot(nextGroups: Group[]) {
@@ -374,15 +373,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     groupsCacheRef.current = snapshot;
     setGroups(snapshot);
   }
-
-  function cloneGroups(nextGroups: Group[]) {
-    return nextGroups.map((group) => ({ ...group }));
-  }
-
-  function sortNotesByOrder(nextNotes: Note[]) {
-    return [...nextNotes].sort((a, b) => a.sort_order - b.sort_order);
-  }
-
   function updateNoteAcrossCaches(nextNote: Note) {
     notesCacheRef.current = updateNoteAcrossCache(notesCacheRef.current, nextNote);
 
