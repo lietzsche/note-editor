@@ -47,8 +47,10 @@ describe("FEATURE-010 editor toolbar integration", () => {
         groupListStatusLabel=""
         noteListStatusLabel=""
         notes={buildNotes()}
+        totalNotesCount={1}
         notesLoadState="ready"
         selectedNote={buildNote()}
+        searchQuery=""
         selectedNoteGroupValue=""
         title="title"
         content="body"
@@ -77,6 +79,8 @@ describe("FEATURE-010 editor toolbar integration", () => {
         onCreateGroup={(event) => event.preventDefault()}
         onNewGroupNameChange={() => {}}
         onCreateNote={() => {}}
+        onSearchQueryChange={() => {}}
+        onClearSearch={() => {}}
         onSelectNote={() => {}}
         onDeleteNote={() => {}}
         onMoveNoteGroup={() => {}}
@@ -98,6 +102,84 @@ describe("FEATURE-010 editor toolbar integration", () => {
 
     expect(markup).toContain("맞춤법 검사");
     expect(markup).toContain(SPELL_CHECK_GUIDANCE);
+  });
+});
+
+describe("FEATURE-011 note search", () => {
+  it("renders the note search input in the note list header", () => {
+    const markup = renderToStaticMarkup(
+      <NotesPageLayout
+        styles={buildStyles()}
+        isMobile={false}
+        mobilePanel="notes"
+        setMobilePanel={() => {}}
+        showGroupsPanel={false}
+        showNotesPanel
+        showEditorPanel={false}
+        username="tester"
+        groups={buildGroups()}
+        selectedGroupId={null}
+        currentGroupLabel="all notes"
+        defaultGroupId={null}
+        defaultGroupName="default"
+        groupListStatusLabel=""
+        noteListStatusLabel="1 result"
+        notes={buildNotes()}
+        totalNotesCount={1}
+        notesLoadState="ready"
+        selectedNote={buildNote()}
+        searchQuery="body"
+        selectedNoteGroupValue=""
+        title="title"
+        content="body"
+        saveLabel="saved"
+        saveStatus="saved"
+        charCount={4}
+        countStatus="count-ready"
+        copyStatus="ready"
+        newGroupName=""
+        groupReorderBusy={false}
+        noteReorderBusy={false}
+        dialogMode={null}
+        dialogTitle=""
+        dialogDescription=""
+        primaryDialogLabel=""
+        isConflictDialog={false}
+        conflictNote={null}
+        hasPendingAction={false}
+        perfDebugEnabled={false}
+        perfSamples={[]}
+        onLogout={() => {}}
+        onSelectGroup={() => {}}
+        onRenameGroup={() => {}}
+        onDeleteGroup={() => {}}
+        onReorderGroups={() => {}}
+        onCreateGroup={(event) => event.preventDefault()}
+        onNewGroupNameChange={() => {}}
+        onCreateNote={() => {}}
+        onSearchQueryChange={() => {}}
+        onClearSearch={() => {}}
+        onSelectNote={() => {}}
+        onDeleteNote={() => {}}
+        onMoveNoteGroup={() => {}}
+        onReorderNotes={() => {}}
+        onTitleChange={() => {}}
+        onContentChange={() => {}}
+        onMoveSelectedNoteGroup={() => {}}
+        onRetrySave={() => {}}
+        onOpenConflictDialog={() => {}}
+        onCopy={() => {}}
+        onDialogPrimaryAction={() => {}}
+        onDialogDiscardAction={() => {}}
+        onDialogCancelAction={() => {}}
+        shareInfo={null}
+        shareLoading={false}
+        onShareToggle={() => {}}
+      />
+    );
+
+    expect(markup).toContain("search");
+    expect(markup).toContain("body");
   });
 });
 

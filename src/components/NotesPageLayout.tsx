@@ -34,8 +34,10 @@ type Props = {
   groupListStatusLabel: string;
   noteListStatusLabel: string;
   notes: Note[];
+  totalNotesCount: number;
   notesLoadState: "idle" | "loading" | "refreshing" | "ready" | "error";
   selectedNote: Note | null;
+  searchQuery: string;
   selectedNoteGroupValue: string;
   title: string;
   content: string;
@@ -64,6 +66,8 @@ type Props = {
   onCreateGroup: FormEventHandler<HTMLFormElement>;
   onNewGroupNameChange: ChangeEventHandler<HTMLInputElement>;
   onCreateNote: () => void;
+  onSearchQueryChange: ChangeEventHandler<HTMLInputElement>;
+  onClearSearch: () => void;
   onSelectNote: (note: Note) => void;
   onDeleteNote: (noteId: string) => void;
   onMoveNoteGroup: (note: Note, groupId: string | null) => void;
@@ -105,8 +109,10 @@ export function NotesPageLayout({
   groupListStatusLabel,
   noteListStatusLabel,
   notes,
+  totalNotesCount,
   notesLoadState,
   selectedNote,
+  searchQuery,
   selectedNoteGroupValue,
   title,
   content,
@@ -135,6 +141,8 @@ export function NotesPageLayout({
   onCreateGroup,
   onNewGroupNameChange,
   onCreateNote,
+  onSearchQueryChange,
+  onClearSearch,
   onSelectNote,
   onDeleteNote,
   onMoveNoteGroup,
@@ -288,7 +296,7 @@ export function NotesPageLayout({
           <div style={styles.noteListHeader}>
             <div style={styles.noteListMeta}>
               <span style={{ fontWeight: 600 }}>
-                {currentGroupLabel} ({notes.length})
+                {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
               </span>
               <span style={styles.reorderHint}>{noteListStatusLabel}</span>
             </div>
@@ -301,6 +309,26 @@ export function NotesPageLayout({
               + 새 노트
             </button>
           </div>
+          <div style={styles.noteSearchRow}>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={onSearchQueryChange}
+              placeholder="노트 검색..."
+              aria-label="노트 검색"
+              style={styles.noteSearchInput}
+            />
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                style={styles.noteSearchClearBtn}
+                onClick={onClearSearch}
+                aria-label="검색 지우기"
+              >
+                지우기
+              </button>
+            )}
+          </div>
           <div style={styles.noteListBody}>
             {notesLoadState === "loading" && notes.length === 0 && (
               <div style={styles.empty}>노트 목록을 불러오는 중입니다.</div>
@@ -308,7 +336,10 @@ export function NotesPageLayout({
             {notesLoadState === "error" && notes.length === 0 && (
               <div style={styles.empty}>노트 목록을 불러오지 못했습니다.</div>
             )}
-            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && (
+            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && searchQuery.trim() && (
+              <div style={styles.empty}>검색 결과가 없습니다.</div>
+            )}
+            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && !searchQuery.trim() && (
               <div style={styles.empty}>노트가 없습니다.</div>
             )}
             {notes.length > 0 && (
@@ -318,7 +349,7 @@ export function NotesPageLayout({
                 defaultGroupId={defaultGroupId}
                 selectedNoteId={selectedNote?.id ?? null}
                 isMobile={isMobile}
-                disabled={noteReorderBusy}
+                disabled={noteReorderBusy || Boolean(searchQuery.trim())}
                 onSelectNote={onSelectNote}
                 onDeleteNote={onDeleteNote}
                 onMoveNoteGroup={onMoveNoteGroup}

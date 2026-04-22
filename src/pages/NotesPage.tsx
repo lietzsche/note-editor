@@ -65,6 +65,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [groupReorderStatus, setGroupReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [noteReorderStatus, setNoteReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [newGroupName, setNewGroupName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
@@ -1042,6 +1043,11 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   const charCount = countGraphemes(content);
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+  const filteredNotes = normalizedSearchQuery
+    ? notes.filter((note) => matchesNoteSearch(note, normalizedSearchQuery))
+    : notes;
+  const isSearchActive = normalizedSearchQuery.length > 0;
 
   const saveLabel =
     saveStatus === "saving" ? "저장 중..." :
@@ -1061,6 +1067,10 @@ export default function NotesPage({ username, onLogout }: Props) {
     notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
     notesLoadState === "error" ? "목록 갱신 실패" :
     selectedGroupId === null ? "드래그로 전체 노트를 정렬하세요." : "드래그로 현재 그룹 노트를 정렬하세요.";
+
+  const effectiveNoteListStatusLabel = isSearchActive
+    ? `${filteredNotes.length}개 검색 결과`
+    : noteListStatusLabel;
 
   const currentGroupLabel = selectedGroupId
     ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
@@ -1101,10 +1111,12 @@ export default function NotesPage({ username, onLogout }: Props) {
       defaultGroupId={defaultGroupId}
       defaultGroupName={DEFAULT_GROUP_NAME}
       groupListStatusLabel={groupListStatusLabel}
-      noteListStatusLabel={noteListStatusLabel}
-      notes={notes}
+      noteListStatusLabel={effectiveNoteListStatusLabel}
+      notes={filteredNotes}
+      totalNotesCount={notes.length}
       notesLoadState={notesLoadState}
       selectedNote={selectedNote}
+      searchQuery={searchQuery}
       selectedNoteGroupValue={selectedNoteGroupValue}
       title={title}
       content={content}
@@ -1143,6 +1155,8 @@ export default function NotesPage({ username, onLogout }: Props) {
       onCreateNote={() => {
         void createNote();
       }}
+      onSearchQueryChange={(event) => setSearchQuery(event.target.value)}
+      onClearSearch={() => setSearchQuery("")}
       onSelectNote={selectNote}
       onDeleteNote={(noteId) => {
         void deleteNote(noteId);
@@ -1151,6 +1165,7 @@ export default function NotesPage({ username, onLogout }: Props) {
         void handleMoveNoteGroup(note, groupId);
       }}
       onReorderNotes={(nextNotes) => {
+        if (isSearchActive) return;
         void handleNoteReorder(nextNotes);
       }}
       onTitleChange={handleTitleChange}
@@ -1178,6 +1193,11 @@ export default function NotesPage({ username, onLogout }: Props) {
     />
   );
 
+}
+
+function matchesNoteSearch(note: Note, normalizedQuery: string) {
+  const haystack = `${note.title}\n${note.content}`.toLocaleLowerCase();
+  return haystack.includes(normalizedQuery);
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -1346,6 +1366,36 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--color-brand-contrast)",
     border: "none",
     borderRadius: "var(--radius)",
+    cursor: "pointer",
+  },
+  noteSearchRow: {
+    display: "flex",
+    gap: "8px",
+    padding: "10px 12px",
+    borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
+  },
+  noteSearchInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: "40px",
+    padding: "8px 10px",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--color-border)",
+    background: "var(--color-bg)",
+    color: "var(--color-text-primary)",
+    fontSize: "13px",
+    outline: "none",
+  },
+  noteSearchClearBtn: {
+    minHeight: "40px",
+    padding: "8px 12px",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--color-border)",
+    background: "var(--color-bg)",
+    color: "var(--color-text-secondary)",
+    fontSize: "12px",
+    fontWeight: 600,
     cursor: "pointer",
   },
   empty: {
