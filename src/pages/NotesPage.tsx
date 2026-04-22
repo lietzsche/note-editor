@@ -8,7 +8,6 @@ import {
   type CopyStatus,
   type CountStatus,
 } from "../lib/noteEditorSession";
-import { sortNotesByOrder } from "../lib/noteCollections";
 import {
   getNextMobilePanelAfterGroupSelection,
   getTransitionDialogMode,
@@ -29,6 +28,7 @@ import {
   type MobilePanel,
   type SaveStatus,
 } from "./notesPageDerivations";
+import { useNoteActions } from "./useNoteActions";
 import { useNotesData } from "./useNotesData";
 import { useNotePersistence } from "./useNotePersistence";
 
@@ -133,6 +133,44 @@ export default function NotesPage({ username, onLogout }: Props) {
     setConflictNote,
     setDialogMode,
     updateNoteAcrossCaches,
+  });
+  const {
+    createNoteImmediately,
+    createNote,
+    deleteNote,
+    handleShareToggle,
+    logoutImmediately,
+    handleLogout,
+    handleCreateGroup,
+    handleRenameGroup,
+    handleDeleteGroup,
+    moveNoteGroupImmediately,
+    handleMoveNoteGroup,
+    handleMoveSelectedNoteGroup,
+  } = useNoteActions({
+    notes,
+    selectedNote,
+    selectedGroupId,
+    shareInfo,
+    shareLoading,
+    newGroupName,
+    onLogout,
+    hasBlockingEdits,
+    openTransitionDialog,
+    clearSelectedNoteView,
+    openNote,
+    loadNotes,
+    applyCreatedNoteToCaches,
+    setNotesForScope,
+    removeNoteFromCaches,
+    upsertGroup,
+    removeGroup,
+    invalidateAllNotesCache,
+    applyMovedNoteToCaches,
+    setSelectedGroupId,
+    setNewGroupName,
+    setShareInfo,
+    setShareLoading,
   });
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
@@ -401,164 +439,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
   }, [notes, selectedGroupId, selectedNote, isMobile]);
 
-  async function createNoteImmediately() {
-    const note = await api.notes.create({
-      title: "새 노트",
-      group_id: selectedGroupId ?? undefined,
-    });
-    applyCreatedNoteToCaches(note);
-    setNotesForScope(selectedGroupId, sortNotesByOrder([...notes, note]));
-    openNote(note);
-  }
-
-  async function createNote() {
-    if (hasBlockingEdits()) {
-      openTransitionDialog({ type: "create-note" });
-      return;
-    }
-    await createNoteImmediately();
-  }
-
-  async function deleteNote(id: string) {
-    if (!window.confirm("노트를 삭제할까요?")) return;
-    await api.notes.delete(id);
-    const nextNotes = notes.filter((note) => note.id !== id);
-    removeNoteFromCaches(id);
-    setNotesForScope(selectedGroupId, nextNotes);
-    if (selectedNote?.id === id) {
-      clearSelectedNoteView();
-    }
-  }
-
-  async function handleShareToggle() {
-    if (!selectedNote || shareLoading) return;
-    setShareLoading(true);
-    try {
-      if (shareInfo?.is_active && shareInfo.share_token) {
-        await api.notes.share.deactivate(selectedNote.id);
-        setShareInfo(null);
-      } else {
-        const info = await api.notes.share.activate(selectedNote.id);
-        setShareInfo(info);
-      }
-    } catch (error) {
-      console.error('공유 설정 변경 실패:', error);
-    } finally {
-      setShareLoading(false);
-    }
-  }
-
-  async function logoutImmediately() {
-    await api.auth.logout();
-    onLogout();
-  }
-
-  async function handleLogout() {
-    if (hasBlockingEdits()) {
-      openTransitionDialog({ type: "logout" });
-      return;
-    }
-    await logoutImmediately();
-  }
-
-  async function handleCreateGroup(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newGroupName.trim()) return;
-    try {
-      const createdGroup = await api.groups.create(newGroupName.trim());
-      setNewGroupName("");
-      upsertGroup(createdGroup);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "그룹 생성에 실패했습니다.");
-    }
-  }
-
-  async function handleRenameGroup(id: string, currentName: string) {
-    const nextName = window.prompt("새 그룹 이름을 입력하세요.", currentName);
-    if (nextName === null) return;
-
-    const normalizedName = nextName.trim();
-    if (!normalizedName || normalizedName === currentName) return;
-
-    try {
-      const updatedGroup = await api.groups.update(id, normalizedName);
-      upsertGroup(updatedGroup);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "그룹 이름 변경에 실패했습니다.");
-    }
-  }
-
-  async function handleDeleteGroup(id: string, name: string) {
-    if (!window.confirm(`"${name}" 그룹을 삭제할까요? 소속 노트는 미분류로 이동됩니다.`)) return;
-    const wasSelectedGroup = selectedGroupId === id;
-    const selectedNoteWasInGroup = selectedNote?.group_id === id;
-
-    try {
-      await api.groups.delete(id);
-      removeGroup(id);
-      invalidateAllNotesCache();
-      if (wasSelectedGroup) setSelectedGroupId(null);
-
-      if (!wasSelectedGroup) {
-        await loadNotes(selectedGroupId ?? undefined, { preferCache: true });
-      }
-
-      if (selectedNoteWasInGroup && selectedNote) {
-        const refreshedNote = await api.notes.get(selectedNote.id);
-        openNote(refreshedNote);
-      }
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "그룹 삭제에 실패했습니다.");
-    }
-  }
-
-  async function moveNoteGroupImmediately(noteId: string, groupId: string | null) {
-    const targetNote = selectedNote?.id === noteId
-      ? selectedNote
-      : notes.find((note) => note.id === noteId);
-
-    if (!targetNote) return;
-    if (groupId === targetNote.group_id) return;
-
-    try {
-      const previousGroupId = targetNote.group_id;
-      const updatedNote = await api.notes.moveGroup(noteId, groupId);
-      applyMovedNoteToCaches(updatedNote, previousGroupId);
-
-      const nextNotes = selectedGroupId !== null && updatedNote.group_id !== selectedGroupId
-        ? notes.filter((note) => note.id !== noteId)
-        : notes.map((note) => (note.id === updatedNote.id ? updatedNote : note));
-
-      setNotesForScope(selectedGroupId, nextNotes);
-
-      if (selectedNote?.id !== noteId) return;
-
-      if (selectedGroupId !== null && updatedNote.group_id !== selectedGroupId) {
-        clearSelectedNoteView();
-        return;
-      }
-
-      openNote(updatedNote);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "노트 그룹 이동에 실패했습니다.");
-    }
-  }
-
-  async function handleMoveNoteGroup(note: Note, groupId: string | null) {
-    if (groupId === note.group_id) return;
-
-    if (selectedNote?.id === note.id && hasBlockingEdits()) {
-      openTransitionDialog({ type: "move-note-group", noteId: note.id, groupId });
-      return;
-    }
-
-    await moveNoteGroupImmediately(note.id, groupId);
-  }
-
-  async function handleMoveSelectedNoteGroup(groupId: string | null) {
-    if (!selectedNote) return;
-    await handleMoveNoteGroup(selectedNote, groupId);
-  }
 
   async function handleDialogPrimaryAction() {
     const saved = await persistCurrentNote(dialogMode === "conflict");
