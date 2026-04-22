@@ -5,31 +5,30 @@ import { SpellCheckLink } from "../src/components/SpellCheckLink";
 import {
   SPELL_CHECK_GUIDANCE,
   SPELL_CHECK_TOOLTIP,
-  SPELL_CHECK_URL,
 } from "../src/lib/externalLinks";
 import type { Group, Note } from "../src/lib/api";
 
-describe("FEATURE-010 맞춤법 검사 링크", () => {
-  it("외부 맞춤법 검사 링크를 새 탭 보안 속성과 함께 렌더링한다", () => {
-    const markup = renderToStaticMarkup(<SpellCheckLink />);
+describe("FEATURE-010 spell check helper", () => {
+  it("renders a helper button and copy guidance", () => {
+    const markup = renderToStaticMarkup(<SpellCheckLink content="A short note." />);
 
-    expect(markup).toContain(`href="${SPELL_CHECK_URL}"`);
-    expect(markup).toContain('target="_blank"');
-    expect(markup).toContain('rel="noopener noreferrer"');
     expect(markup).toContain(`title="${SPELL_CHECK_TOOLTIP}"`);
-    expect(markup).toContain('aria-label="맞춤법 검사 새 탭에서 열기"');
+    expect(markup).toContain('aria-label="맞춤법 검사 도우미 열기"');
     expect(markup).toContain("맞춤법 검사");
+    expect(markup).toContain(SPELL_CHECK_GUIDANCE);
   });
 
-  it("사용자에게 복사 후 붙여넣기 안내를 제공한다", () => {
-    const markup = renderToStaticMarkup(<SpellCheckLink />);
+  it("shows chunk guidance for longer content", () => {
+    const markup = renderToStaticMarkup(
+      <SpellCheckLink content={"문장 ".repeat(300)} />
+    );
 
-    expect(markup).toContain(SPELL_CHECK_GUIDANCE);
+    expect(markup).toContain("현재 문서는");
   });
 });
 
-describe("FEATURE-010 에디터 툴바 통합", () => {
-  it("노트 편집 툴바에서 맞춤법 검사 링크를 노출한다", () => {
+describe("FEATURE-010 editor toolbar integration", () => {
+  it("renders the spell check helper in the editor toolbar", () => {
     const markup = renderToStaticMarkup(
       <NotesPageLayout
         styles={buildStyles()}
@@ -42,20 +41,20 @@ describe("FEATURE-010 에디터 툴바 통합", () => {
         username="tester"
         groups={buildGroups()}
         selectedGroupId={null}
-        currentGroupLabel="전체 노트"
+        currentGroupLabel="all notes"
         defaultGroupId={null}
-        defaultGroupName="기본"
+        defaultGroupName="default"
         groupListStatusLabel=""
         noteListStatusLabel=""
         notes={buildNotes()}
         notesLoadState="ready"
         selectedNote={buildNote()}
         selectedNoteGroupValue=""
-        title="제목"
-        content="본문"
-        saveLabel="저장됨"
+        title="title"
+        content="body"
+        saveLabel="saved"
         saveStatus="saved"
-        charCount={2}
+        charCount={4}
         countStatus="count-ready"
         copyStatus="ready"
         newGroupName=""
@@ -98,15 +97,15 @@ describe("FEATURE-010 에디터 툴바 통합", () => {
     );
 
     expect(markup).toContain("맞춤법 검사");
-    expect(markup).toContain(SPELL_CHECK_URL);
+    expect(markup).toContain(SPELL_CHECK_GUIDANCE);
   });
 });
 
 function buildNote(): Note {
   return {
     id: "note-1",
-    title: "제목",
-    content: "본문",
+    title: "title",
+    content: "body",
     group_id: null,
     sort_order: 0,
     updated_at: "2026-04-22T00:00:00.000Z",

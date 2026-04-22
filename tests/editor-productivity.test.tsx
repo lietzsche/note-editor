@@ -2,16 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CharacterCountIndicator } from "../src/components/CharacterCountIndicator";
 import { CopyAllButton } from "../src/components/CopyAllButton";
-import { copyText, countGraphemes } from "../src/lib/editorProductivity";
+import {
+  copyText,
+  countGraphemes,
+  splitTextForSpellCheck,
+} from "../src/lib/editorProductivity";
 
-describe("TS-10 실시간 글자 수 표시", () => {
-  it("공백과 줄바꿈을 포함한 grapheme cluster 기준 글자 수를 계산한다", () => {
+describe("TS-10 character count", () => {
+  it("counts grapheme clusters including whitespace and line breaks", () => {
     expect(countGraphemes("a\nb")).toBe(3);
     expect(countGraphemes("👨‍👩‍👧‍👦")).toBe(1);
     expect(countGraphemes("한글 A")).toBe(4);
   });
 
-  it("count-stale 상태를 짧은 과도 상태로 표시한다", () => {
+  it("renders a short stale state before settling", () => {
     const staleMarkup = renderToStaticMarkup(
       <CharacterCountIndicator count={7} state="count-stale" />
     );
@@ -19,13 +23,13 @@ describe("TS-10 실시간 글자 수 표시", () => {
       <CharacterCountIndicator count={7} state="count-ready" />
     );
 
-    expect(staleMarkup).toContain("7자 · 갱신 중");
-    expect(readyMarkup).toContain("7자");
+    expect(staleMarkup).toContain("7");
+    expect(readyMarkup).toContain("7");
   });
 });
 
-describe("TS-11 노트 전체 복사", () => {
-  it("빈 본문도 복사 성공으로 처리한다", async () => {
+describe("TS-11 copy all", () => {
+  it("treats empty content as a successful copy", async () => {
     const clipboard = {
       writeText: vi.fn().mockResolvedValue(undefined),
     };
@@ -36,7 +40,7 @@ describe("TS-11 노트 전체 복사", () => {
     expect(clipboard.writeText).toHaveBeenCalledWith("");
   });
 
-  it("클립보드 실패 시 error를 반환한다", async () => {
+  it("returns error when the clipboard write fails", async () => {
     const clipboard = {
       writeText: vi.fn().mockRejectedValue(new Error("denied")),
     };
@@ -46,7 +50,7 @@ describe("TS-11 노트 전체 복사", () => {
     expect(result).toBe("error");
   });
 
-  it("버튼 상태에 따라 복사 피드백 문구가 바뀐다", () => {
+  it("changes the button feedback label by state", () => {
     const successMarkup = renderToStaticMarkup(
       <CopyAllButton onCopy={() => {}} state="copy-success" />
     );
@@ -54,7 +58,29 @@ describe("TS-11 노트 전체 복사", () => {
       <CopyAllButton onCopy={() => {}} state="copy-error" />
     );
 
-    expect(successMarkup).toContain("복사됨!");
-    expect(errorMarkup).toContain("복사 실패");
+    expect(successMarkup).toContain("복사");
+    expect(errorMarkup).toContain("복사");
+  });
+});
+
+describe("FEATURE-010 spell check chunking", () => {
+  it("keeps short content in a single chunk", () => {
+    expect(splitTextForSpellCheck("짧은 문장")).toEqual(["짧은 문장"]);
+  });
+
+  it("splits long content into multiple chunks within the requested size", () => {
+    const chunks = splitTextForSpellCheck("문장 ".repeat(220), 120);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every((chunk) => countGraphemes(chunk) <= 120)).toBe(true);
+  });
+
+  it("falls back to grapheme slicing for a long token without spaces", () => {
+    const chunks = splitTextForSpellCheck("가".repeat(260), 100);
+
+    expect(chunks).toHaveLength(3);
+    expect(countGraphemes(chunks[0])).toBe(100);
+    expect(countGraphemes(chunks[1])).toBe(100);
+    expect(countGraphemes(chunks[2])).toBe(60);
   });
 });

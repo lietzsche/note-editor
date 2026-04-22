@@ -409,6 +409,7 @@ export function NotesPageLayout({
                     </button>
                   )}
                   <SpellCheckLink
+                    content={content}
                     style={styles.secondaryActionBtn}
                     containerStyle={isMobile ? { width: "100%" } : undefined}
                   />
