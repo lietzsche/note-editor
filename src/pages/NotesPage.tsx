@@ -1,5 +1,5 @@
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, type Group, type Note } from "../lib/api";
+import { startTransition, useEffect, useRef, useState } from "react";
+import { ApiError, api, type Note } from "../lib/api";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
 import {
@@ -8,20 +8,8 @@ import {
   type CopyStatus,
   type CountStatus,
 } from "../lib/noteEditorSession";
-import { cloneNotes, readCachedNotes } from "../lib/noteCache";
-import {
-  applyCreatedNoteToCache,
-  applyMovedNoteToCache,
-  removeNoteFromCache,
-  syncGroupCachesFromAllNotes as buildGroupCachesFromAllNotes,
-  updateNoteAcrossCache,
-} from "../lib/noteCacheMutations";
-import {
-  cloneGroups,
-  removeGroupFromList,
-  sortNotesByOrder,
-  upsertGroupInList,
-} from "../lib/noteCollections";
+import { cloneNotes } from "../lib/noteCache";
+import { sortNotesByOrder } from "../lib/noteCollections";
 import {
   getNextMobilePanelAfterGroupSelection,
   getTransitionDialogMode,
@@ -32,29 +20,21 @@ import {
   type PendingAction,
 } from "../lib/notesPageTransitions";
 import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
-import { mergeGroupOrderIntoAllNotes } from "../lib/noteOrder";
 import {
   appendPerfSample,
   buildPerfConsoleLine,
   type PerfSample,
 } from "../lib/performanceDebug";
 import {
-  buildLoadNotesStartState,
-  buildSetNotesForScopeCache,
-  getLoadNotesErrorState,
-  invalidateNotesRequestState,
-  shouldApplyLoadedNotes,
-} from "../lib/noteRequestState";
-import {
   createSerializedAutoSaveRunner,
   type SerializedAutoSaveRunner,
 } from "../lib/noteAutoSave";
 import {
   deriveNotesPageState,
-  type LoadState,
   type MobilePanel,
   type SaveStatus,
 } from "./notesPageDerivations";
+import { useNotesData } from "./useNotesData";
 
 type Props = {
   username: string;
@@ -63,7 +43,6 @@ type Props = {
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
 const DEFAULT_GROUP_NAME = "미분류";
-const ALL_NOTES_SCOPE_KEY = "__all__";
 const PERF_DEBUG_ENABLED = import.meta.env.DEV;
 
 type PendingGroupPerf = {
@@ -81,8 +60,6 @@ type NoteSaveSnapshot = {
 };
 
 export default function NotesPage({ username, onLogout }: Props) {
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [title, setTitle] = useState("");
@@ -90,9 +67,6 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("ready");
   const [countStatus, setCountStatus] = useState<CountStatus>("count-ready");
-  const [notesLoadState, setNotesLoadState] = useState<LoadState>("idle");
-  const [groupReorderStatus, setGroupReorderStatus] = useState<"idle" | "saving" | "error">("idle");
-  const [noteReorderStatus, setNoteReorderStatus] = useState<"idle" | "saving" | "error">("idle");
   const [newGroupName, setNewGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobile, setIsMobile] = useState(() =>
@@ -118,137 +92,33 @@ export default function NotesPage({ username, onLogout }: Props) {
   const contentRef = useRef(content);
   const conflictNoteRef = useRef<Note | null>(null);
   const pendingGroupPerfRef = useRef<PendingGroupPerf | null>(null);
-  const groupsCacheRef = useRef<Group[] | null>(null);
-  const notesCacheRef = useRef<Map<string, Note[]>>(new Map());
-  const groupsInFlightRef = useRef<Promise<Group[]> | null>(null);
-  const notesInFlightRef = useRef<Map<string, Promise<Note[]>>>(new Map());
-  const notesRequestSequenceRef = useRef(0);
-  const currentScopeKeyRef = useRef(ALL_NOTES_SCOPE_KEY);
   const autoSaveRunnerRef = useRef<SerializedAutoSaveRunner | null>(null);
+  const {
+    groups,
+    notes,
+    setNotes,
+    notesLoadState,
+    groupReorderStatus,
+    noteReorderStatus,
+    notesCacheRef,
+    currentScopeKeyRef,
+    loadNotes,
+    setNotesForScope,
+    invalidateAllNotesCache,
+    upsertGroup,
+    removeGroup,
+    updateNoteAcrossCaches,
+    removeNoteFromCaches,
+    applyCreatedNoteToCaches,
+    applyMovedNoteToCaches,
+    handleGroupReorder,
+    handleNoteReorder,
+  } = useNotesData({
+    selectedGroupId,
+    pendingGroupPerfRef,
+  });
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
-
-  const loadGroups = useCallback(async (options?: { preferCache?: boolean }) => {
-    const cached = options?.preferCache && groupsCacheRef.current
-      ? cloneGroups(groupsCacheRef.current)
-      : null;
-
-    if (cached) {
-      setGroups(cached);
-    }
-
-    try {
-      let request = groupsInFlightRef.current;
-      if (!request) {
-        request = api.groups.list().finally(() => {
-          groupsInFlightRef.current = null;
-        });
-        groupsInFlightRef.current = request;
-      }
-
-      const data = await request;
-      const snapshot = cloneGroups(data);
-      groupsCacheRef.current = snapshot;
-      setGroups(snapshot);
-      return snapshot;
-    } catch (error) {
-      if (!cached) throw error;
-      return cached;
-    }
-  }, []);
-
-  const loadNotes = useCallback(async (
-    groupId?: string,
-    options?: { preferCache?: boolean }
-  ) => {
-    const startState = buildLoadNotesStartState({
-      cache: notesCacheRef.current,
-      groupId,
-      preferCache: options?.preferCache,
-    });
-    const { normalizedGroupId, scopeKey, cached } = startState;
-
-    currentScopeKeyRef.current = scopeKey;
-
-    if (cached) {
-      startTransition(() => {
-        setNotes(cached);
-        setNotesLoadState(startState.loadState);
-      });
-
-      if (
-        pendingGroupPerfRef.current &&
-        pendingGroupPerfRef.current.groupId === normalizedGroupId
-      ) {
-        pendingGroupPerfRef.current.source = startState.perfSource;
-      }
-    } else {
-      startTransition(() => {
-        setNotesLoadState(startState.loadState);
-      });
-
-      if (
-        pendingGroupPerfRef.current &&
-        pendingGroupPerfRef.current.groupId === normalizedGroupId
-      ) {
-        pendingGroupPerfRef.current.source = startState.perfSource;
-      }
-    }
-
-    const requestSequence = ++notesRequestSequenceRef.current;
-
-    try {
-      let request = notesInFlightRef.current.get(scopeKey);
-      if (!request) {
-        request = api.notes.list(groupId).finally(() => {
-          notesInFlightRef.current.delete(scopeKey);
-        });
-        notesInFlightRef.current.set(scopeKey, request);
-      }
-
-      const data = await request;
-      const snapshot = cloneNotes(data);
-      notesCacheRef.current.set(scopeKey, snapshot);
-
-      if (shouldApplyLoadedNotes({
-        requestSequence,
-        latestRequestSequence: notesRequestSequenceRef.current,
-        currentScopeKey: currentScopeKeyRef.current,
-        scopeKey,
-      })) {
-        startTransition(() => {
-          setNotes(snapshot);
-          setNotesLoadState("ready");
-        });
-      }
-
-      return snapshot;
-    } catch (error) {
-      const nextErrorState = getLoadNotesErrorState({
-        shouldApply: shouldApplyLoadedNotes({
-          requestSequence,
-          latestRequestSequence: notesRequestSequenceRef.current,
-          currentScopeKey: currentScopeKeyRef.current,
-          scopeKey,
-        }),
-        hasCachedNotes: Boolean(cached),
-      });
-      if (nextErrorState) {
-        startTransition(() => {
-          setNotesLoadState(nextErrorState);
-        });
-      }
-      throw error;
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadGroups({ preferCache: true }).catch(() => {});
-  }, [loadGroups]);
-
-  useEffect(() => {
-    void loadNotes(selectedGroupId ?? undefined, { preferCache: true }).catch(() => {});
-  }, [selectedGroupId, loadNotes]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -359,78 +229,6 @@ export default function NotesPage({ username, onLogout }: Props) {
   function getGroupLabel(groupId: string | null) {
     if (groupId === null) return "전체 노트";
     return groups.find((group) => group.id === groupId)?.name ?? "그룹";
-  }
-
-  function setNotesForScope(groupId: string | null, nextNotes: Note[]) {
-    const nextState = buildSetNotesForScopeCache(notesCacheRef.current, groupId, nextNotes);
-    notesCacheRef.current = nextState.cache;
-
-    if (nextState.scopeKey === currentScopeKeyRef.current) {
-      startTransition(() => {
-        setNotes(nextState.snapshot);
-        setNotesLoadState("ready");
-      });
-    }
-  }
-
-  function invalidateAllNotesCache() {
-    const nextState = invalidateNotesRequestState(notesRequestSequenceRef.current);
-    notesCacheRef.current = nextState.cache;
-    notesInFlightRef.current = nextState.inFlight;
-    notesRequestSequenceRef.current = nextState.requestSequence;
-  }
-
-  function upsertGroup(nextGroup: Group) {
-    const current = groupsCacheRef.current ?? groups;
-    setGroupsSnapshot(upsertGroupInList(current, nextGroup));
-  }
-
-  function removeGroup(groupId: string) {
-    const current = groupsCacheRef.current ?? groups;
-    setGroupsSnapshot(removeGroupFromList(current, groupId));
-  }
-
-  function setGroupsSnapshot(nextGroups: Group[]) {
-    const snapshot = cloneGroups(nextGroups);
-    groupsCacheRef.current = snapshot;
-    setGroups(snapshot);
-  }
-  function updateNoteAcrossCaches(nextNote: Note) {
-    notesCacheRef.current = updateNoteAcrossCache(notesCacheRef.current, nextNote);
-
-    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
-    if (currentNotes) {
-      startTransition(() => {
-        setNotes(cloneNotes(currentNotes));
-      });
-    }
-  }
-
-  function removeNoteFromCaches(noteId: string) {
-    notesCacheRef.current = removeNoteFromCache(notesCacheRef.current, noteId);
-
-    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
-    if (currentNotes) {
-      startTransition(() => {
-        setNotes(cloneNotes(currentNotes));
-      });
-    }
-  }
-
-  function applyCreatedNoteToCaches(note: Note) {
-    notesCacheRef.current = applyCreatedNoteToCache(notesCacheRef.current, note);
-  }
-
-  function applyMovedNoteToCaches(nextNote: Note, previousGroupId: string | null) {
-    notesCacheRef.current = applyMovedNoteToCache(
-      notesCacheRef.current,
-      nextNote,
-      previousGroupId
-    );
-  }
-
-  function syncGroupCachesFromAllNotes(allNotes: Note[]) {
-    notesCacheRef.current = buildGroupCachesFromAllNotes(notesCacheRef.current, allNotes);
   }
 
   function hasBlockingEdits() {
@@ -622,70 +420,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     setNotesForScope(selectedGroupId, nextNotes);
     if (selectedNote?.id === id) {
       clearSelectedNoteView();
-    }
-  }
-
-  async function handleGroupReorder(nextGroups: Group[]) {
-    if (groupReorderStatus === "saving") return;
-
-    const normalizedNextGroups = nextGroups.map((group, index) => ({
-      ...group,
-      position: index,
-    }));
-    const previousGroups = cloneGroups(groupsCacheRef.current ?? groups);
-    setGroupsSnapshot(normalizedNextGroups);
-    setGroupReorderStatus("saving");
-
-    try {
-      await api.groups.reorder(normalizedNextGroups.map((group) => group.id));
-      setGroupReorderStatus("idle");
-    } catch {
-      setGroupsSnapshot(previousGroups);
-      setGroupReorderStatus("error");
-      setTimeout(() => setGroupReorderStatus("idle"), 2000);
-    }
-  }
-
-  async function handleNoteReorder(reorderedNotes: Note[]) {
-    if (noteReorderStatus === "saving") return;
-
-    const previousNotes = notes;
-    setNotes(reorderedNotes);
-    setNoteReorderStatus("saving");
-
-    try {
-      const scope = selectedGroupId
-        ? { type: "group" as const, group_id: selectedGroupId }
-        : undefined;
-
-      await api.notes.reorder(
-        reorderedNotes.map((note) => note.id),
-        scope
-      );
-
-      if (selectedGroupId === null) {
-        syncGroupCachesFromAllNotes(reorderedNotes);
-        setNotesForScope(null, reorderedNotes);
-      } else {
-        const allNotes = readCachedNotes(notesCacheRef.current, null);
-
-        if (allNotes) {
-          const nextAllNotes = mergeGroupOrderIntoAllNotes(
-            allNotes,
-            selectedGroupId,
-            reorderedNotes
-          );
-          syncGroupCachesFromAllNotes(nextAllNotes);
-        }
-
-        setNotesForScope(selectedGroupId, reorderedNotes);
-      }
-
-      setNoteReorderStatus("idle");
-    } catch {
-      setNotes(previousNotes);
-      setNoteReorderStatus("error");
-      setTimeout(() => setNoteReorderStatus("idle"), 2000);
     }
   }
 
