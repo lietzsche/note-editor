@@ -16,6 +16,15 @@ import {
   sortNotesByOrder,
   upsertGroupInList,
 } from "../lib/noteCollections";
+import {
+  getNextMobilePanelAfterGroupSelection,
+  getTransitionDialogMode,
+  hasBlockingEdits as hasBlockingEditsForNote,
+  shouldClearSelectedNoteOnGroupSelection,
+  shouldOpenTransitionForGroupSelection,
+  shouldOpenTransitionForNoteSelection,
+  type PendingAction,
+} from "../lib/notesPageTransitions";
 import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
 import { mergeGroupOrderIntoAllNotes } from "../lib/noteOrder";
 import {
@@ -41,12 +50,6 @@ type Props = {
 
 type CopyStatus = "ready" | "copy-success" | "copy-error";
 type CountStatus = "count-ready" | "count-stale";
-type PendingAction =
-  | { type: "select-note"; note: Note }
-  | { type: "select-group"; groupId: string | null }
-  | { type: "create-note" }
-  | { type: "move-note-group"; noteId: string; groupId: string | null }
-  | { type: "logout" };
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
 const DEFAULT_GROUP_NAME = "미분류";
@@ -412,16 +415,13 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function hasBlockingEdits() {
-    return Boolean(
-      selectedNote &&
-      (saveStatus === "dirty" || saveStatus === "error" || saveStatus === "conflict")
-    );
+    return hasBlockingEditsForNote(selectedNote, saveStatus);
   }
 
   function openTransitionDialog(action: PendingAction) {
     cancelScheduledSave();
     setPendingAction(action);
-    setDialogMode(saveStatus === "conflict" ? "conflict" : "transition");
+    setDialogMode(getTransitionDialogMode(saveStatus));
   }
 
   function applyGroupSelection(groupId: string | null) {
@@ -435,22 +435,27 @@ export default function NotesPage({ username, onLogout }: Props) {
     }
 
     setSelectedGroupId(groupId);
-    if (groupId !== null && selectedNote && selectedNote.group_id !== groupId) {
+    if (shouldClearSelectedNoteOnGroupSelection(groupId, selectedNote)) {
       clearSelectedNoteView();
       return;
     }
-    if (isMobile) {
-      setMobilePanel("notes");
+    const nextMobilePanel = getNextMobilePanelAfterGroupSelection(isMobile);
+    if (nextMobilePanel) {
+      setMobilePanel(nextMobilePanel);
     }
   }
 
   function selectGroup(groupId: string | null) {
-    if (groupId === selectedGroupId) return;
-
-    if (hasBlockingEdits() && groupId !== selectedGroupId) {
+    if (shouldOpenTransitionForGroupSelection({
+      selectedGroupId,
+      nextGroupId: groupId,
+      selectedNote,
+      saveStatus,
+    })) {
       openTransitionDialog({ type: "select-group", groupId });
       return;
     }
+    if (groupId === selectedGroupId) return;
     applyGroupSelection(groupId);
   }
 
@@ -524,12 +529,15 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function selectNote(note: Note) {
-    if (note.id === selectedNote?.id) return;
-
-    if (hasBlockingEdits() && note.id !== selectedNote?.id) {
+    if (shouldOpenTransitionForNoteSelection({
+      selectedNote,
+      nextNote: note,
+      saveStatus,
+    })) {
       openTransitionDialog({ type: "select-note", note });
       return;
     }
+    if (note.id === selectedNote?.id) return;
     openNote(note);
   }
 
