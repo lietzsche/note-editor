@@ -57,7 +57,7 @@ describe("NOTES-PAGE derived state", () => {
 
     expect(derived.isSearchActive).toBe(true);
     expect(derived.filteredNotes.map((note) => note.id)).toEqual(["n2"]);
-    expect(derived.effectiveNoteListStatusLabel).toBe("1媛?寃??寃곌낵");
+    expect(derived.effectiveNoteListStatusLabel).toBe("1개 검색 결과");
   });
 
   it("keeps all desktop panels visible and shows only the active mobile panel", () => {
@@ -74,18 +74,18 @@ describe("NOTES-PAGE derived state", () => {
   });
 
   it("resolves labels for save status, group reorder status, and note list status", () => {
-    expect(getSaveLabel("conflict")).toBe("異⑸룎 諛쒖깮");
-    expect(getGroupListStatusLabel("saving", groups.length)).toBe("洹몃９ ?뺣젹 ???以?..");
+    expect(getSaveLabel("conflict")).toBe("충돌 발생");
+    expect(getGroupListStatusLabel("saving", groups.length)).toBe("그룹 정렬 저장 중...");
     expect(getNoteListStatusLabel({
       noteReorderStatus: "idle",
       notesLoadState: "refreshing",
       selectedGroupId: null,
-    })).toBe("紐⑸줉 諛깃렇?쇱슫??媛깆떊 以?..");
+    })).toBe("목록 백그라운드 갱신 중...");
   });
 
   it("returns the selected group name and falls back when the group is missing", () => {
     expect(getCurrentGroupLabel(groups, "g2")).toBe("Personal");
-    expect(getCurrentGroupLabel(groups, "missing")).toBe("洹몃９");
-    expect(getCurrentGroupLabel(groups, null)).toBe("?꾩껜 ?명듃");
+    expect(getCurrentGroupLabel(groups, "missing")).toBe("그룹");
+    expect(getCurrentGroupLabel(groups, null)).toBe("전체 노트");
   });
 });

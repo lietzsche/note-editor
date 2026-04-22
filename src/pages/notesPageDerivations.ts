@@ -49,7 +49,7 @@ export function deriveNotesPageState({
     groupListStatusLabel: getGroupListStatusLabel(groupReorderStatus, groups.length),
     noteListStatusLabel,
     effectiveNoteListStatusLabel: isSearchActive
-      ? `${filteredNotes.length}媛?寃??寃곌낵`
+      ? `${filteredNotes.length}개 검색 결과`
       : noteListStatusLabel,
     currentGroupLabel: getCurrentGroupLabel(groups, selectedGroupId),
     ...getPanelVisibility(isMobile, mobilePanel),
@@ -62,21 +62,21 @@ export function matchesNoteSearch(note: Note, normalizedQuery: string) {
 }
 
 export function getSaveLabel(saveStatus: SaveStatus) {
-  return saveStatus === "saving" ? "???以?.." :
-    saveStatus === "dirty" ? "誘몄???" :
-    saveStatus === "conflict" ? "異⑸룎 諛쒖깮" :
-    saveStatus === "error" ? "????ㅽ뙣" :
-    "??λ맖";
+  return saveStatus === "saving" ? "저장 중..." :
+    saveStatus === "dirty" ? "미저장" :
+    saveStatus === "conflict" ? "충돌 발생" :
+    saveStatus === "error" ? "저장 실패" :
+    "저장됨";
 }
 
 export function getGroupListStatusLabel(
   groupReorderStatus: ReorderStatus,
   groupsCount: number
 ) {
-  return groupReorderStatus === "saving" ? "洹몃９ ?뺣젹 ???以?.." :
-    groupReorderStatus === "error" ? "洹몃９ ?뺣젹 ?ㅽ뙣" :
-    groupsCount < 2 ? "洹몃９? 2媛??댁긽?댁뼱???뺣젹 媛?ν빀?덈떎." :
-    "?쒕옒洹몃줈 洹몃９ ?쒖꽌瑜?蹂寃쏀븯?몄슂.";
+  return groupReorderStatus === "saving" ? "그룹 정렬 저장 중..." :
+    groupReorderStatus === "error" ? "그룹 정렬 실패" :
+    groupsCount < 2 ? "그룹은 2개 이상이어야 정렬 가능합니다." :
+    "드래그로 그룹 순서를 변경하세요.";
 }
 
 export function getNoteListStatusLabel({
@@ -88,19 +88,19 @@ export function getNoteListStatusLabel({
   notesLoadState: LoadState;
   selectedGroupId: string | null;
 }) {
-  return noteReorderStatus === "saving" ? "?뺣젹 ???以?.." :
-    noteReorderStatus === "error" ? "?뺣젹 ?ㅽ뙣" :
-    notesLoadState === "loading" ? "?명듃 遺덈윭?ㅻ뒗 以?.." :
-    notesLoadState === "refreshing" ? "紐⑸줉 諛깃렇?쇱슫??媛깆떊 以?.." :
-    notesLoadState === "error" ? "紐⑸줉 媛깆떊 ?ㅽ뙣" :
-    selectedGroupId === null ? "?쒕옒洹몃줈 ?꾩껜 ?명듃瑜??뺣젹?섏꽭??" :
-    "?쒕옒洹몃줈 ?꾩옱 洹몃９ ?명듃瑜??뺣젹?섏꽭??";
+  return noteReorderStatus === "saving" ? "정렬 저장 중..." :
+    noteReorderStatus === "error" ? "정렬 실패" :
+    notesLoadState === "loading" ? "노트 불러오는 중..." :
+    notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
+    notesLoadState === "error" ? "목록 갱신 실패" :
+    selectedGroupId === null ? "드래그로 전체 노트를 정렬하세요." :
+    "드래그로 현재 그룹 노트를 정렬하세요.";
 }
 
 export function getCurrentGroupLabel(groups: Group[], selectedGroupId: string | null) {
   return selectedGroupId
-    ? groups.find((group) => group.id === selectedGroupId)?.name ?? "洹몃９"
-    : "?꾩껜 ?명듃";
+    ? groups.find((group) => group.id === selectedGroupId)?.name ?? "그룹"
+    : "전체 노트";
 }
 
 export function getPanelVisibility(isMobile: boolean, mobilePanel: MobilePanel) {

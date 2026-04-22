@@ -1049,6 +1049,10 @@ export default function NotesPage({ username, onLogout }: Props) {
   const {
     filteredNotes,
     isSearchActive,
+    saveLabel,
+    groupListStatusLabel,
+    effectiveNoteListStatusLabel,
+    currentGroupLabel,
     showGroupsPanel,
     showNotesPanel,
     showEditorPanel,
@@ -1064,33 +1068,6 @@ export default function NotesPage({ username, onLogout }: Props) {
     isMobile,
     mobilePanel,
   });
-
-  const saveLabel =
-    saveStatus === "saving" ? "저장 중..." :
-    saveStatus === "dirty" ? "미저장" :
-    saveStatus === "conflict" ? "충돌 발생" :
-    saveStatus === "error" ? "저장 실패" : "저장됨";
-
-  const groupListStatusLabel =
-    groupReorderStatus === "saving" ? "그룹 정렬 저장 중..." :
-    groupReorderStatus === "error" ? "그룹 정렬 실패" :
-    groups.length < 2 ? "그룹은 2개 이상이어야 정렬 가능합니다." : "드래그로 그룹 순서를 변경하세요.";
-
-  const noteListStatusLabel =
-    noteReorderStatus === "saving" ? "정렬 저장 중..." :
-    noteReorderStatus === "error" ? "정렬 실패" :
-    notesLoadState === "loading" ? "노트 불러오는 중..." :
-    notesLoadState === "refreshing" ? "목록 백그라운드 갱신 중..." :
-    notesLoadState === "error" ? "목록 갱신 실패" :
-    selectedGroupId === null ? "드래그로 전체 노트를 정렬하세요." : "드래그로 현재 그룹 노트를 정렬하세요.";
-
-  const effectiveNoteListStatusLabel = isSearchActive
-    ? `${filteredNotes.length}개 검색 결과`
-    : noteListStatusLabel;
-
-  const currentGroupLabel = selectedGroupId
-    ? groups.find((g) => g.id === selectedGroupId)?.name ?? "그룹"
-    : "전체 노트";
   const selectedNoteGroupValue = selectedNote
     ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
     : "";
