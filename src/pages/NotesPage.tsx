@@ -2,6 +2,12 @@ import { startTransition, useCallback, useEffect, useRef, useState } from "react
 import { ApiError, api, type Group, type Note } from "../lib/api";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { copyText, countGraphemes } from "../lib/editorProductivity";
+import {
+  getClearedNoteEditorState,
+  getOpenedNoteEditorState,
+  type CopyStatus,
+  type CountStatus,
+} from "../lib/noteEditorSession";
 import { cloneNotes, getNotesScopeKey, readCachedNotes } from "../lib/noteCache";
 import {
   applyCreatedNoteToCache,
@@ -47,9 +53,6 @@ type Props = {
   username: string;
   onLogout: () => void;
 };
-
-type CopyStatus = "ready" | "copy-success" | "copy-error";
-type CountStatus = "count-ready" | "count-stale";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
 const DEFAULT_GROUP_NAME = "미분류";
@@ -460,30 +463,33 @@ export default function NotesPage({ username, onLogout }: Props) {
   }
 
   function clearSelectedNoteView() {
+    const nextEditorState = getClearedNoteEditorState({ isMobile });
+
     cancelScheduledSave();
     autoSaveRunnerRef.current?.reset();
     autoSaveRunnerRef.current = null;
     selectedNoteIdRef.current = null;
     selectedNoteUpdatedAtRef.current = null;
-    setSelectedNote(null);
+    setSelectedNote(nextEditorState.selectedNote);
     titleRef.current = "";
     contentRef.current = "";
-    setTitle("");
-    setContent("");
-    setSaveStatus("saved");
-    setCopyStatus("ready");
-    setCountStatus("count-ready");
+    setTitle(nextEditorState.title);
+    setContent(nextEditorState.content);
+    setSaveStatus(nextEditorState.saveStatus);
+    setCopyStatus(nextEditorState.copyStatus);
+    setCountStatus(nextEditorState.countStatus);
     conflictNoteRef.current = null;
-    setConflictNote(null);
-    setPendingAction(null);
-    setDialogMode(null);
-    if (isMobile) {
-      setMobilePanel("notes");
+    setConflictNote(nextEditorState.conflictNote);
+    setPendingAction(nextEditorState.pendingAction);
+    setDialogMode(nextEditorState.dialogMode);
+    if (nextEditorState.mobilePanel) {
+      setMobilePanel(nextEditorState.mobilePanel);
     }
   }
 
   function openNote(note: Note) {
     const noteOpenStart = PERF_DEBUG_ENABLED ? performance.now() : 0;
+    const nextEditorState = getOpenedNoteEditorState({ note, isMobile });
 
     cancelScheduledSave();
     autoSaveRunnerRef.current?.reset();
@@ -494,17 +500,17 @@ export default function NotesPage({ username, onLogout }: Props) {
     conflictNoteRef.current = null;
     autoSaveRunnerRef.current = createNoteAutoSaveRunner(note.id);
     startTransition(() => {
-      setSelectedNote(note);
-      setTitle(note.title);
-      setContent(note.content);
-      setSaveStatus("saved");
-      setCopyStatus("ready");
-      setCountStatus("count-stale");
-      setConflictNote(null);
-      setPendingAction(null);
-      setDialogMode(null);
-      if (isMobile) {
-        setMobilePanel("editor");
+      setSelectedNote(nextEditorState.selectedNote);
+      setTitle(nextEditorState.title);
+      setContent(nextEditorState.content);
+      setSaveStatus(nextEditorState.saveStatus);
+      setCopyStatus(nextEditorState.copyStatus);
+      setCountStatus(nextEditorState.countStatus);
+      setConflictNote(nextEditorState.conflictNote);
+      setPendingAction(nextEditorState.pendingAction);
+      setDialogMode(nextEditorState.dialogMode);
+      if (nextEditorState.mobilePanel) {
+        setMobilePanel(nextEditorState.mobilePanel);
       }
     });
 
