@@ -1,5 +1,5 @@
 interface:
-  display_name: "Code Review"
+  display_name: "Review"
   short_description: "Review code changes for bugs and regressions."
   default_prompt: "Use $review to review the current diff for bugs, regressions, and missing tests."
 
