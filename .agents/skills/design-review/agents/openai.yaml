@@ -1,7 +1,0 @@
-interface:
-  display_name: "Design Review"
-  short_description: "Audit UI design quality and visual polish."
-  default_prompt: "Use $design-review to audit the current frontend design and suggest concrete fixes."
-
-policy:
-  allow_implicit_invocation: true

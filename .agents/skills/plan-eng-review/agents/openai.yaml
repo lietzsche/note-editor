@@ -1,7 +1,0 @@
-interface:
-  display_name: "Plan Engineering Review"
-  short_description: "Review an implementation plan before coding."
-  default_prompt: "Use $plan-eng-review to review this implementation plan and identify risks before coding."
-
-policy:
-  allow_implicit_invocation: true
