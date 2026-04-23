@@ -1,229 +1,179 @@
-# gstack 사용법 가이드
+# gstack 사용 가이드
 
-`gstack`은 Codex/Claude가 특정 작업을 더 체계적으로 수행하도록 돕는 스킬 묶음입니다. 단순한 CLI 명령어라기보다, 브라우저 QA, 디버깅, 계획 리뷰, 배포 검증, 문서화 같은 작업을 위한 워크플로우 프리셋에 가깝습니다.
+이 문서는 `note-editor` 프로젝트에서 gstack을 사용할 때의 기준을 정리합니다. 핵심 원칙은 간단합니다. gstack은 사용자 컴퓨터 전역 홈 디렉터리에 설치하지 않고, 이 프로젝트 안에만 설치해서 사용합니다.
 
-## 큰 분류
+## 기준
 
-### `$gstack`
+- 프로젝트 전용 설치 위치는 `.codex/skills/gstack`입니다.
+- `~/.codex/skills`, `~/.claude/skills`, `~/gstack` 같은 사용자 홈 설치는 이 프로젝트 기준으로 사용하지 않습니다.
+- upstream gstack 문서는 Claude Code와 여러 에이전트 설치 흐름을 함께 설명하므로 그대로 따라 하지 않습니다.
+- 이 프로젝트의 기본 개발/검증 명령은 `AGENTS.md`와 `package.json`을 우선합니다.
+- 현재 확인된 gstack 패키지는 Claude Code용 원본 성격이 강합니다. Codex용 호스트 설정은 들어 있지만, 실제 `SKILL.md`가 `~/.claude/skills/gstack`를 참조한다면 Codex 최적화 산출물이 아닙니다.
 
-`$gstack`은 브라우저 QA와 dogfooding에 쓰는 본체 기능입니다. headless Chromium을 열어 실제 사이트를 탐색하고, 버튼을 누르고, 폼을 입력하고, 콘솔 에러와 네트워크 실패를 확인하며, 스크린샷을 남길 수 있습니다.
+## 설치
 
-주요 용도:
+### 권장 설치: 프로젝트 전용
 
-- 페이지 열기와 화면 확인
-- 버튼, 링크, 입력창, 업로드 등 실제 UI 조작
-- 콘솔 에러와 네트워크 실패 요청 확인
-- 모바일, 태블릿, 데스크톱 반응형 스크린샷 촬영
-- 로그인, 노트 작성, 저장 같은 사용자 플로우 dogfooding
-- 배포된 페이지가 정상 동작하는지 검증
+저장소 루트에서 실행합니다.
 
-예시 요청:
-
-```text
-$gstack으로 로컬 앱 열어서 노트 작성 플로우 테스트해줘
+```powershell
+New-Item -ItemType Directory -Force .codex\skills | Out-Null
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .codex\skills\gstack
 ```
 
-```text
-$gstack으로 모바일 화면 스크린샷 찍고 레이아웃 깨지는지 봐줘
-```
-
-```text
-$gstack으로 배포 페이지 콘솔 에러랑 네트워크 실패 확인해줘
-```
-
-이 저장소에서는 보통 `npm run dev` 또는 `npm run dev:watch`로 로컬 앱을 띄운 뒤 `http://localhost:8788` 같은 주소를 gstack 브라우저로 열어 검증합니다.
-
-### `$gstack-*`
-
-`$gstack-*`는 특정 목적의 작업별 스킬입니다. 예를 들어 버그 조사, CEO 관점 계획 리뷰, 보안 감사, 디자인 리뷰, 배포 검증처럼 정해진 절차가 있는 작업을 실행합니다.
-
-## 설치 방법
-
-gstack은 사용하는 AI 코딩 도구에 따라 설치 위치가 다릅니다. Claude Code는 gstack 전체 저장소를 하나의 스킬 폴더로 읽고, Codex는 각 스킬을 `gstack-*` 폴더로 나눠 읽습니다.
-
-### 공통 요구사항
-
-- Git
-- Bun v1.0 이상
-- Windows에서는 Node.js도 필요합니다.
-- Windows에서 `./setup`을 실행할 때는 Git Bash, WSL, 또는 bash를 실행할 수 있는 터미널을 사용하는 편이 안전합니다.
-
-### Claude Code에 설치
-
-Claude Code는 gstack을 아래 위치에 둡니다.
-
-```text
-~/.claude/skills/gstack
-```
-
-Windows 경로로는 보통 다음과 같습니다.
-
-```text
-C:\Users\<사용자>\.claude\skills\gstack
-```
-
-설치 명령:
+Git Bash 또는 WSL을 쓰는 경우:
 
 ```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
-cd ~/.claude/skills/gstack
-./setup
+mkdir -p .codex/skills
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git .codex/skills/gstack
 ```
 
-설치 후 스킬 파일은 다음 구조에 있습니다.
+이미 `.codex/skills/gstack`가 있으면 새로 clone하지 말고 상태를 먼저 확인합니다.
 
-```text
-~/.claude/skills/gstack/SKILL.md
-~/.claude/skills/gstack/qa/SKILL.md
-~/.claude/skills/gstack/review/SKILL.md
-~/.claude/skills/gstack/investigate/SKILL.md
+```powershell
+git -C .codex\skills\gstack status --short
+git -C .codex\skills\gstack remote -v
 ```
 
-즉 Claude의 경우 “그 파일”, 예를 들어 `SKILL.md`는 gstack 저장소 내부의 각 스킬 폴더에 둡니다. 프로젝트 단위로 팀에 공유하려면 저장소 루트에서 team mode를 설정할 수 있습니다.
+업데이트가 필요하면 다음처럼 fast-forward만 허용합니다.
+
+```powershell
+git -C .codex\skills\gstack pull --ff-only
+```
+
+### Codex용 산출물 확인
+
+gstack은 Codex 호스트용 생성 로직을 포함하지만, raw clone 직후의 `SKILL.md`가 항상 Codex에 맞게 정리되어 있다고 가정하면 안 됩니다. 설치 후 아래 검색으로 Claude 전용 흔적을 확인합니다.
+
+```powershell
+rg -n "~/.claude|MODEL_OVERLAY: claude|CLAUDE.md|AskUserQuestion|allowed-tools" .codex\skills\gstack -g "SKILL.md"
+```
+
+많이 잡히면 현재 패키지는 Codex 최적화 산출물이라기보다 Claude 중심 원본입니다. 이 경우 gstack을 참고 자료와 보조 워크플로우로만 보고, Codex가 그대로 실행할 때는 경로와 도구명이 맞는지 특히 확인해야 합니다.
+
+가능하면 Git Bash 또는 WSL에서 Codex 호스트용 생성을 시도합니다.
 
 ```bash
-(cd ~/.claude/skills/gstack && ./setup --team) && ~/.claude/skills/gstack/bin/gstack-team-init required
+cd .codex/skills/gstack
+bun install
+bun run gen:skill-docs --host codex --model gpt-5.4
 ```
 
-이 방식은 gstack 전체를 프로젝트에 복사하지 않고, 프로젝트 설정만 추가해서 팀원이 같은 gstack 스킬을 쓰도록 유도합니다.
+생성 후에도 `SKILL.md`가 `~/.claude`를 계속 참조하면 이 프로젝트의 Codex 환경에 완전히 맞지 않는 상태입니다. 이때는 gstack 자체를 고치기보다, 필요한 기능만 프로젝트 전용 문서나 얇은 스킬로 따로 정리하는 편이 안전합니다.
 
-### OpenAI Codex CLI에 설치
+### 하지 말 것
 
-Codex는 gstack 런타임과 각 스킬을 아래 위치에 설치합니다.
+- `git clone ... ~/.claude/skills/gstack`를 실행하지 않습니다.
+- `git clone ... ~/.codex/skills/gstack`를 실행하지 않습니다.
+- `git clone ... ~/gstack` 후 전역 `./setup --host codex`를 실행하지 않습니다.
+- `./setup --team`을 이 저장소에서 바로 실행하지 않습니다. 이 흐름은 `CLAUDE.md` 생성, routing 규칙 추가, commit 같은 동작을 유도할 수 있어 현재 `AGENTS.md` 기반 운영과 맞지 않습니다.
+- gstack 문서에 있는 `CLAUDE.md` 수정 지시는 이 프로젝트에서는 적용하지 않습니다.
 
-```text
-~/.codex/skills/gstack
-~/.codex/skills/gstack-*/
-```
+## 사용 방식
 
-Windows 경로로는 보통 다음과 같습니다.
+gstack은 하나의 명령이라기보다 작업별 스킬 묶음입니다. 이 프로젝트에서는 다음처럼 사용합니다.
 
-```text
-C:\Users\<사용자>\.codex\skills\gstack
-C:\Users\<사용자>\.codex\skills\gstack-*
-```
-
-설치 명령:
-
-```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/gstack
-cd ~/gstack
-./setup --host codex
-```
-
-설치 후 스킬 파일은 다음 구조에 있습니다.
-
-```text
-~/.codex/skills/gstack/SKILL.md
-~/.codex/skills/gstack-openclaw-ceo-review/SKILL.md
-~/.codex/skills/gstack-openclaw-investigate/SKILL.md
-~/.codex/skills/gstack-upgrade/SKILL.md
-```
-
-`~/.codex/skills/gstack`은 gstack 본체와 실행에 필요한 런타임 자산을 담는 위치입니다. 개별 작업 스킬은 보통 `~/.codex/skills/gstack-<스킬이름>/SKILL.md` 형태로 들어갑니다.
-
-즉 Codex의 경우 “그 파일”, 예를 들어 특정 스킬의 `SKILL.md`는 전역으로 쓰려면 `~/.codex/skills/<스킬이름>/SKILL.md`에 둡니다. 이 프로젝트에서처럼 프로젝트 전용 스킬을 함께 두고 싶다면 저장소 내부의 `.agents/skills/` 아래에 둘 수도 있습니다.
-
-```text
-프로젝트 전용 위치:
-C:\coding\note-editor\.agents\skills\<스킬이름>\SKILL.md
-```
-
-현재 이 저장소의 vendored gstack은 다음처럼 들어 있습니다.
-
-```text
-C:\coding\note-editor\.agents\skills\gstack\SKILL.md
-C:\coding\note-editor\.agents\skills\gstack\openclaw\skills\gstack-openclaw-investigate\SKILL.md
-```
-
-전역으로 모든 Codex 세션에서 쓰려면 `C:\Users\<사용자>\.codex\skills\`를 쓰고, 이 저장소에서만 쓰려면 `.agents\skills\`를 쓰는 식으로 구분하면 됩니다.
-
-### 설치 위치 요약
-
-| 대상 | 전역 설치 위치 | 스킬 파일 위치 예시 |
-| --- | --- | --- |
-| Claude Code | `~/.claude/skills/gstack` | `~/.claude/skills/gstack/qa/SKILL.md` |
-| OpenAI Codex CLI | `~/.codex/skills/gstack`, `~/.codex/skills/gstack-*/` | `~/.codex/skills/gstack-openclaw-investigate/SKILL.md` |
-| 이 저장소 전용 | `.agents/skills/` | `.agents/skills/gstack/SKILL.md` |
-
-설치 후 Claude나 Codex 세션을 새로 열면 스킬 목록에 gstack 명령어가 잡힙니다. 이미 열려 있는 세션에서는 스킬 목록이 갱신되지 않을 수 있으므로 새 세션에서 확인하는 것이 좋습니다.
-
-## 주요 명령어
-
-| 명령어 | 기능 |
+| 스킬 | 사용할 때 |
 | --- | --- |
-| `$gstack` | headless browser로 사이트를 열고 QA, 스크린샷, 콘솔/네트워크 검사, 반응형 테스트를 수행합니다. |
-| `$gstack-openclaw-ceo-review` | 계획을 CEO/제품 관점에서 검토합니다. 문제 정의, 범위, 대안, 리스크를 따집니다. 구현은 하지 않습니다. |
-| `$gstack-openclaw-investigate` | 버그나 에러의 원인을 조사합니다. 재현, 코드 추적, 최근 변경 확인, 가설 검증 후에만 수정합니다. |
-| `$gstack-openclaw-office-hours` | 새 아이디어나 제품 방향을 브레인스토밍하고 만들 가치가 있는지 검토합니다. |
-| `$gstack-openclaw-retro` | 최근 커밋과 작업 흐름을 기반으로 회고를 작성합니다. |
-| `$gstack-upgrade` | gstack 자체를 최신 버전으로 업데이트합니다. |
-| `$benchmark` | 페이지 속도, Web Vitals, 번들 크기 같은 성능 회귀를 확인합니다. |
-| `$canary` | 배포 후 프로덕션을 감시하며 콘솔 에러, 성능 문제, 화면 실패를 확인합니다. |
-| `$careful` | 삭제, reset, force push 같은 위험한 명령어 전에 안전 경고를 강화합니다. |
-| `$guard` | `$careful`과 디렉터리 수정 제한을 결합한 강한 안전 모드입니다. |
-| `$freeze` | 수정 가능한 범위를 특정 폴더로 제한합니다. |
-| `$context-save` | 현재 작업 상태, git 상태, 결정 사항, 남은 작업을 저장합니다. |
-| `$context-restore` | 이전에 저장한 작업 맥락을 복원합니다. |
-| `$cso` | 보안 감사입니다. secrets, 의존성, OWASP, CI/CD, AI 보안 등을 봅니다. |
-| `$design-consultation` | 새 UI나 제품의 디자인 시스템, 색상, 타이포그래피, 브랜드 방향을 잡습니다. |
-| `$design-shotgun` | 여러 디자인 시안을 빠르게 만들고 비교합니다. |
-| `$design-html` | 승인된 디자인을 HTML/CSS 구현으로 만듭니다. |
-| `$design-review` | 실제 UI를 보고 spacing, hierarchy, responsive, 시각적 완성도 문제를 찾고 고칩니다. |
-| `$devex-review` | 문서, onboarding, CLI, API 흐름을 실제로 테스트해 개발자 경험을 점검합니다. |
-| `$document-release` | 배포 후 README, CHANGELOG, 운영 문서 등을 실제 변경사항에 맞게 업데이트합니다. |
-| `$health` | 타입체크, 테스트, 린트 등으로 코드베이스 건강 상태를 점검합니다. |
-| `$investigate` | 일반 디버깅 스킬입니다. `$gstack-openclaw-investigate`와 비슷하게 원인 조사 중심으로 동작합니다. |
-| `$land-and-deploy` | PR merge, 배포, 배포 검증까지 이어서 진행합니다. |
-| `$learn` | gstack이 과거 세션에서 저장한 프로젝트 학습 내용을 조회합니다. |
-| `$make-pdf` | markdown 문서를 PDF로 변환합니다. |
-| `$office-hours` | 제품 아이디어나 방향성을 검토하고 브레인스토밍합니다. |
-| `$open-gstack-browser` | 눈에 보이는 실제 Chromium 브라우저를 띄워 사람이 과정을 볼 수 있게 합니다. |
-| `$pair-agent` | 다른 AI 에이전트에게 브라우저 접근 권한을 공유합니다. |
-| `$plan-ceo-review` | 구현 전 계획을 CEO 관점에서 리뷰합니다. `$gstack-openclaw-ceo-review`와 비슷한 계열입니다. |
-| `$plan-design-review` | 구현 전 디자인 계획을 리뷰합니다. |
-| `$plan-devex-review` | 구현 전 API, SDK, CLI, 문서 같은 개발자 경험 계획을 리뷰합니다. |
-| `$autoplan` | CEO, 디자인, 엔지니어링, DX 리뷰를 자동으로 순서대로 실행하는 전체 계획 리뷰 파이프라인입니다. |
-| `$codex` | Codex에게 코드 리뷰, 반박, second opinion을 요청합니다. |
+| `$gstack` 또는 `$browse` | 실제 브라우저로 로컬/배포 앱을 열어 QA, 스크린샷, 콘솔 에러, 네트워크 실패를 확인할 때 |
+| `$investigate` 또는 `$gstack-openclaw-investigate` | 버그, 500 오류, 예외, 재현 불가 증상을 원인부터 추적할 때 |
+| `$review` | 변경사항을 merge 전에 코드 리뷰 관점으로 점검할 때 |
+| `$design-review` | UI spacing, hierarchy, responsive, 시각적 어색함을 실제 화면 기준으로 점검할 때 |
+| `$cso` | secrets, auth, OWASP, dependency, AI 보안 위험을 점검할 때 |
+| `$health` | typecheck, test, lint 등 코드베이스 상태를 한 번에 보고 싶을 때 |
+| `$context-save` / `$context-restore` | 긴 작업의 진행 상태를 저장하고 이어갈 때 |
 
-## 자주 쓰는 요청 예시
+사용 예:
 
 ```text
-$gstack으로 로컬 앱 QA 해줘
+$gstack으로 http://localhost:8788 열어서 노트 작성, 저장, 새로고침 플로우 QA해줘
 ```
 
 ```text
-$gstack-openclaw-investigate 저장 버튼 에러 원인 찾아줘
+$investigate 저장 버튼을 눌러도 내용이 반영되지 않는 원인을 찾아줘
 ```
 
 ```text
-$gstack-openclaw-ceo-review 이 기능 계획 리뷰해줘
+$review 현재 diff에서 Cloudflare D1/API 쪽 회귀 가능성을 봐줘
 ```
 
 ```text
-$design-review 화면이 어색한지 봐줘
+$design-review 모바일에서 노트 목록과 편집기 레이아웃이 어색한지 확인해줘
 ```
 
-```text
-$health 코드베이스 상태 점검해줘
+## 이 프로젝트에서의 실행 기준
+
+로컬 앱은 보통 아래 중 하나로 실행합니다.
+
+```powershell
+npm run dev
 ```
 
-```text
-$context-save 지금 작업 상태 저장해줘
+```powershell
+npm run dev:watch
 ```
 
-## 언제 어떤 걸 쓰면 좋은가
+로컬 주소는 기본적으로 `http://localhost:8788`입니다. 브라우저 QA를 요청할 때는 이 주소를 함께 주면 됩니다.
 
-버그가 있으면 `$gstack-openclaw-investigate`나 `$investigate`를 사용합니다. 이 스킬은 빠른 땜빵보다 원인 재현과 검증을 우선합니다.
+검증 명령은 다음 순서를 기준으로 합니다.
 
-브라우저에서 실제 동작을 확인하고 싶으면 `$gstack`을 사용합니다. 특히 UI 플로우, 콘솔 에러, 네트워크 실패, 반응형 화면 확인에 적합합니다.
+```powershell
+npm run typecheck
+npm run test:unit
+npm run test:integration
+npm run verify
+```
 
-기능을 만들기 전에 방향이 맞는지 따지고 싶으면 `$gstack-openclaw-ceo-review`, `$plan-ceo-review`, `$autoplan`을 사용합니다.
+PR 전 최종 게이트는 `npm run verify`입니다.
 
-UI가 어색하거나 디자인 품질을 높이고 싶으면 `$design-review`, 새 디자인 방향을 잡고 싶으면 `$design-consultation`이나 `$design-shotgun`을 사용합니다.
+Cloudflare D1 스키마 변경은 직접 SQL을 원격에 던지지 않고, 마이그레이션 흐름을 사용합니다.
 
-작업을 끊었다가 이어가야 하면 `$context-save`와 `$context-restore`를 사용합니다.
+```powershell
+npm run migrate:create
+npm run migrate:apply:local
+```
 
-## 요약
+원격 반영은 `docs/operations/DEPLOY.md`와 `docs/specs/SPEC-02-d1-migration-framework.md`를 확인한 뒤 진행합니다.
 
-`$gstack`은 브라우저 테스트 본체이고, `$gstack-*`는 특정 작업을 위한 고정 워크플로우입니다. 그냥 답변을 받는 것보다 정해진 절차, 체크리스트, 검증 단계를 따라가야 할 때 사용하면 좋습니다.
+## 현재 gstack을 볼 때 주의할 점
+
+이 저장소에서 확인했던 gstack 패키지는 다음 특징이 있었습니다.
+
+- `hosts/codex.ts`처럼 Codex 호스트 설정은 있습니다.
+- 하지만 실제 여러 `SKILL.md`가 `~/.claude/skills/gstack`를 참조했습니다.
+- 일부 frontmatter는 Codex보다 Claude Code에 가까운 `allowed-tools`, `AskUserQuestion`, `Agent`, `WebSearch`를 포함했습니다.
+- 일부 preamble은 bash, process substitution, `find -mmin`, `open` 같은 Unix/macOS 전제를 사용했습니다.
+- 따라서 Windows PowerShell + Codex 환경에서는 그대로 실행하기보다, 명령이 현재 프로젝트 경로와 도구 체계에 맞는지 확인해야 합니다.
+
+실무 기준은 다음과 같습니다.
+
+- 가이드와 체크리스트는 유용하게 참고합니다.
+- 자동 설치, 자동 commit, `CLAUDE.md` 수정, 전역 telemetry 설정은 피합니다.
+- 브라우저 QA처럼 명확히 도움이 되는 기능은 프로젝트 로컬 실행으로만 사용합니다.
+- Codex가 gstack 내부 파일을 수정하려고 하면 먼저 사용자 승인을 받습니다.
+
+## 업데이트
+
+프로젝트 전용 gstack을 업데이트할 때:
+
+```powershell
+git -C .codex\skills\gstack pull --ff-only
+```
+
+업데이트 후 확인:
+
+```powershell
+rg -n "~/.claude|MODEL_OVERLAY: claude|CLAUDE.md|AskUserQuestion|allowed-tools" .codex\skills\gstack -g "SKILL.md"
+```
+
+Codex 세션이 이미 떠 있었다면 세션을 새로 시작해야 스킬 목록이 갱신될 수 있습니다.
+
+## 문제 해결
+
+스킬이 보이지 않으면 `.codex/skills/gstack`가 프로젝트 루트 아래에 있는지 확인하고 Codex 세션을 다시 시작합니다.
+
+gstack이 `~/.claude` 또는 `CLAUDE.md`를 찾으려 하면 이 프로젝트 기준으로는 잘못된 경로입니다. 전역 설치를 추가하지 말고, 해당 스킬이 Codex용으로 생성되지 않았다고 판단합니다.
+
+Windows에서 `./setup`, `bun run gen:skill-docs`, bash preamble이 실패하면 PowerShell 대신 Git Bash 또는 WSL에서 실행합니다.
+
+gstack이 너무 크거나 프로젝트와 맞지 않으면 전체 패키지를 억지로 최적화하지 말고, 이 프로젝트에 필요한 최소 스킬만 별도 문서나 프로젝트 전용 스킬로 분리하는 편이 낫습니다.
