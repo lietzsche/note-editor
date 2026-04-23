@@ -1,0 +1,4 @@
+interface:
+  display_name: "노트 에디터 코드 리뷰"
+  short_description: "버그와 회귀 위험을 중심으로 검토하는 코드 리뷰 절차"
+  default_prompt: "$note-editor-code-review를 사용해 변경사항을 리뷰한다."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "노트 에디터 디자인 리뷰"
+  short_description: "UI/UX와 접근성 문제를 체계적으로 검토하는 절차"
+  default_prompt: "$note-editor-design-review를 사용해 디자인을 검토한다."

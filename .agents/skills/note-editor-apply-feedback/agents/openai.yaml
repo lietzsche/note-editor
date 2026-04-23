@@ -1,0 +1,4 @@
+interface:
+  display_name: "노트 에디터 피드백 반영"
+  short_description: "리뷰와 제안 사항을 실제 코드 변경으로 반영하는 절차"
+  default_prompt: "$note-editor-apply-feedback을 사용해 리뷰 의견을 반영한다."

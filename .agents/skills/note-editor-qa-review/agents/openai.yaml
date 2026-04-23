@@ -1,0 +1,4 @@
+interface:
+  display_name: "노트 에디터 QA 검토"
+  short_description: "검증 범위와 릴리즈 준비 상태를 체계적으로 점검"
+  default_prompt: "$note-editor-qa-review를 사용해 검증 범위를 점검한다."
