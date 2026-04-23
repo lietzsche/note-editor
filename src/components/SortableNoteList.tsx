@@ -79,7 +79,7 @@ function SortableNoteRow({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.94 : 1,
-    boxShadow: isDragging ? "0 12px 24px rgba(15, 23, 42, 0.16)" : "none",
+    boxShadow: isDragging ? "var(--shadow-md)" : undefined,
     position: "relative",
     zIndex: isDragging ? 1 : 0,
   };
@@ -220,14 +220,16 @@ export function SortableNoteList({
 
 const styles = {
   noteItem: {
-    padding: "10px 12px",
-    borderBottom: "1px solid var(--color-border)",
-    background: "var(--color-surface)",
-    borderLeft: "3px solid transparent",
+    margin: "8px",
+    padding: "12px",
+    border: "1px solid transparent",
+    borderRadius: "var(--radius-md)",
+    background: "transparent",
   } satisfies CSSProperties,
   activeNote: {
-    background: "var(--color-bg-accent-soft)",
-    borderLeft: "3px solid var(--color-primary)",
+    background: "var(--app-active-bg)",
+    borderColor: "color-mix(in srgb, var(--color-brand-primary) 28%, transparent)",
+    boxShadow: "var(--shadow-sm)",
     color: "var(--color-text-primary)",
   } satisfies CSSProperties,
   noteRow: {
@@ -247,17 +249,18 @@ const styles = {
     color: "inherit",
   } satisfies CSSProperties,
   noteTitle: {
-    fontWeight: 500,
-    fontSize: "13px",
+    fontWeight: 700,
+    fontSize: "14px",
+    letterSpacing: "-0.01em",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     color: "var(--color-text-primary)",
   } satisfies CSSProperties,
   noteDate: {
-    fontSize: "11px",
-    color: "var(--color-text-secondary)",
-    marginTop: "2px",
+    fontSize: "12px",
+    color: "var(--color-text-muted)",
+    marginTop: "4px",
   } satisfies CSSProperties,
   noteActions: {
     display: "flex",
@@ -275,9 +278,9 @@ const styles = {
     width: "100%",
     minHeight: "36px",
     padding: "4px 8px",
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius)",
-    background: "var(--color-bg)",
+    border: "1px solid var(--color-border-subtle)",
+    borderRadius: "999px",
+    background: "var(--app-control-bg)",
     color: "var(--color-text-primary)",
     fontSize: "12px",
   } satisfies CSSProperties,
@@ -301,8 +304,8 @@ const styles = {
   } satisfies CSSProperties,
   deleteButton: {
     background: "none",
-    border: "1px solid transparent",
-    borderRadius: "var(--radius)",
+    border: "1px solid var(--color-border-subtle)",
+    borderRadius: "999px",
     color: "var(--color-text-secondary)",
     fontSize: "12px",
     lineHeight: 1,
@@ -310,7 +313,7 @@ const styles = {
     minHeight: "44px",
   } satisfies CSSProperties,
   deleteButtonCompact: {
-    minWidth: "40px",
+    minWidth: "42px",
     minHeight: "32px",
     fontSize: "11px",
   } satisfies CSSProperties,

@@ -15,7 +15,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   font-family: var(--font-family-base);
-  background: var(--color-bg);
+  background: var(--app-shell-bg);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
@@ -92,6 +92,36 @@ a {
   text-decoration: none;
 }
 
+a:visited {
+  color: var(--color-brand-primary-hover);
+}
+
 ::selection {
-  background: rgba(31, 111, 235, 0.18);
+  background: var(--color-bg-accent-soft);
+}
+
+::placeholder {
+  color: var(--color-text-muted);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border-strong) 72%, transparent);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
