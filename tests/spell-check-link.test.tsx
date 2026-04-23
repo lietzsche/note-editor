@@ -97,6 +97,7 @@ describe("FEATURE-010 editor toolbar integration", () => {
         onDialogCancelAction={() => {}}
         shareInfo={null}
         shareLoading={false}
+        shareError={null}
         onShareToggle={() => {}}
       />
     );
@@ -175,6 +176,7 @@ describe("FEATURE-011 note search", () => {
         onDialogCancelAction={() => {}}
         shareInfo={null}
         shareLoading={false}
+        shareError={null}
         onShareToggle={() => {}}
       />
     );

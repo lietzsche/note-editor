@@ -75,6 +75,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     share_url: string | null;
   } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const selectedNoteIdRef = useRef<string | null>(null);
   const selectedNoteUpdatedAtRef = useRef<string | null>(null);
   const titleRef = useRef(title);
@@ -172,6 +173,7 @@ export default function NotesPage({ username, onLogout }: Props) {
     setNewGroupName,
     setShareInfo,
     setShareLoading,
+    setShareError,
   });
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
@@ -242,8 +244,10 @@ export default function NotesPage({ username, onLogout }: Props) {
   useEffect(() => {
     if (!selectedNote) {
       setShareInfo(null);
+      setShareError(null);
       return;
     }
+    setShareError(null);
     setShareLoading(true);
     api.notes.share.get(selectedNote.id)
       .then((info) => {
@@ -251,6 +255,7 @@ export default function NotesPage({ username, onLogout }: Props) {
       })
       .catch(() => {
         setShareInfo(null);
+        setShareError("공유 상태를 불러오지 못했습니다.");
       })
       .finally(() => {
         setShareLoading(false);
@@ -612,6 +617,7 @@ export default function NotesPage({ username, onLogout }: Props) {
       onDialogCancelAction={handleDialogCancelAction}
       shareInfo={shareInfo}
       shareLoading={shareLoading}
+      shareError={shareError}
       onShareToggle={handleShareToggle}
     />
   );

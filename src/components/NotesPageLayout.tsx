@@ -7,6 +7,7 @@ import type { Group, Note } from "../lib/api";
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
 import { CopyAllButton } from "./CopyAllButton";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
+import { ShareStatusPanel } from "./ShareStatusPanel";
 import { SpellCheckLink } from "./SpellCheckLink";
 import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
@@ -89,6 +90,7 @@ type Props = {
     share_url: string | null;
   } | null;
   shareLoading: boolean;
+  shareError: string | null;
   onShareToggle: () => void;
 };
 
@@ -158,6 +160,7 @@ export function NotesPageLayout({
   onDialogCancelAction,
   shareInfo,
   shareLoading,
+  shareError,
   onShareToggle,
 }: Props) {
   return (
@@ -365,122 +368,95 @@ export function NotesPageLayout({
           {selectedNote ? (
             <>
               <div style={styles.editorToolbar}>
-                <input
-                  style={styles.titleInput}
-                  placeholder="제목"
-                  value={title}
-                  onChange={onTitleChange}
-                  maxLength={120}
-                  aria-label="노트 제목"
-                />
-                {groups.length > 0 && (
-                  <label style={styles.groupPicker}>
-                    <span style={styles.groupPickerLabel}>그룹</span>
-                    <select
-                      style={styles.groupPickerSelect}
-                      value={selectedNoteGroupValue}
-                      onChange={(event) => onMoveSelectedNoteGroup(
-                        defaultGroupId && event.target.value === defaultGroupId ? null : event.target.value
-                      )}
-                      aria-label="현재 노트 그룹 선택"
-                    >
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                <div
-                  style={{
-                    ...styles.toolbarRight,
-                    ...(isMobile
-                      ? {
-                          width: "100%",
-                          marginLeft: 0,
-                          flexWrap: "wrap",
-                          justifyContent: "flex-start",
-                        }
-                      : {}),
-                  }}
-                  aria-live="polite"
-                >
-                  <span
-                    style={{
-                      ...styles.statusBadge,
-                      color:
-                        saveStatus === "error" || saveStatus === "conflict" ? "var(--color-danger)" :
-                        saveStatus === "dirty" || saveStatus === "saving"
-                          ? "var(--color-text-secondary)"
-                          : "var(--color-success)",
-                    }}
-                  >
-                    {saveLabel}
-                  </span>
-                  <CharacterCountIndicator count={charCount} state={countStatus} />
-                  {saveStatus === "error" && (
-                    <button
-                      type="button"
-                      style={styles.secondaryActionBtn}
-                      onClick={onRetrySave}
-                      aria-label="저장 다시 시도"
-                    >
-                      다시 시도
-                    </button>
-                  )}
-                  {saveStatus === "conflict" && (
-                    <button
-                      type="button"
-                      style={styles.secondaryActionBtn}
-                      onClick={onOpenConflictDialog}
-                      aria-label="저장 충돌 해결"
-                    >
-                      충돌 해결
-                    </button>
-                  )}
-                  <SpellCheckLink
-                    style={styles.secondaryActionBtn}
-                    containerStyle={isMobile ? { width: "100%" } : undefined}
+                <div style={styles.editorPrimaryRow}>
+                  <input
+                    style={styles.titleInput}
+                    placeholder="제목"
+                    value={title}
+                    onChange={onTitleChange}
+                    maxLength={120}
+                    aria-label="노트 제목"
                   />
-                  <CopyAllButton onCopy={onCopy} state={copyStatus} />
-                  {selectedNote && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '8px' }}>
-                      {shareInfo?.is_active ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>공유 중:</span>
-                          <a
-                            href={shareInfo.share_url ?? '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontSize: '12px', color: 'var(--color-primary)', textDecoration: 'underline' }}
-                          >
-                            링크 열기
-                          </a>
-                          <button
-                            type="button"
-                            style={{ ...styles.secondaryActionBtn, marginLeft: '4px' }}
-                            onClick={onShareToggle}
-                            disabled={shareLoading}
-                            aria-label="공유 비활성화"
-                          >
-                            끄기
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          style={styles.secondaryActionBtn}
-                          onClick={onShareToggle}
-                          disabled={shareLoading}
-                          aria-label="공유 활성화"
-                        >
-                          {shareLoading ? '처리 중...' : '공유하기'}
-                        </button>
-                      )}
-                    </div>
+                  {groups.length > 0 && (
+                    <label style={styles.groupPicker}>
+                      <span style={styles.groupPickerLabel}>그룹</span>
+                      <select
+                        style={styles.groupPickerSelect}
+                        value={selectedNoteGroupValue}
+                        onChange={(event) => onMoveSelectedNoteGroup(
+                          defaultGroupId && event.target.value === defaultGroupId ? null : event.target.value
+                        )}
+                        aria-label="현재 노트 그룹 선택"
+                      >
+                        {groups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   )}
+                  <div
+                    style={{
+                      ...styles.toolbarRight,
+                      ...(isMobile
+                        ? {
+                            width: "100%",
+                            marginLeft: 0,
+                            flexWrap: "wrap",
+                            justifyContent: "flex-start",
+                          }
+                        : {}),
+                    }}
+                    aria-live="polite"
+                  >
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        color:
+                          saveStatus === "error" || saveStatus === "conflict" ? "var(--color-danger)" :
+                          saveStatus === "dirty" || saveStatus === "saving"
+                            ? "var(--color-text-secondary)"
+                            : "var(--color-success)",
+                      }}
+                    >
+                      {saveLabel}
+                    </span>
+                    <CharacterCountIndicator count={charCount} state={countStatus} />
+                    {saveStatus === "error" && (
+                      <button
+                        type="button"
+                        style={styles.secondaryActionBtn}
+                        onClick={onRetrySave}
+                        aria-label="저장 다시 시도"
+                      >
+                        다시 시도
+                      </button>
+                    )}
+                    {saveStatus === "conflict" && (
+                      <button
+                        type="button"
+                        style={styles.secondaryActionBtn}
+                        onClick={onOpenConflictDialog}
+                        aria-label="저장 충돌 해결"
+                      >
+                        충돌 해결
+                      </button>
+                    )}
+                    <SpellCheckLink
+                      style={styles.secondaryActionBtn}
+                      containerStyle={isMobile ? { width: "100%" } : undefined}
+                    />
+                    <CopyAllButton onCopy={onCopy} state={copyStatus} />
+                  </div>
                 </div>
+                <ShareStatusPanel
+                  styles={styles}
+                  shareInfo={shareInfo}
+                  shareLoading={shareLoading}
+                  shareError={shareError}
+                  onShareToggle={onShareToggle}
+                />
               </div>
               <textarea
                 style={styles.textarea}

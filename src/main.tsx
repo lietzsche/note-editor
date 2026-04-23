@@ -5,6 +5,7 @@ import App from "./App";
 import { ThemeProvider } from "./lib/theme";
 import "./styles/tokens.css";
 import "./styles/auth.css";
+import "./styles/shared.css";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

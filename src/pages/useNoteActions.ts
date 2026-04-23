@@ -35,6 +35,7 @@ type UseNoteActionsArgs = {
   setNewGroupName: React.Dispatch<React.SetStateAction<string>>;
   setShareInfo: React.Dispatch<React.SetStateAction<ShareInfo>>;
   setShareLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setShareError: React.Dispatch<React.SetStateAction<string | null>>;
 };
 
 export function getNextNotesAfterMove(args: {
@@ -72,6 +73,7 @@ export function useNoteActions({
   setNewGroupName,
   setShareInfo,
   setShareLoading,
+  setShareError,
 }: UseNoteActionsArgs) {
   const createNoteImmediately = useCallback(async () => {
     const note = await api.notes.create({
@@ -104,6 +106,7 @@ export function useNoteActions({
 
   const handleShareToggle = useCallback(async () => {
     if (!selectedNote || shareLoading) return;
+    setShareError(null);
     setShareLoading(true);
     try {
       if (shareInfo?.is_active && shareInfo.share_token) {
@@ -115,10 +118,11 @@ export function useNoteActions({
       }
     } catch (error) {
       console.error("공유 설정 변경 실패:", error);
+      setShareError(error instanceof Error ? error.message : "공유 설정 변경에 실패했습니다.");
     } finally {
       setShareLoading(false);
     }
-  }, [selectedNote, shareLoading, shareInfo, setShareInfo, setShareLoading]);
+  }, [selectedNote, shareLoading, shareInfo, setShareError, setShareInfo, setShareLoading]);
 
   const logoutImmediately = useCallback(async () => {
     await api.auth.logout();
