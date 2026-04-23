@@ -59,6 +59,22 @@ describe("ShareStatusPanel", () => {
     expect(markup).toContain("role=\"alert\"");
     expect(markup).toContain("공유 설정 변경에 실패했습니다.");
   });
+
+  it("omits long helper text in small size", () => {
+    const markup = renderToStaticMarkup(
+      <ShareStatusPanel
+        styles={buildStyles()}
+        shareInfo={null}
+        shareLoading={false}
+        shareError={null}
+        onShareToggle={() => {}}
+        size="sm"
+      />
+    );
+
+    expect(markup).toContain("공개 링크가 꺼져 있습니다");
+    expect(markup).not.toContain("필요할 때만 공개 링크를 만들고");
+  });
 });
 
 function buildStyles() {

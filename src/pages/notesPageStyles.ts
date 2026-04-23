@@ -320,6 +320,9 @@ export const styles: Record<string, CSSProperties> = {
     background: "var(--app-panel-bg-strong)",
     boxShadow: "var(--shadow-sm), var(--shadow-inset)",
   },
+  editorMobile: {
+    minHeight: 0,
+  },
   editorToolbar: {
     display: "flex",
     flexDirection: "column",
@@ -329,12 +332,19 @@ export const styles: Record<string, CSSProperties> = {
     background: "var(--app-panel-bg-strong)",
     gap: "12px",
   },
+  editorToolbarMobile: {
+    padding: "10px 12px",
+    gap: "8px",
+  },
   editorPrimaryRow: {
     width: "100%",
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
     gap: "12px",
+  },
+  editorPrimaryRowMobile: {
+    gap: "8px",
   },
   titleInput: {
     flex: 1,
@@ -346,6 +356,10 @@ export const styles: Record<string, CSSProperties> = {
     letterSpacing: "-0.02em",
     background: "transparent",
     color: "var(--color-text-primary)",
+  },
+  titleInputMobile: {
+    minWidth: 0,
+    fontSize: "20px",
   },
   groupPicker: {
     display: "flex",
@@ -371,6 +385,13 @@ export const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
     marginLeft: "auto",
   },
+  toolbarRightMobile: {
+    width: "100%",
+    marginLeft: 0,
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+    gap: "8px",
+  },
   statusBadge: {
     fontSize: "12px",
   },
@@ -387,6 +408,13 @@ export const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-primary)",
     fontSize: "12px",
     fontWeight: 600,
+  },
+  spellCheckMobileContainer: {
+    width: "auto",
+    flex: "0 0 auto",
+  },
+  mobileHidden: {
+    display: "none",
   },
   copyBtn: {
     minHeight: "44px",
@@ -408,11 +436,20 @@ export const styles: Record<string, CSSProperties> = {
     background:
       "linear-gradient(135deg, var(--color-bg-accent-soft), transparent 62%), var(--app-control-bg)",
   },
+  shareStatusPanelCompact: {
+    gap: "6px",
+    padding: "8px 10px",
+    borderRadius: "var(--radius-md)",
+  },
   shareStatusHeader: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "12px",
+  },
+  shareStatusHeaderCompact: {
+    alignItems: "center",
+    gap: "8px",
   },
   shareStatusCopy: {
     display: "grid",
@@ -472,6 +509,9 @@ export const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--color-border-subtle)",
     background: "var(--app-panel-bg-strong)",
   },
+  shareLinkBoxCompact: {
+    padding: "8px 10px",
+  },
   shareLink: {
     color: "var(--color-primary)",
     fontSize: "13px",
@@ -486,6 +526,9 @@ export const styles: Record<string, CSSProperties> = {
   shareStatusActions: {
     display: "flex",
     justifyContent: "flex-end",
+  },
+  shareStatusActionsCompact: {
+    justifyContent: "flex-start",
   },
   shareStartButton: {
     minHeight: "40px",
@@ -510,6 +553,11 @@ export const styles: Record<string, CSSProperties> = {
     background:
       "linear-gradient(180deg, color-mix(in srgb, var(--color-bg-surface) 82%, transparent), var(--color-bg-canvas))",
     color: "var(--color-text-primary)",
+  },
+  textareaMobile: {
+    padding: "18px 16px 28px",
+    fontSize: "17px",
+    lineHeight: 1.75,
   },
   noNote: {
     display: "flex",

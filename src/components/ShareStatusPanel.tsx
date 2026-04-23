@@ -8,12 +8,15 @@ export type ShareInfo = {
   share_url: string | null;
 } | null;
 
+type ShareStatusPanelSize = "sm" | "md";
+
 type Props = {
   styles: Record<string, CSSProperties>;
   shareInfo: ShareInfo;
   shareLoading: boolean;
   shareError: string | null;
   onShareToggle: () => void;
+  size?: ShareStatusPanelSize;
 };
 
 export function ShareStatusPanel({
@@ -22,24 +25,40 @@ export function ShareStatusPanel({
   shareLoading,
   shareError,
   onShareToggle,
+  size = "md",
 }: Props) {
   const isActive = Boolean(shareInfo?.is_active && shareInfo.share_url);
+  const compact = size === "sm";
   const shareUrl = shareInfo?.share_url ?? "#";
   const statusLabel = shareLoading ? "처리 중" : isActive ? "공유 중" : "비공개";
 
   return (
-    <section style={styles.shareStatusPanel} aria-label="노트 공유 상태" aria-live="polite">
-      <div style={styles.shareStatusHeader}>
+    <section
+      style={{
+        ...styles.shareStatusPanel,
+        ...(compact ? styles.shareStatusPanelCompact : {}),
+      }}
+      aria-label="노트 공유 상태"
+      aria-live="polite"
+    >
+      <div
+        style={{
+          ...styles.shareStatusHeader,
+          ...(compact ? styles.shareStatusHeaderCompact : {}),
+        }}
+      >
         <div style={styles.shareStatusCopy}>
           <span style={styles.shareStatusEyebrow}>공유</span>
           <strong style={styles.shareStatusTitle}>
             {isActive ? "공개 링크가 켜져 있습니다" : "공개 링크가 꺼져 있습니다"}
           </strong>
-          <span style={styles.shareStatusDescription}>
-            {isActive
-              ? "링크를 가진 사람은 로그인 없이 읽기 전용으로 이 노트를 볼 수 있습니다."
-              : "필요할 때만 공개 링크를 만들고, 언제든지 즉시 끌 수 있습니다."}
-          </span>
+          {!compact && (
+            <span style={styles.shareStatusDescription}>
+              {isActive
+                ? "링크를 가진 사람은 로그인 없이 읽기 전용으로 이 노트를 볼 수 있습니다."
+                : "필요할 때만 공개 링크를 만들고, 언제든지 즉시 끌 수 있습니다."}
+            </span>
+          )}
         </div>
         <span
           style={{
@@ -58,7 +77,12 @@ export function ShareStatusPanel({
       )}
 
       {isActive && (
-        <div style={styles.shareLinkBox}>
+        <div
+          style={{
+            ...styles.shareLinkBox,
+            ...(compact ? styles.shareLinkBoxCompact : {}),
+          }}
+        >
           <a
             href={shareUrl}
             target="_blank"
@@ -73,7 +97,12 @@ export function ShareStatusPanel({
         </div>
       )}
 
-      <div style={styles.shareStatusActions}>
+      <div
+        style={{
+          ...styles.shareStatusActions,
+          ...(compact ? styles.shareStatusActionsCompact : {}),
+        }}
+      >
         <button
           type="button"
           style={{

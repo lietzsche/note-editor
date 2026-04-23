@@ -364,13 +364,13 @@ export function NotesPageLayout({
       )}
 
       {showEditorPanel && (
-        <div style={styles.editor}>
+        <div style={{ ...styles.editor, ...(isMobile ? styles.editorMobile : {}) }}>
           {selectedNote ? (
             <>
-              <div style={styles.editorToolbar}>
-                <div style={styles.editorPrimaryRow}>
+              <div style={{ ...styles.editorToolbar, ...(isMobile ? styles.editorToolbarMobile : {}) }}>
+                <div style={{ ...styles.editorPrimaryRow, ...(isMobile ? styles.editorPrimaryRowMobile : {}) }}>
                   <input
-                    style={styles.titleInput}
+                    style={{ ...styles.titleInput, ...(isMobile ? styles.titleInputMobile : {}) }}
                     placeholder="제목"
                     value={title}
                     onChange={onTitleChange}
@@ -399,14 +399,7 @@ export function NotesPageLayout({
                   <div
                     style={{
                       ...styles.toolbarRight,
-                      ...(isMobile
-                        ? {
-                            width: "100%",
-                            marginLeft: 0,
-                            flexWrap: "wrap",
-                            justifyContent: "flex-start",
-                          }
-                        : {}),
+                      ...(isMobile ? styles.toolbarRightMobile : {}),
                     }}
                     aria-live="polite"
                   >
@@ -445,7 +438,8 @@ export function NotesPageLayout({
                     )}
                     <SpellCheckLink
                       style={styles.secondaryActionBtn}
-                      containerStyle={isMobile ? { width: "100%" } : undefined}
+                      containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
+                      guidanceStyle={isMobile ? styles.mobileHidden : undefined}
                     />
                     <CopyAllButton onCopy={onCopy} state={copyStatus} />
                   </div>
@@ -456,10 +450,11 @@ export function NotesPageLayout({
                   shareLoading={shareLoading}
                   shareError={shareError}
                   onShareToggle={onShareToggle}
+                  size={isMobile ? "sm" : "md"}
                 />
               </div>
               <textarea
-                style={styles.textarea}
+                style={{ ...styles.textarea, ...(isMobile ? styles.textareaMobile : {}) }}
                 placeholder="본문을 입력하세요..."
                 value={content}
                 onChange={onContentChange}
