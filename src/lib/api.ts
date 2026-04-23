@@ -159,7 +159,7 @@ export const api = {
   },
   shared: {
     get: (shareToken: string) =>
-      request<Note>(`/api/shared/${shareToken}`),
+      request<SharedNote>(`/api/shared/${shareToken}`),
   },
 };
 
@@ -170,6 +170,10 @@ export type Note = {
   group_id: string | null;
   sort_order: number;
   updated_at: string;
+};
+
+export type SharedNote = Pick<Note, "title" | "content" | "updated_at"> & {
+  shared: true;
 };
 
 export type Group = {

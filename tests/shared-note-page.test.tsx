@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { Note } from "../src/lib/api";
+import type { SharedNote } from "../src/lib/api";
 import { SharedNoteView } from "../src/pages/SharedNotePage";
 
 describe("SharedNoteView", () => {
@@ -23,13 +23,11 @@ describe("SharedNoteView", () => {
   });
 
   it("renders shared notes as read-only content", () => {
-    const note: Note = {
-      id: "note-1",
+    const note: SharedNote = {
       title: "공유된 노트",
       content: "첫 줄\n둘째 줄",
-      group_id: null,
-      sort_order: 0,
       updated_at: "2026-04-22T12:00:00.000Z",
+      shared: true,
     };
 
     const markup = renderToStaticMarkup(<SharedNoteView state={{ kind: "ready", note }} />);

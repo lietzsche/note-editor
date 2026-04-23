@@ -81,6 +81,15 @@ function extractCookie(res: Response): string {
   return res.headers.get("set-cookie") ?? "";
 }
 
+async function legacySha256PasswordHash(password: string): Promise<string> {
+  const buffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(password)
+  );
+
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+
 // ── 요청 헬퍼 ──────────────────────────────────────────────────────────────
 
 async function signup(username: string, password: string, base = BASE) {
@@ -253,6 +262,29 @@ describe("POST /api/auth/signup", () => {
     expect(body.data.username).toBe("alice");
   });
 
+  it("비 ASCII username도 세션을 생성하고 보호 API에서 유지한다", async () => {
+    const res = await signup("한글사용자", "password123");
+    expect(res.status).toBe(201);
+
+    const cookie = extractCookie(res);
+    const meRes = await me(cookie);
+    expect(meRes.status).toBe(200);
+
+    const body = await meRes.json() as any;
+    expect(body.data.username).toBe("한글사용자");
+  });
+
+  it("신규 비밀번호는 salt가 포함된 PBKDF2 해시로 저장한다", async () => {
+    const res = await signup("secure_user", "password123");
+    expect(res.status).toBe(201);
+
+    const user = await env.DB.prepare(
+      "SELECT password_hash FROM users WHERE username = ?"
+    ).bind("secure_user").first<{ password_hash: string }>();
+
+    expect(user?.password_hash).toMatch(/^pbkdf2-sha256:100000:/);
+  });
+
   it("중복 username은 409를 반환한다", async () => {
     await signup("alice", "password123");
     const res = await signup("alice", "other123");
@@ -278,6 +310,27 @@ describe("POST /api/auth/login", () => {
   it("정상 자격증명으로 로그인 성공 후 200을 반환한다", async () => {
     const res = await login("alice", "password123");
     expect(res.status).toBe(200);
+  });
+
+  it("기존 SHA-256 비밀번호 해시는 로그인 성공 시 PBKDF2로 업그레이드한다", async () => {
+    const legacyUserId = crypto.randomUUID();
+    const legacyHash = await legacySha256PasswordHash("password123");
+
+    await env.DB.prepare(
+      "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)"
+    )
+      .bind(legacyUserId, "legacy_user", legacyHash, new Date().toISOString())
+      .run();
+
+    const res = await login("legacy_user", "password123");
+    expect(res.status).toBe(200);
+
+    const user = await env.DB.prepare(
+      "SELECT password_hash FROM users WHERE username = ?"
+    ).bind("legacy_user").first<{ password_hash: string }>();
+
+    expect(user?.password_hash).toMatch(/^pbkdf2-sha256:100000:/);
+    expect(user?.password_hash).not.toBe(legacyHash);
   });
 
   it("잘못된 비밀번호는 401을 반환한다", async () => {
@@ -316,6 +369,20 @@ describe("GET /api/auth/me", () => {
   it("세션 없이 호출하면 401을 반환한다", async () => {
     const res = await SELF.fetch(`${BASE}/api/auth/me`);
     expect(res.status).toBe(401);
+  });
+});
+
+describe("API JSON validation", () => {
+  it("잘못된 JSON body는 API envelope 형식의 400을 반환한다", async () => {
+    const res = await SELF.fetch(`${BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not-json",
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as any;
+    expect(body.error.code).toBe("BAD_JSON");
   });
 });
 

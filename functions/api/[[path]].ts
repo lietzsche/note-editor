@@ -5,6 +5,8 @@ import {
   getSession,
   clearSession,
   hashPassword,
+  verifyPassword,
+  shouldRehashPassword,
 } from "./_lib/auth";
 import {
   ok,
@@ -30,6 +32,15 @@ const GROUP_NAME_MAX_LENGTH = 40;
 const GROUP_MAX_COUNT = 30;
 const NOTE_TITLE_MAX_LENGTH = 120;
 const NOTE_CONTENT_MAX_LENGTH = 20_000;
+
+app.onError((error) => {
+  if (error instanceof SyntaxError) {
+    return err("BAD_JSON", "요청 JSON 형식이 올바르지 않습니다.", 400);
+  }
+
+  console.error(error);
+  return err("INTERNAL", "서버 오류가 발생했습니다.", 500);
+});
 
 function validateGroupName(name: string) {
   const normalizedName = name.trim();
@@ -159,11 +170,20 @@ app.post("/api/auth/login", async (c) => {
     return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
   }
 
-  const hash = await hashPassword(password);
-  if (hash !== user.password_hash) {
+  const passwordVerified = await verifyPassword(password, user.password_hash);
+  if (!passwordVerified) {
     await recordLoginAttempt(c.env.DB, username);
     await recordAuditLog(c.env.DB, "login_failure", username);
     return err("AUTH_FAILED", "자격증명이 잘못되었습니다.", 401);
+  }
+
+  if (shouldRehashPassword(user.password_hash)) {
+    const upgradedHash = await hashPassword(password);
+    await c.env.DB.prepare(
+      "UPDATE users SET password_hash = ? WHERE id = ?"
+    )
+      .bind(upgradedHash, user.id)
+      .run();
   }
 
   await createSession(c, { userId: user.id, username: user.username });
@@ -389,6 +409,20 @@ function validateNoteContent(content: string) {
   }
 
   return content;
+}
+
+function validateShareExpiresAt(value: unknown) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string") {
+    return err("VALIDATION", "expires_at은 ISO 날짜 문자열이어야 합니다.");
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return err("VALIDATION", "expires_at은 유효한 ISO 날짜 문자열이어야 합니다.");
+  }
+
+  return date.toISOString();
 }
 
 async function resolveOwnedGroupId(
@@ -780,8 +814,9 @@ app.post("/api/notes/:id/share", async (c) => {
     .first();
   if (!note) return notFound();
 
-  const body = await c.req.json<{ expires_at?: string }>();
-  const expiresAt = body.expires_at && typeof body.expires_at === "string" ? body.expires_at : null;
+  const body = await c.req.json<{ expires_at?: unknown }>();
+  const expiresAt = validateShareExpiresAt(body.expires_at);
+  if (expiresAt instanceof Response) return expiresAt;
 
   const shareToken = await upsertShareToken(c.env.DB, noteId, expiresAt);
   // 만료된 토큰도 포함하여 정보 조회
@@ -862,14 +897,14 @@ app.get("/api/shared/:shareToken", async (c) => {
   if (!validation) return notFound();
 
   const note = await c.env.DB.prepare(
-    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ?"
+    "SELECT title, content, updated_at FROM pages WHERE id = ?"
   )
     .bind(validation.noteId)
     .first();
   if (!note) return notFound();
 
-  // 접근 횟수 증가 (비동기, 실패해도 무시)
-  incrementAccessCount(c.env.DB, shareToken).catch(() => {});
+  // 응답 지연은 피하되 Workers 런타임이 카운터 갱신을 보장하도록 등록한다.
+  c.executionCtx.waitUntil(incrementAccessCount(c.env.DB, shareToken).catch(() => {}));
 
   return ok({
     ...note,

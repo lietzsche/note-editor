@@ -215,6 +215,27 @@ describe("POST /api/notes/:id/share", () => {
     expect(shareData.data.expires_at).toBe(expiresAt);
   });
 
+  it("잘못된 만료 시간은 공유 토큰을 만들지 않고 400을 반환한다", async () => {
+    await signup("alice", "password123");
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "잘못된 만료 시간 테스트",
+      content: "본문",
+    });
+    const note = await createRes.json() as any;
+    const noteId = note.data.id;
+
+    const shareRes = await enableSharing(cookie, noteId, "not-a-date");
+    expect(shareRes.status).toBe(400);
+
+    const dbToken = await env.DB.prepare(
+      "SELECT * FROM share_tokens WHERE note_id = ?"
+    ).bind(noteId).first();
+    expect(dbToken).toBeNull();
+  });
+
   it("이미 공유된 노트에 대해 다시 활성화하면 기존 토큰을 갱신한다", async () => {
     await signup("alice", "password123");
     const loginRes = await login("alice", "password123");
@@ -524,14 +545,14 @@ describe("GET /api/shared/:shareToken", () => {
     const sharedData = await sharedRes.json() as any;
 
     expect(sharedData.data).toMatchObject({
-      id: noteId,
       title: "공유된 노트",
       content: "공유 본문 내용",
       shared: true,
     });
-    expect(sharedData.data).toHaveProperty("group_id");
-    expect(sharedData.data).toHaveProperty("sort_order");
     expect(sharedData.data).toHaveProperty("updated_at");
+    expect(sharedData.data).not.toHaveProperty("id");
+    expect(sharedData.data).not.toHaveProperty("group_id");
+    expect(sharedData.data).not.toHaveProperty("sort_order");
 
     // 접근 횟수 증가 확인
     const dbToken = await env.DB.prepare(

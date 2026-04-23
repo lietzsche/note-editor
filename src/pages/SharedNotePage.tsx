@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, type Note } from "../lib/api";
+import { api, type SharedNote } from "../lib/api";
 
 type SharedNoteViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; note: Note };
+  | { kind: "ready"; note: SharedNote };
 
 export default function SharedNotePage() {
   const { shareToken } = useParams<{ shareToken: string }>();
