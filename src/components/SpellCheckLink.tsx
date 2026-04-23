@@ -9,6 +9,7 @@ type Props = {
   style?: CSSProperties;
   guidanceStyle?: CSSProperties;
   containerStyle?: CSSProperties;
+  compact?: boolean;
 };
 
 const linkStyle: CSSProperties = {
@@ -43,7 +44,12 @@ const containerBaseStyle: CSSProperties = {
   minWidth: 0,
 };
 
-export function SpellCheckLink({ style, guidanceStyle, containerStyle }: Props) {
+export function SpellCheckLink({
+  style,
+  guidanceStyle,
+  containerStyle,
+  compact = false,
+}: Props) {
   return (
     <div style={{ ...containerBaseStyle, ...containerStyle }}>
       <a
@@ -52,13 +58,46 @@ export function SpellCheckLink({ style, guidanceStyle, containerStyle }: Props) 
         rel="noopener noreferrer"
         title={SPELL_CHECK_TOOLTIP}
         aria-label="맞춤법 검사 새 탭에서 열기"
-        style={{ ...linkStyle, ...style }}
+        style={{ ...linkStyle, ...(compact ? compactLinkStyle : {}), ...style }}
       >
-        맞춤법 검사
+        {compact ? <SpellCheckIcon /> : "맞춤법 검사"}
       </a>
-      <span style={{ ...defaultGuidanceStyle, ...guidanceStyle }}>
-        {SPELL_CHECK_GUIDANCE}
-      </span>
+      {!compact && (
+        <span style={{ ...defaultGuidanceStyle, ...guidanceStyle }}>
+          {SPELL_CHECK_GUIDANCE}
+        </span>
+      )}
     </div>
+  );
+}
+
+const compactLinkStyle: CSSProperties = {
+  justifyContent: "center",
+  minWidth: "44px",
+  minHeight: "44px",
+  width: "44px",
+  padding: 0,
+  borderRadius: "999px",
+  flexShrink: 0,
+};
+
+function SpellCheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m4 14 4 4L20 6" />
+      <path d="M4 6h8" />
+      <path d="M4 10h5" />
+    </svg>
   );
 }

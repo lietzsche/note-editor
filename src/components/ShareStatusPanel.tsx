@@ -8,7 +8,7 @@ export type ShareInfo = {
   share_url: string | null;
 } | null;
 
-type ShareStatusPanelSize = "sm" | "md";
+type ShareStatusPanelSize = "xs" | "sm" | "md";
 
 type Props = {
   styles: Record<string, CSSProperties>;
@@ -28,9 +28,53 @@ export function ShareStatusPanel({
   size = "md",
 }: Props) {
   const isActive = Boolean(shareInfo?.is_active && shareInfo.share_url);
-  const compact = size === "sm";
+  const iconOnly = size === "xs";
+  const compact = size !== "md";
   const shareUrl = shareInfo?.share_url ?? "#";
   const statusLabel = shareLoading ? "처리 중" : isActive ? "공유 중" : "비공개";
+  const actionLabel = shareLoading ? "공유 처리 중" : isActive ? "공유 끄기" : "공유 링크 만들기";
+
+  if (iconOnly) {
+    return (
+      <section
+        style={styles.shareStatusIconPanel}
+        aria-label={`노트 공유 상태: ${statusLabel}`}
+        aria-live="polite"
+      >
+        {shareError && (
+          <span style={styles.shareStatusErrorInline} role="alert">
+            {shareError}
+          </span>
+        )}
+        {isActive && (
+          <a
+            href={shareUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...styles.shareIconButton, ...styles.shareOpenLinkButton }}
+            aria-label="공유 링크 열기"
+            title="공유 링크 열기"
+          >
+            <OpenLinkIcon />
+          </a>
+        )}
+        <button
+          type="button"
+          style={{
+            ...styles.shareIconButton,
+            ...(isActive ? styles.shareStopButton : styles.shareStartButton),
+            minHeight: "44px",
+          }}
+          onClick={onShareToggle}
+          disabled={shareLoading}
+          aria-label={actionLabel}
+          title={actionLabel}
+        >
+          {shareLoading ? <LoadingIcon /> : isActive ? <ShareOffIcon /> : <ShareIcon />}
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -117,6 +161,87 @@ export function ShareStatusPanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function OpenLinkIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.62 1.62" />
+      <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.62-1.62" />
+    </svg>
+  );
+}
+
+function ShareOffIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m2 2 20 20" />
+      <path d="M8.5 11.5 6.93 13.07a5 5 0 0 0 7.07 7.07l1.62-1.62" />
+      <path d="M15.5 12.5 17.07 10.93A5 5 0 0 0 10 3.86L8.38 5.48" />
+    </svg>
+  );
+}
+
+function LoadingIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-6-8.49" />
+    </svg>
   );
 }
 

@@ -9,11 +9,15 @@ export const styles: Record<string, CSSProperties> = {
     gap: "10px",
     background: "var(--app-shell-bg)",
   },
+  layoutMobile: {
+    padding: "4px",
+    gap: "4px",
+  },
   mobileTabs: {
     display: "flex",
-    gap: "6px",
-    padding: "6px",
-    marginBottom: "2px",
+    gap: "4px",
+    padding: "4px",
+    marginBottom: 0,
     border: "1px solid var(--color-border-subtle)",
     borderRadius: "var(--radius-lg)",
     background: "var(--app-panel-bg-strong)",
@@ -21,7 +25,11 @@ export const styles: Record<string, CSSProperties> = {
   },
   mobileTabButton: {
     flex: 1,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: "44px",
+    padding: 0,
     borderRadius: "var(--radius-md)",
     border: "1px solid var(--color-border)",
     color: "var(--color-text-secondary)",
@@ -322,6 +330,7 @@ export const styles: Record<string, CSSProperties> = {
   },
   editorMobile: {
     minHeight: 0,
+    borderRadius: "var(--radius-md)",
   },
   editorToolbar: {
     display: "flex",
@@ -333,8 +342,8 @@ export const styles: Record<string, CSSProperties> = {
     gap: "12px",
   },
   editorToolbarMobile: {
-    padding: "10px 12px",
-    gap: "8px",
+    padding: "6px 8px",
+    gap: "6px",
   },
   editorPrimaryRow: {
     width: "100%",
@@ -344,7 +353,7 @@ export const styles: Record<string, CSSProperties> = {
     gap: "12px",
   },
   editorPrimaryRowMobile: {
-    gap: "8px",
+    gap: "6px",
   },
   titleInput: {
     flex: 1,
@@ -359,12 +368,15 @@ export const styles: Record<string, CSSProperties> = {
   },
   titleInputMobile: {
     minWidth: 0,
-    fontSize: "20px",
+    fontSize: "18px",
   },
   groupPicker: {
     display: "flex",
     flexDirection: "column",
     gap: "4px",
+  },
+  groupPickerMobile: {
+    flex: "0 0 auto",
   },
   groupPickerLabel: {
     fontSize: "11px",
@@ -378,6 +390,12 @@ export const styles: Record<string, CSSProperties> = {
     background: "var(--app-control-bg)",
     color: "var(--color-text-primary)",
   },
+  groupPickerSelectMobile: {
+    maxWidth: "112px",
+    minHeight: "36px",
+    padding: "4px 26px 4px 8px",
+    fontSize: "12px",
+  },
   toolbarRight: {
     display: "flex",
     alignItems: "center",
@@ -390,7 +408,7 @@ export const styles: Record<string, CSSProperties> = {
     marginLeft: 0,
     flexWrap: "wrap",
     justifyContent: "flex-start",
-    gap: "8px",
+    gap: "6px",
   },
   statusBadge: {
     fontSize: "12px",
@@ -409,12 +427,38 @@ export const styles: Record<string, CSSProperties> = {
     fontSize: "12px",
     fontWeight: 600,
   },
+  toolbarIconButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "44px",
+    width: "44px",
+    minHeight: "44px",
+    padding: 0,
+    borderRadius: "999px",
+    border: "1px solid var(--color-border-subtle)",
+    background: "var(--app-control-bg)",
+    color: "var(--color-text-primary)",
+    flexShrink: 0,
+  },
   spellCheckMobileContainer: {
+    display: "inline-flex",
     width: "auto",
     flex: "0 0 auto",
   },
   mobileHidden: {
     display: "none",
+  },
+  visuallyHidden: {
+    position: "absolute",
+    width: "1px",
+    height: "1px",
+    padding: 0,
+    margin: "-1px",
+    overflow: "hidden",
+    clip: "rect(0 0 0 0)",
+    whiteSpace: "nowrap",
+    border: 0,
   },
   copyBtn: {
     minHeight: "44px",
@@ -530,6 +574,40 @@ export const styles: Record<string, CSSProperties> = {
   shareStatusActionsCompact: {
     justifyContent: "flex-start",
   },
+  shareStatusIconPanel: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    minHeight: "44px",
+    flex: "0 0 auto",
+  },
+  shareIconButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "44px",
+    width: "44px",
+    minHeight: "44px",
+    padding: 0,
+    borderRadius: "999px",
+    border: "1px solid var(--color-border-subtle)",
+    background: "var(--app-control-bg)",
+    color: "var(--color-text-primary)",
+    textDecoration: "none",
+    flexShrink: 0,
+  },
+  shareOpenLinkButton: {
+    color: "var(--color-primary)",
+  },
+  shareStatusErrorInline: {
+    maxWidth: "150px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "var(--color-danger)",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
   shareStartButton: {
     minHeight: "40px",
     color: "var(--color-text-inverse)",
@@ -555,7 +633,7 @@ export const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-primary)",
   },
   textareaMobile: {
-    padding: "18px 16px 28px",
+    padding: "14px 8px 24px",
     fontSize: "17px",
     lineHeight: 1.75,
   },

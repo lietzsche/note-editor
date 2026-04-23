@@ -167,6 +167,7 @@ export function NotesPageLayout({
     <div
       style={{
         ...styles.layout,
+        ...(isMobile ? styles.layoutMobile : {}),
         flexDirection: isMobile ? "column" : "row",
       }}
     >
@@ -180,8 +181,11 @@ export function NotesPageLayout({
             }}
             onClick={() => setMobilePanel("groups")}
             aria-pressed={mobilePanel === "groups"}
+            aria-label="그룹 패널"
+            title="그룹"
           >
-            그룹
+            <GroupsIcon />
+            <span style={styles.visuallyHidden}>그룹</span>
           </button>
           <button
             type="button"
@@ -191,8 +195,11 @@ export function NotesPageLayout({
             }}
             onClick={() => setMobilePanel("notes")}
             aria-pressed={mobilePanel === "notes"}
+            aria-label="노트 목록 패널"
+            title="노트"
           >
-            노트
+            <NotesIcon />
+            <span style={styles.visuallyHidden}>노트</span>
           </button>
           <button
             type="button"
@@ -205,8 +212,11 @@ export function NotesPageLayout({
             }}
             aria-pressed={mobilePanel === "editor"}
             disabled={!selectedNote}
+            aria-label="편집 패널"
+            title="편집"
           >
-            편집
+            <EditIcon />
+            <span style={styles.visuallyHidden}>편집</span>
           </button>
         </nav>
       )}
@@ -378,10 +388,12 @@ export function NotesPageLayout({
                     aria-label="노트 제목"
                   />
                   {groups.length > 0 && (
-                    <label style={styles.groupPicker}>
-                      <span style={styles.groupPickerLabel}>그룹</span>
+                    <label style={{ ...styles.groupPicker, ...(isMobile ? styles.groupPickerMobile : {}) }}>
+                      <span style={{ ...styles.groupPickerLabel, ...(isMobile ? styles.visuallyHidden : {}) }}>
+                        그룹
+                      </span>
                       <select
-                        style={styles.groupPickerSelect}
+                        style={{ ...styles.groupPickerSelect, ...(isMobile ? styles.groupPickerSelectMobile : {}) }}
                         value={selectedNoteGroupValue}
                         onChange={(event) => onMoveSelectedNoteGroup(
                           defaultGroupId && event.target.value === defaultGroupId ? null : event.target.value
@@ -419,39 +431,54 @@ export function NotesPageLayout({
                     {saveStatus === "error" && (
                       <button
                         type="button"
-                        style={styles.secondaryActionBtn}
+                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
                         onClick={onRetrySave}
                         aria-label="저장 다시 시도"
+                        title="저장 다시 시도"
                       >
-                        다시 시도
+                        {isMobile ? <RetryIcon /> : "다시 시도"}
                       </button>
                     )}
                     {saveStatus === "conflict" && (
                       <button
                         type="button"
-                        style={styles.secondaryActionBtn}
+                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
                         onClick={onOpenConflictDialog}
                         aria-label="저장 충돌 해결"
+                        title="저장 충돌 해결"
                       >
-                        충돌 해결
+                        {isMobile ? <ConflictIcon /> : "충돌 해결"}
                       </button>
                     )}
                     <SpellCheckLink
-                      style={styles.secondaryActionBtn}
+                      compact={isMobile}
+                      style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
                       containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
                       guidanceStyle={isMobile ? styles.mobileHidden : undefined}
                     />
-                    <CopyAllButton onCopy={onCopy} state={copyStatus} />
+                    <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
+                    {isMobile && (
+                      <ShareStatusPanel
+                        styles={styles}
+                        shareInfo={shareInfo}
+                        shareLoading={shareLoading}
+                        shareError={shareError}
+                        onShareToggle={onShareToggle}
+                        size="xs"
+                      />
+                    )}
                   </div>
                 </div>
-                <ShareStatusPanel
-                  styles={styles}
-                  shareInfo={shareInfo}
-                  shareLoading={shareLoading}
-                  shareError={shareError}
-                  onShareToggle={onShareToggle}
-                  size={isMobile ? "sm" : "md"}
-                />
+                {!isMobile && (
+                  <ShareStatusPanel
+                    styles={styles}
+                    shareInfo={shareInfo}
+                    shareLoading={shareLoading}
+                    shareError={shareError}
+                    onShareToggle={onShareToggle}
+                    size="md"
+                  />
+                )}
               </div>
               <textarea
                 style={{ ...styles.textarea, ...(isMobile ? styles.textareaMobile : {}) }}
@@ -525,5 +552,109 @@ export function NotesPageLayout({
         <PerformanceDebugPanel samples={perfSamples} />
       )}
     </div>
+  );
+}
+
+function GroupsIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h16" />
+    </svg>
+  );
+}
+
+function NotesIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 2h8l4 4v16H4V2h4Z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8" />
+      <path d="M8 17h6" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function RetryIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  );
+}
+
+function ConflictIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+      <path d="m10.29 3.86-8.2 14.2A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.73-2.94l-8.2-14.2a2 2 0 0 0-3.42 0Z" />
+    </svg>
   );
 }
