@@ -71,22 +71,54 @@ bun run gen:skill-docs --host codex --model gpt-5.4
 
 ## 사용 방식
 
-gstack은 하나의 명령이라기보다 작업별 스킬 묶음입니다. 이 프로젝트에서는 다음처럼 사용합니다.
+gstack은 하나의 터미널 명령이 아니라 작업별 스킬 묶음입니다. 아래의 `$스킬명`은 PowerShell에서 실행하는 명령이 아니라 Codex에게 요청할 때 붙이는 프롬프트 접두어입니다. 현재 세션의 스킬 목록에 보이는 이름을 우선 사용하고, 보이지 않는 별칭은 직접 실행하지 않습니다.
 
-| 스킬 | 사용할 때 |
-| --- | --- |
-| `$gstack` 또는 `$browse` | 실제 브라우저로 로컬/배포 앱을 열어 QA, 스크린샷, 콘솔 에러, 네트워크 실패를 확인할 때 |
-| `$investigate` 또는 `$gstack-openclaw-investigate` | 버그, 500 오류, 예외, 재현 불가 증상을 원인부터 추적할 때 |
-| `$review` | 변경사항을 merge 전에 코드 리뷰 관점으로 점검할 때 |
-| `$design-review` | UI spacing, hierarchy, responsive, 시각적 어색함을 실제 화면 기준으로 점검할 때 |
-| `$cso` | secrets, auth, OWASP, dependency, AI 보안 위험을 점검할 때 |
-| `$health` | typecheck, test, lint 등 코드베이스 상태를 한 번에 보고 싶을 때 |
-| `$context-save` / `$context-restore` | 긴 작업의 진행 상태를 저장하고 이어갈 때 |
+스킬을 부를 때는 다음 정보를 같이 주면 결과가 안정적입니다.
+
+- 대상: URL, 문서 경로, diff 기준 브랜치, 화면/컴포넌트 이름
+- 범위: 보고만 할지, 코드를 고쳐도 되는지, 커밋/배포까지 원하는지
+- 기준: 모바일 우선, 보안 중심, critical/high만, 디자인 폴리시 등
+- 증거: 스크린샷, 콘솔 로그, 네트워크 실패, 테스트 명령 출력 포함 여부
+
+### 자주 쓰는 스킬
+
+| 분류 | 스킬 | 사용할 때 |
+| --- | --- | --- |
+| 브라우저 점검 | `$gstack` 또는 `$browse` | 실제 브라우저로 로컬/배포 앱을 열어 사용자 플로우, 스크린샷, 콘솔 에러, 네트워크 실패를 확인할 때 |
+| QA | `$qa` 또는 `$qa-only` | 기능이 준비된 뒤 체계적으로 버그를 찾을 때. `$qa`는 발견한 문제를 고치고 재검증하는 흐름, `$qa-only`는 리포트만 원할 때 사용합니다. |
+| 보이는 브라우저 | `$open-gstack-browser` | 사용자가 직접 볼 수 있는 GStack Browser/Chrome 창을 띄워 에이전트 동작을 따라보고 싶을 때 |
+| 원인 조사 | `$investigate` 또는 `$gstack-openclaw-investigate` | 버그, 500 오류, 예외, 재현 불가 증상을 고치기 전에 원인부터 추적할 때 |
+| 코드 리뷰 | `$review` 또는 `$codex review` | merge/PR 전 현재 diff를 구조적 회귀, SQL/API 위험, 테스트 누락 관점으로 점검할 때 |
+| 반대 검토 | `$codex challenge` | 구현이 맞는지 공격적으로 깨보는 두 번째 의견이 필요할 때 |
+| 계획 검토 | `$office-hours`, `$plan-ceo-review`, `$plan-eng-review`, `$autoplan` | 새 아이디어, 제품 방향, 아키텍처, 구현 계획을 코드 작성 전에 검토할 때 |
+| 디자인 | `$design-shotgun`, `$design-consultation`, `$design-html` | 디자인 대안 탐색, 디자인 시스템 작성, 승인된 디자인의 HTML/CSS 구현이 필요할 때 |
+| 디자인 QA | `$design-review` 또는 `$plan-design-review` | 실제 화면의 spacing/hierarchy/responsive 문제를 보거나, 구현 전 디자인 계획을 비판적으로 검토할 때 |
+| 개발자 경험 | `$plan-devex-review` 또는 `$devex-review` | API, CLI, SDK, 문서, 온보딩처럼 개발자가 사용하는 표면의 흐름과 마찰을 점검할 때 |
+| 보안 | `$cso` | secrets, auth, OWASP, dependency, CI/CD, AI/LLM 보안 위험을 점검할 때 |
+| 품질 상태 | `$health` | typecheck, test, lint 등 코드베이스 상태를 한 번에 보고 싶을 때 |
+| 성능 | `$benchmark` | 페이지 로딩, Web Vitals, 번들 크기 등 성능 기준선과 회귀 여부를 확인할 때 |
+| 배포 | `$ship`, `$land-and-deploy`, `$canary` | PR 생성, merge/deploy, 배포 후 모니터링을 진행할 때. 이 프로젝트에서는 push/merge/deploy 전에 사용자 승인을 먼저 받습니다. |
+| 문서화 | `$document-release` 또는 `$make-pdf` | 릴리스 후 README/운영 문서/CHANGELOG를 동기화하거나 Markdown을 PDF로 만들 때 |
+| 작업 상태 | `$context-save`, `$context-restore`, `$learn`, `$retro` | 긴 작업 상태를 저장/복원하거나, 과거 학습/주간 회고를 확인할 때 |
+| 안전 모드 | `$careful`, `$freeze`, `$guard` | 삭제, force push, DB 변경처럼 위험한 작업을 경고하거나 편집 범위를 특정 디렉터리로 제한할 때 |
+| 도구 관리 | `$gstack-upgrade`, `$benchmark-models`, `$pair-agent` | gstack 업데이트, 모델별 성능 비교, 다른 에이전트와 브라우저 공유가 필요할 때 |
+
+### 선택 기준
+
+- 화면을 실제로 눌러봐야 하면 `$gstack`, `$browse`, `$qa`, `$design-review`를 우선합니다.
+- 에러나 이상 동작은 바로 고치기보다 `$investigate`로 원인과 재현 조건을 먼저 잡습니다.
+- 코드가 거의 끝났으면 `$health`로 기본 검증 후 `$review`나 `$qa`로 회귀를 봅니다.
+- 제품/설계 방향이 아직 흔들리면 `$office-hours`, `$plan-ceo-review`, `$plan-eng-review`, `$autoplan`을 먼저 씁니다.
+- 보안, 배포, 원격 DB, destructive command가 걸리면 `$cso`, `$careful`, `$guard`, `$canary`처럼 안전 계열을 같이 고려합니다.
 
 사용 예:
 
 ```text
 $gstack으로 http://localhost:8788 열어서 노트 작성, 저장, 새로고침 플로우 QA해줘
+```
+
+```text
+$qa-only http://localhost:8788에서 로그인, 노트 작성, 그룹 이동 플로우를 critical/high 버그 중심으로 리포트만 해줘
 ```
 
 ```text
@@ -98,7 +130,23 @@ $review 현재 diff에서 Cloudflare D1/API 쪽 회귀 가능성을 봐줘
 ```
 
 ```text
+$plan-eng-review docs/features/FEATURE-008-note-public-sharing.md 구현 계획에서 API 계약, D1 스키마, 테스트 누락을 봐줘
+```
+
+```text
 $design-review 모바일에서 노트 목록과 편집기 레이아웃이 어색한지 확인해줘
+```
+
+```text
+$cso 현재 인증/세션/공개 공유 API 기준으로 보안 위험을 점검해줘
+```
+
+```text
+$benchmark 배포 전후 http://localhost:8788의 초기 로딩과 편집 화면 성능 회귀를 비교해줘
+```
+
+```text
+$context-save 지금까지 결정한 내용과 남은 작업을 저장해줘
 ```
 
 ## 이 프로젝트에서의 실행 기준
