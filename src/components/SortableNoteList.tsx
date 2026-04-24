@@ -23,6 +23,8 @@ import {
 } from "../lib/noteGroupSelect";
 import { moveItem } from "../lib/noteOrder";
 
+type Mode = "active" | "trash";
+
 type Props = {
   notes: Note[];
   groups: Group[];
@@ -30,8 +32,11 @@ type Props = {
   selectedNoteId: string | null;
   isMobile: boolean;
   disabled?: boolean;
+  mode?: Mode;
   onSelectNote: (note: Note) => void;
   onDeleteNote: (noteId: string) => void;
+  onRestoreNote: (noteId: string) => void;
+  onPermanentDeleteNote: (noteId: string) => void;
   onMoveNoteGroup: (note: Note, groupId: string | null) => void;
   onReorder: (nextNotes: Note[]) => void;
 };
@@ -43,10 +48,23 @@ type RowProps = {
   isActive: boolean;
   isMobile: boolean;
   isSortingDisabled: boolean;
+  mode: Mode;
   onSelectNote: (note: Note) => void;
   onDeleteNote: (noteId: string) => void;
+  onRestoreNote: (noteId: string) => void;
+  onPermanentDeleteNote: (noteId: string) => void;
   onMoveNoteGroup: (note: Note, groupId: string | null) => void;
 };
+
+function formatNoteTimestamp(note: Note, mode: Mode) {
+  const timestamp = mode === "trash" ? note.deleted_at ?? note.updated_at : note.updated_at;
+  return new Date(timestamp).toLocaleString(
+    "ko-KR",
+    mode === "trash"
+      ? { dateStyle: "medium", timeStyle: "short" }
+      : { dateStyle: "medium" }
+  );
+}
 
 function SortableNoteRow({
   note,
@@ -55,8 +73,11 @@ function SortableNoteRow({
   isActive,
   isMobile,
   isSortingDisabled,
+  mode,
   onSelectNote,
   onDeleteNote,
+  onRestoreNote,
+  onPermanentDeleteNote,
   onMoveNoteGroup,
 }: RowProps) {
   const {
@@ -75,6 +96,7 @@ function SortableNoteRow({
   const noteGroupValue = getNoteGroupSelectValue(note.group_id, defaultGroupId);
   const itemStyle: CSSProperties = {
     ...styles.noteItem,
+    ...(mode === "trash" ? styles.noteItemTrash : {}),
     ...(isActive ? styles.activeNote : {}),
     transform: CSS.Transform.toString(transform),
     transition,
@@ -87,21 +109,23 @@ function SortableNoteRow({
   return (
     <div ref={setNodeRef} style={itemStyle}>
       <div style={styles.noteRow}>
-        <button
-          ref={setActivatorNodeRef}
-          type="button"
-          style={{
-            ...styles.dragHandle,
-            ...(isSortingDisabled ? styles.disabledHandle : {}),
-          }}
-          aria-label={`${note.title || "제목 없음"} 노트 순서 변경`}
-          title="노트 순서 변경"
-          disabled={isSortingDisabled}
-          {...attributes}
-          {...listeners}
-        >
-          ≡
-        </button>
+        {mode === "active" && (
+          <button
+            ref={setActivatorNodeRef}
+            type="button"
+            style={{
+              ...styles.dragHandle,
+              ...(isSortingDisabled ? styles.disabledHandle : {}),
+            }}
+            aria-label={`${note.title || "제목 없음"} 노트 순서 변경`}
+            title="노트 순서 변경"
+            disabled={isSortingDisabled}
+            {...attributes}
+            {...listeners}
+          >
+            ≡
+          </button>
+        )}
         <button
           type="button"
           style={styles.noteSelectButton}
@@ -111,7 +135,8 @@ function SortableNoteRow({
         >
           <div style={styles.noteTitle}>{note.title || "(제목 없음)"}</div>
           <div style={styles.noteDate}>
-            {new Date(note.updated_at).toLocaleDateString("ko-KR")}
+            {mode === "trash" ? "삭제됨 " : ""}
+            {formatNoteTimestamp(note, mode)}
           </div>
         </button>
         <div
@@ -120,21 +145,50 @@ function SortableNoteRow({
             ...(!isMobile ? styles.noteActionsCompact : {}),
           }}
         >
-          <button
-            type="button"
-            style={{
-              ...styles.deleteButton,
-              ...(!isMobile ? styles.deleteButtonCompact : {}),
-            }}
-            onClick={() => onDeleteNote(note.id)}
-            title="노트 삭제"
-            aria-label={`${note.title || "제목 없음"} 노트 삭제`}
-          >
-            삭제
-          </button>
+          {mode === "trash" ? (
+            <>
+              <button
+                type="button"
+                style={{
+                  ...styles.restoreButton,
+                  ...(!isMobile ? styles.restoreButtonCompact : {}),
+                }}
+                onClick={() => onRestoreNote(note.id)}
+                title="노트 복원"
+                aria-label={`${note.title || "제목 없음"} 노트 복원`}
+              >
+                복원
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...styles.permanentDeleteButton,
+                  ...(!isMobile ? styles.permanentDeleteButtonCompact : {}),
+                }}
+                onClick={() => onPermanentDeleteNote(note.id)}
+                title="영구 삭제"
+                aria-label={`${note.title || "제목 없음"} 노트 영구 삭제`}
+              >
+                삭제
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              style={{
+                ...styles.deleteButton,
+                ...(!isMobile ? styles.deleteButtonCompact : {}),
+              }}
+              onClick={() => onDeleteNote(note.id)}
+              title="노트 삭제"
+              aria-label={`${note.title || "제목 없음"} 노트 삭제`}
+            >
+              삭제
+            </button>
+          )}
         </div>
       </div>
-      {groups.length > 1 && (
+      {mode === "active" && groups.length > 1 && (
         <div style={styles.noteGroupMoveRow}>
           <select
             style={styles.noteGroupMoveSelect}
@@ -166,8 +220,11 @@ export function SortableNoteList({
   selectedNoteId,
   isMobile,
   disabled = false,
+  mode = "active",
   onSelectNote,
   onDeleteNote,
+  onRestoreNote,
+  onPermanentDeleteNote,
   onMoveNoteGroup,
   onReorder,
 }: Props) {
@@ -183,7 +240,7 @@ export function SortableNoteList({
     })
   );
 
-  const isSortingDisabled = disabled || notes.length < 2;
+  const isSortingDisabled = mode === "trash" || disabled || notes.length < 2;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -194,6 +251,30 @@ export function SortableNoteList({
     if (activeIndex < 0 || overIndex < 0 || activeIndex === overIndex) return;
 
     onReorder(moveItem(notes, activeIndex, overIndex));
+  }
+
+  if (mode === "trash") {
+    return (
+      <>
+        {notes.map((note) => (
+          <SortableNoteRow
+            key={note.id}
+            note={note}
+            groups={groups}
+            defaultGroupId={defaultGroupId}
+            isActive={selectedNoteId === note.id}
+            isMobile={isMobile}
+            isSortingDisabled
+            mode={mode}
+            onSelectNote={onSelectNote}
+            onDeleteNote={onDeleteNote}
+            onRestoreNote={onRestoreNote}
+            onPermanentDeleteNote={onPermanentDeleteNote}
+            onMoveNoteGroup={onMoveNoteGroup}
+          />
+        ))}
+      </>
+    );
   }
 
   return (
@@ -208,8 +289,11 @@ export function SortableNoteList({
             isActive={selectedNoteId === note.id}
             isMobile={isMobile}
             isSortingDisabled={isSortingDisabled}
+            mode={mode}
             onSelectNote={onSelectNote}
             onDeleteNote={onDeleteNote}
+            onRestoreNote={onRestoreNote}
+            onPermanentDeleteNote={onPermanentDeleteNote}
             onMoveNoteGroup={onMoveNoteGroup}
           />
         ))}
@@ -225,6 +309,9 @@ const styles = {
     border: "1px solid transparent",
     borderRadius: "var(--radius-md)",
     background: "transparent",
+  } satisfies CSSProperties,
+  noteItemTrash: {
+    background: "color-mix(in srgb, var(--color-bg-accent-soft) 28%, transparent)",
   } satisfies CSSProperties,
   activeNote: {
     background: "var(--app-active-bg)",
@@ -316,5 +403,41 @@ const styles = {
     minWidth: "42px",
     minHeight: "32px",
     fontSize: "11px",
+  } satisfies CSSProperties,
+  restoreButton: {
+    background: "var(--color-bg-emphasis)",
+    border: "1px solid transparent",
+    borderRadius: "999px",
+    color: "var(--color-text-inverse)",
+    fontSize: "12px",
+    lineHeight: 1,
+    minWidth: "52px",
+    minHeight: "44px",
+    padding: "0 12px",
+    fontWeight: 700,
+  } satisfies CSSProperties,
+  restoreButtonCompact: {
+    minWidth: "46px",
+    minHeight: "32px",
+    fontSize: "11px",
+    padding: "0 10px",
+  } satisfies CSSProperties,
+  permanentDeleteButton: {
+    background: "color-mix(in srgb, var(--color-danger) 7%, var(--app-control-bg))",
+    border: "1px solid color-mix(in srgb, var(--color-danger) 26%, var(--color-border-subtle))",
+    borderRadius: "999px",
+    color: "var(--color-danger)",
+    fontSize: "12px",
+    lineHeight: 1,
+    minWidth: "52px",
+    minHeight: "44px",
+    padding: "0 12px",
+    fontWeight: 700,
+  } satisfies CSSProperties,
+  permanentDeleteButtonCompact: {
+    minWidth: "46px",
+    minHeight: "32px",
+    fontSize: "11px",
+    padding: "0 10px",
   } satisfies CSSProperties,
 };

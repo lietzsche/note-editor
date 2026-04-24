@@ -1,7 +1,10 @@
 import type { Note } from "./api";
-import { cloneNotes, getNotesScopeKey } from "./noteCache";
-
-const ALL_NOTES_SCOPE_KEY = "__all__";
+import {
+  ALL_NOTES_SCOPE_KEY,
+  cloneNotes,
+  isGroupNotesScopeKey,
+  TRASH_NOTES_SCOPE_KEY,
+} from "./noteCache";
 
 function cloneCache(cache: Map<string, Note[]>) {
   return new Map(
@@ -11,6 +14,14 @@ function cloneCache(cache: Map<string, Note[]>) {
 
 function sortNotesByOrder(notes: Note[]) {
   return [...notes].sort((a, b) => a.sort_order - b.sort_order);
+}
+
+function sortTrashedNotes(notes: Note[]) {
+  return [...notes].sort((a, b) => {
+    const left = new Date(a.deleted_at ?? a.updated_at).getTime();
+    const right = new Date(b.deleted_at ?? b.updated_at).getTime();
+    return right - left;
+  });
 }
 
 export function updateNoteAcrossCache(cache: Map<string, Note[]>, nextNote: Note) {
@@ -60,6 +71,17 @@ export function applyCreatedNoteToCache(cache: Map<string, Note[]>, note: Note) 
   return nextCache;
 }
 
+export function moveNoteToTrashInCache(cache: Map<string, Note[]>, note: Note) {
+  const nextCache = removeNoteFromCache(cache, note.id);
+  const trashNotes = nextCache.get(TRASH_NOTES_SCOPE_KEY);
+
+  if (trashNotes) {
+    nextCache.set(TRASH_NOTES_SCOPE_KEY, sortTrashedNotes([...trashNotes, note]));
+  }
+
+  return nextCache;
+}
+
 export function applyMovedNoteToCache(
   cache: Map<string, Note[]>,
   nextNote: Note,
@@ -92,16 +114,34 @@ export function applyMovedNoteToCache(
   return nextCache;
 }
 
+export function restoreNoteFromTrashInCache(cache: Map<string, Note[]>, note: Note) {
+  let nextCache = removeNoteFromCache(cache, note.id);
+  const allNotes = nextCache.get(ALL_NOTES_SCOPE_KEY);
+
+  if (allNotes) {
+    nextCache.set(ALL_NOTES_SCOPE_KEY, sortNotesByOrder([...allNotes, note]));
+  }
+
+  if (note.group_id !== null) {
+    const groupNotes = nextCache.get(note.group_id);
+    if (groupNotes) {
+      nextCache.set(note.group_id, sortNotesByOrder([...groupNotes, note]));
+    }
+  }
+
+  return nextCache;
+}
+
 export function syncGroupCachesFromAllNotes(cache: Map<string, Note[]>, allNotes: Note[]) {
   const nextCache = cloneCache(cache);
 
   nextCache.set(ALL_NOTES_SCOPE_KEY, cloneNotes(allNotes));
 
   for (const scopeKey of nextCache.keys()) {
-    if (scopeKey === ALL_NOTES_SCOPE_KEY) continue;
+    if (!isGroupNotesScopeKey(scopeKey)) continue;
     nextCache.set(
       scopeKey,
-      cloneNotes(allNotes.filter((note) => note.group_id === getNotesScopeKey(scopeKey)))
+      cloneNotes(allNotes.filter((note) => note.group_id === scopeKey))
     );
   }
 

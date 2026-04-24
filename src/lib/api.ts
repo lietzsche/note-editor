@@ -116,9 +116,12 @@ export const api = {
   },
 
   notes: {
-    list: (groupId?: string) => {
-      const qs = groupId ? `?group_id=${encodeURIComponent(groupId)}` : "";
-      return request<Note[]>(`/api/notes${qs}`);
+    list: (options?: { groupId?: string; trashed?: "only" }) => {
+      const params = new URLSearchParams();
+      if (options?.groupId) params.set("group_id", options.groupId);
+      if (options?.trashed) params.set("trashed", options.trashed);
+      const qs = params.toString();
+      return request<Note[]>(`/api/notes${qs ? `?${qs}` : ""}`);
     },
     get: (id: string) => request<Note>(`/api/notes/${id}`),
     create: (data: { title?: string; content?: string; group_id?: string }) =>
@@ -155,6 +158,10 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/api/notes/${id}`, { method: "DELETE" }),
+    restore: (id: string) =>
+      request<Note>(`/api/notes/${id}/restore`, { method: "POST" }),
+    permanentDelete: (id: string) =>
+      request<void>(`/api/notes/${id}/permanent`, { method: "DELETE" }),
     share: {
       activate: (id: string, expiresAt?: string) =>
         request<{
@@ -192,6 +199,7 @@ export type Note = {
   group_id: string | null;
   sort_order: number;
   updated_at: string;
+  deleted_at?: string | null;
 };
 
 export type AuthSession = {

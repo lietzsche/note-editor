@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Note } from "../src/lib/api";
+import { ALL_NOTES_SCOPE_KEY } from "../src/lib/noteCache";
 import {
-  ALL_NOTES_SCOPE_KEY,
   buildLoadNotesStartState,
   buildSetNotesForScopeCache,
   getLoadNotesErrorState,

@@ -37,7 +37,8 @@ async function setupSchema() {
       content TEXT NOT NULL DEFAULT '',
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      deleted_at TEXT
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
@@ -57,11 +58,21 @@ async function setupSchema() {
       username TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS share_tokens (
+      note_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+      share_token TEXT NOT NULL PRIMARY KEY,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT,
+      access_count INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(note_id)
+    )`),
   ]);
 }
 
 async function cleanDb() {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM share_tokens"),
     env.DB.prepare("DELETE FROM audit_logs"),
     env.DB.prepare("DELETE FROM login_attempts"),
     env.DB.prepare("DELETE FROM sessions"),
@@ -148,6 +159,12 @@ async function listNotes(cookie: string, base = BASE) {
   });
 }
 
+async function listTrashedNotes(cookie: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes?trashed=only`, {
+    headers: { Cookie: cookie },
+  });
+}
+
 async function listNotesByGroup(cookie: string, groupId: string, base = BASE) {
   return SELF.fetch(`${base}/api/notes?group_id=${encodeURIComponent(groupId)}`, {
     headers: { Cookie: cookie },
@@ -178,6 +195,20 @@ async function updateNote(
 
 async function deleteNote(cookie: string, noteId: string, base = BASE) {
   return SELF.fetch(`${base}/api/notes/${noteId}`, {
+    method: "DELETE",
+    headers: { Cookie: cookie },
+  });
+}
+
+async function restoreNote(cookie: string, noteId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/${noteId}/restore`, {
+    method: "POST",
+    headers: { Cookie: cookie },
+  });
+}
+
+async function permanentDeleteNote(cookie: string, noteId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/${noteId}/permanent`, {
     method: "DELETE",
     headers: { Cookie: cookie },
   });
@@ -690,6 +721,108 @@ describe("TS-02 노트 CRUD", () => {
     const updatedNote = listBody.data.find((note: any) => note.id === createdNotes[1].id);
     expect(updatedNote.title).toBe("수정된 둘째 노트");
     expect(updatedNote.content).toBe("업데이트된 본문");
+  });
+});
+
+describe("TS-13 휴지통 이동 및 일반 목록 제외", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("삭제한 노트는 일반 목록에서 숨겨지고 휴지통에서만 보인다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "휴지통 테스트",
+      content: "본문",
+    });
+    expect(createRes.status).toBe(201);
+    const createdBody = await createRes.json() as any;
+    const noteId = createdBody.data.id;
+
+    const deleteRes = await deleteNote(cookie, noteId);
+    expect(deleteRes.status).toBe(204);
+
+    const activeListRes = await listNotes(cookie);
+    expect(activeListRes.status).toBe(200);
+    const activeListBody = await activeListRes.json() as any;
+    expect(activeListBody.data.map((note: any) => note.id)).not.toContain(noteId);
+
+    const trashListRes = await listTrashedNotes(cookie);
+    expect(trashListRes.status).toBe(200);
+    const trashListBody = await trashListRes.json() as any;
+    expect(trashListBody.data.map((note: any) => note.id)).toContain(noteId);
+    expect(trashListBody.data[0].deleted_at).toBeTruthy();
+
+    const trashedNoteRes = await getNote(cookie, noteId);
+    expect(trashedNoteRes.status).toBe(200);
+    const trashedNoteBody = await trashedNoteRes.json() as any;
+    expect(trashedNoteBody.data.deleted_at).toBeTruthy();
+  });
+});
+
+describe("TS-14 휴지통 복원 및 그룹 fallback", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("원래 그룹이 삭제되면 기본 그룹으로 복원된다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const groupsRes = await listGroups(cookie);
+    expect(groupsRes.status).toBe(200);
+    const groupsBody = await groupsRes.json() as any;
+    const defaultGroup = groupsBody.data.find((group: any) => group.name === "미분류");
+    expect(defaultGroup).toBeDefined();
+
+    const workRes = await createGroup(cookie, "Work");
+    expect(workRes.status).toBe(201);
+    const workBody = await workRes.json() as any;
+
+    const createRes = await createNote(cookie, {
+      title: "복원 테스트",
+      content: "본문",
+      group_id: workBody.data.id,
+    });
+    expect(createRes.status).toBe(201);
+    const noteBody = await createRes.json() as any;
+    const noteId = noteBody.data.id;
+
+    expect((await deleteNote(cookie, noteId)).status).toBe(204);
+    expect((await deleteGroup(cookie, workBody.data.id)).status).toBe(204);
+
+    const restoreRes = await restoreNote(cookie, noteId);
+    expect(restoreRes.status).toBe(200);
+    const restoreBody = await restoreRes.json() as any;
+    expect(restoreBody.data.deleted_at).toBeNull();
+    expect(restoreBody.data.group_id).toBe(defaultGroup.id);
+
+    const trashListRes = await listTrashedNotes(cookie);
+    const trashListBody = await trashListRes.json() as any;
+    expect(trashListBody.data.map((note: any) => note.id)).not.toContain(noteId);
+
+    const activeListRes = await listNotes(cookie);
+    const activeListBody = await activeListRes.json() as any;
+    expect(activeListBody.data.map((note: any) => note.id)).toContain(noteId);
+  });
+
+  it("휴지통에서 영구 삭제한 노트는 다시 조회할 수 없다", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "영구 삭제 테스트",
+      content: "본문",
+    });
+    expect(createRes.status).toBe(201);
+    const createdBody = await createRes.json() as any;
+    const noteId = createdBody.data.id;
+
+    expect((await deleteNote(cookie, noteId)).status).toBe(204);
+    expect((await permanentDeleteNote(cookie, noteId)).status).toBe(204);
+    expect((await getNote(cookie, noteId)).status).toBe(404);
   });
 });
 

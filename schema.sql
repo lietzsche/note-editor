@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS pages (
   content TEXT NOT NULL DEFAULT '',
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS login_attempts (
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS admin_password_resets (
 
 CREATE INDEX IF NOT EXISTS idx_pages_user_sort ON pages(user_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_pages_user_group_sort ON pages(user_id, group_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_pages_user_deleted_at ON pages(user_id, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_groups_user_position ON groups(user_id, position);
 CREATE INDEX IF NOT EXISTS idx_login_attempts_username_time ON login_attempts(username, attempted_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_username_time ON audit_logs(username, created_at);

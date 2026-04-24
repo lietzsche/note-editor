@@ -1,8 +1,10 @@
 import type { Note } from "./api";
-import { cloneNotes, getNotesScopeKey, readCachedNotes } from "./noteCache";
+import {
+  cloneNotes,
+  getNotesScopeKey,
+  readCachedNotes,
+} from "./noteCache";
 import type { LoadState } from "../pages/notesPageDerivations";
-
-export const ALL_NOTES_SCOPE_KEY = "__all__";
 
 export function buildSetNotesForScopeCache(
   cache: Map<string, Note[]>,

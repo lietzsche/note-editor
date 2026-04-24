@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Group, Note } from "../src/lib/api";
+import { TRASH_NOTES_SCOPE_KEY } from "../src/lib/noteCache";
 import {
   deriveNotesPageState,
   getCurrentGroupLabel,
@@ -75,17 +76,38 @@ describe("NOTES-PAGE derived state", () => {
 
   it("resolves labels for save status, group reorder status, and note list status", () => {
     expect(getSaveLabel("conflict")).toBe("충돌 발생");
-    expect(getGroupListStatusLabel("saving", groups.length)).toBe("그룹 정렬 저장 중...");
+    expect(getGroupListStatusLabel("saving", groups.length)).toBe("그룹 정렬 저장 중..");
     expect(getNoteListStatusLabel({
       noteReorderStatus: "idle",
       notesLoadState: "refreshing",
       selectedGroupId: null,
-    })).toBe("목록 백그라운드 갱신 중...");
+    })).toBe("목록을 백그라운드에서 새로 고치는 중..");
   });
 
   it("returns the selected group name and falls back when the group is missing", () => {
     expect(getCurrentGroupLabel(groups, "g2")).toBe("Personal");
     expect(getCurrentGroupLabel(groups, "missing")).toBe("그룹");
     expect(getCurrentGroupLabel(groups, null)).toBe("전체 노트");
+  });
+
+  it("treats the trash scope as read-only and bypasses search filtering", () => {
+    const derived = deriveNotesPageState({
+      groups,
+      notes,
+      searchQuery: "  SEOUL ",
+      saveStatus: "saved",
+      groupReorderStatus: "idle",
+      noteReorderStatus: "idle",
+      notesLoadState: "ready",
+      selectedGroupId: TRASH_NOTES_SCOPE_KEY,
+      isMobile: false,
+      mobilePanel: "notes",
+    });
+
+    expect(derived.isTrashView).toBe(true);
+    expect(derived.isSearchActive).toBe(false);
+    expect(derived.filteredNotes.map((note) => note.id)).toEqual(["n1", "n2"]);
+    expect(derived.noteListStatusLabel).toBe("최근 삭제 순으로 표시됩니다.");
+    expect(derived.currentGroupLabel).toBe("휴지통");
   });
 });

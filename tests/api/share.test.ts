@@ -36,7 +36,8 @@ async function setupSchema() {
       content TEXT NOT NULL DEFAULT '',
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      deleted_at TEXT
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
@@ -127,6 +128,24 @@ async function enableSharing(cookie: string, noteId: string, expiresAt?: string,
 async function disableSharing(cookie: string, noteId: string, base = BASE) {
   return SELF.fetch(`${base}/api/notes/${noteId}/share`, {
     method: "DELETE",
+    headers: {
+      Cookie: cookie,
+    },
+  });
+}
+
+async function deleteNote(cookie: string, noteId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/${noteId}`, {
+    method: "DELETE",
+    headers: {
+      Cookie: cookie,
+    },
+  });
+}
+
+async function restoreNote(cookie: string, noteId: string, base = BASE) {
+  return SELF.fetch(`${base}/api/notes/${noteId}/restore`, {
+    method: "POST",
     headers: {
       Cookie: cookie,
     },
@@ -721,6 +740,42 @@ describe("공유 기능 통합 테스트", () => {
     // 6. 비활성화 후 공유된 노트 읽기 불가
     const afterSharedRes = await getSharedNote(shareToken);
     expect(afterSharedRes.status).toBe(404);
+  });
+
+  it("휴지통으로 이동하면 공유가 즉시 차단되고 복원 후에도 자동 재활성화되지 않는다", async () => {
+    await signup("alice", "password123");
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const createRes = await createNote(cookie, {
+      title: "휴지통 공유 테스트",
+      content: "본문",
+    });
+    expect(createRes.status).toBe(201);
+    const note = await createRes.json() as any;
+    const noteId = note.data.id;
+
+    const enableRes = await enableSharing(cookie, noteId);
+    expect(enableRes.status).toBe(200);
+    const enableData = await enableRes.json() as any;
+    const shareToken = enableData.data.share_token;
+
+    expect((await deleteNote(cookie, noteId)).status).toBe(204);
+    expect((await getSharedNote(shareToken)).status).toBe(404);
+
+    const trashedStatusRes = await getSharingStatus(cookie, noteId);
+    expect(trashedStatusRes.status).toBe(200);
+    const trashedStatus = await trashedStatusRes.json() as any;
+    expect(trashedStatus.data.is_active).toBe(false);
+    expect(trashedStatus.data.share_token).toBeNull();
+
+    expect((await restoreNote(cookie, noteId)).status).toBe(200);
+    expect((await getSharedNote(shareToken)).status).toBe(404);
+
+    const restoredStatusRes = await getSharingStatus(cookie, noteId);
+    const restoredStatus = await restoredStatusRes.json() as any;
+    expect(restoredStatus.data.is_active).toBe(false);
+    expect(restoredStatus.data.share_token).toBeNull();
   });
 
   it("만료 시간이 지나면 공유된 노트를 읽을 수 없다", async () => {

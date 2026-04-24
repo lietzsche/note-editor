@@ -1,10 +1,17 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { api, type Group, type Note } from "../lib/api";
-import { cloneNotes, readCachedNotes } from "../lib/noteCache";
+import {
+  ALL_NOTES_SCOPE_KEY,
+  cloneNotes,
+  readCachedNotes,
+  TRASH_NOTES_SCOPE_KEY,
+} from "../lib/noteCache";
 import {
   applyCreatedNoteToCache,
   applyMovedNoteToCache,
+  moveNoteToTrashInCache,
   removeNoteFromCache,
+  restoreNoteFromTrashInCache,
   syncGroupCachesFromAllNotes as buildGroupCachesFromAllNotes,
   updateNoteAcrossCache,
 } from "../lib/noteCacheMutations";
@@ -20,7 +27,6 @@ import {
   getLoadNotesErrorState,
   invalidateNotesRequestState,
   shouldApplyLoadedNotes,
-  ALL_NOTES_SCOPE_KEY,
 } from "../lib/noteRequestState";
 import type { LoadState } from "./notesPageDerivations";
 
@@ -52,6 +58,16 @@ export function useNotesData({
   const notesInFlightRef = useRef<Map<string, Promise<Note[]>>>(new Map());
   const notesRequestSequenceRef = useRef(0);
   const currentScopeKeyRef = useRef(ALL_NOTES_SCOPE_KEY);
+
+  const syncVisibleNotesFromCurrentScope = useCallback(() => {
+    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
+    if (!currentNotes) return;
+
+    startTransition(() => {
+      setNotes(cloneNotes(currentNotes));
+      setNotesLoadState("ready");
+    });
+  }, []);
 
   const loadGroups = useCallback(async (options?: { preferCache?: boolean }) => {
     const cached = options?.preferCache && groupsCacheRef.current
@@ -118,7 +134,12 @@ export function useNotesData({
     try {
       let request = notesInFlightRef.current.get(scopeKey);
       if (!request) {
-        request = api.notes.list(groupId).finally(() => {
+        const listOptions = normalizedGroupId === TRASH_NOTES_SCOPE_KEY
+          ? { trashed: "only" as const }
+          : normalizedGroupId
+            ? { groupId: normalizedGroupId }
+            : undefined;
+        request = api.notes.list(listOptions).finally(() => {
           notesInFlightRef.current.delete(scopeKey);
         });
         notesInFlightRef.current.set(scopeKey, request);
@@ -205,25 +226,18 @@ export function useNotesData({
 
   const updateNoteAcrossCaches = useCallback((nextNote: Note) => {
     notesCacheRef.current = updateNoteAcrossCache(notesCacheRef.current, nextNote);
-
-    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
-    if (currentNotes) {
-      startTransition(() => {
-        setNotes(cloneNotes(currentNotes));
-      });
-    }
-  }, []);
+    syncVisibleNotesFromCurrentScope();
+  }, [syncVisibleNotesFromCurrentScope]);
 
   const removeNoteFromCaches = useCallback((noteId: string) => {
     notesCacheRef.current = removeNoteFromCache(notesCacheRef.current, noteId);
+    syncVisibleNotesFromCurrentScope();
+  }, [syncVisibleNotesFromCurrentScope]);
 
-    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
-    if (currentNotes) {
-      startTransition(() => {
-        setNotes(cloneNotes(currentNotes));
-      });
-    }
-  }, []);
+  const moveNoteToTrashInCaches = useCallback((note: Note) => {
+    notesCacheRef.current = moveNoteToTrashInCache(notesCacheRef.current, note);
+    syncVisibleNotesFromCurrentScope();
+  }, [syncVisibleNotesFromCurrentScope]);
 
   const applyCreatedNoteToCaches = useCallback((note: Note) => {
     notesCacheRef.current = applyCreatedNoteToCache(notesCacheRef.current, note);
@@ -236,6 +250,11 @@ export function useNotesData({
       previousGroupId
     );
   }, []);
+
+  const restoreNoteFromTrashInCaches = useCallback((note: Note) => {
+    notesCacheRef.current = restoreNoteFromTrashInCache(notesCacheRef.current, note);
+    syncVisibleNotesFromCurrentScope();
+  }, [syncVisibleNotesFromCurrentScope]);
 
   const syncGroupCachesFromAllNotes = useCallback((allNotes: Note[]) => {
     notesCacheRef.current = buildGroupCachesFromAllNotes(notesCacheRef.current, allNotes);
@@ -263,7 +282,7 @@ export function useNotesData({
   }, [groupReorderStatus, groups, setGroupsSnapshot]);
 
   const handleNoteReorder = useCallback(async (reorderedNotes: Note[]) => {
-    if (noteReorderStatus === "saving") return;
+    if (noteReorderStatus === "saving" || selectedGroupId === TRASH_NOTES_SCOPE_KEY) return;
 
     const previousNotes = notes;
     setNotes(reorderedNotes);
@@ -330,8 +349,10 @@ export function useNotesData({
     setGroupsSnapshot,
     updateNoteAcrossCaches,
     removeNoteFromCaches,
+    moveNoteToTrashInCaches,
     applyCreatedNoteToCaches,
     applyMovedNoteToCaches,
+    restoreNoteFromTrashInCaches,
     syncGroupCachesFromAllNotes,
     handleGroupReorder,
     handleNoteReorder,

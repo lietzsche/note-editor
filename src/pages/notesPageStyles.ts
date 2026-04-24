@@ -171,6 +171,10 @@ export const styles: Record<string, CSSProperties> = {
     color: "inherit",
     fontSize: "13px",
   },
+  trashGroupButton: {
+    color: "var(--color-danger)",
+    fontWeight: 700,
+  },
   iconBtn: {
     background: "none",
     color: "inherit",
@@ -491,6 +495,16 @@ export const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-primary)",
     fontSize: "12px",
     fontWeight: 600,
+  },
+  readOnlyBanner: {
+    margin: "0 18px",
+    padding: "10px 12px",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid color-mix(in srgb, var(--color-danger) 22%, var(--color-border-subtle))",
+    background: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+    color: "var(--color-text-secondary)",
+    fontSize: "12px",
+    lineHeight: 1.5,
   },
   toolbarIconButton: {
     display: "inline-flex",

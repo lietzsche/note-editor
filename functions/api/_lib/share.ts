@@ -18,9 +18,11 @@ export async function validateShareToken(
 ): Promise<{ noteId: string; isActive: boolean; expiresAt: string | null } | null> {
   const now = new Date().toISOString();
   const row = await db.prepare(
-    `SELECT note_id, is_active, expires_at
+    `SELECT share_tokens.note_id, share_tokens.is_active, share_tokens.expires_at
      FROM share_tokens
-     WHERE share_token = ?`
+     INNER JOIN pages ON pages.id = share_tokens.note_id
+     WHERE share_tokens.share_token = ?
+       AND pages.deleted_at IS NULL`
   )
     .bind(shareToken)
     .first<{ note_id: string; is_active: number; expires_at: string | null }>();

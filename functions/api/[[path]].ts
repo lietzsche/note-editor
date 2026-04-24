@@ -78,6 +78,28 @@ async function getDefaultGroupId(db: D1Database, userId: string) {
   return defaultGroup?.id ?? null;
 }
 
+type OwnedNote = {
+  id: string;
+  title: string;
+  content: string;
+  group_id: string | null;
+  sort_order: number;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+async function findOwnedNote(
+  db: D1Database,
+  userId: string,
+  noteId: string
+) {
+  return db.prepare(
+    "SELECT id, title, content, group_id, sort_order, updated_at, deleted_at FROM pages WHERE id = ? AND user_id = ?"
+  )
+    .bind(noteId, userId)
+    .first<OwnedNote>();
+}
+
 async function hasDuplicateGroupName(
   db: D1Database,
   userId: string,
@@ -586,7 +608,7 @@ app.delete("/api/groups/:id", async (c) => {
 
   if (defaultGroupId) {
     await c.env.DB.prepare(
-      "UPDATE pages SET group_id = ? WHERE group_id = ? AND user_id = ?"
+      "UPDATE pages SET group_id = ? WHERE group_id = ? AND user_id = ? AND deleted_at IS NULL"
     )
       .bind(defaultGroupId, groupId, session.userId)
       .run();
@@ -663,18 +685,32 @@ app.get("/api/notes", async (c) => {
   if (!session) return unauthorized();
 
   const groupId = c.req.query("group_id");
+  const trashed = c.req.query("trashed");
+  const trashedOnly = trashed === "only";
   let query: D1PreparedStatement;
 
-  if (groupId) {
+  if (trashed !== undefined && trashed !== "only") {
+    return err("VALIDATION", "trashed는 only만 지원합니다.");
+  }
+
+  if (trashedOnly && groupId) {
+    return err("VALIDATION", "휴지통 목록에는 group_id를 함께 사용할 수 없습니다.");
+  }
+
+  if (trashedOnly) {
+    query = c.env.DB.prepare(
+      "SELECT id, title, content, group_id, sort_order, updated_at, deleted_at FROM pages WHERE user_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC, sort_order ASC"
+    ).bind(session.userId);
+  } else if (groupId) {
     const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, groupId);
     if (ownedGroupId === false) return forbidden();
 
     query = c.env.DB.prepare(
-      "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE user_id = ? AND group_id = ? ORDER BY sort_order ASC"
+      "SELECT id, title, content, group_id, sort_order, updated_at, deleted_at FROM pages WHERE user_id = ? AND group_id = ? AND deleted_at IS NULL ORDER BY sort_order ASC"
     ).bind(session.userId, groupId);
   } else {
     query = c.env.DB.prepare(
-      "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE user_id = ? ORDER BY sort_order ASC"
+      "SELECT id, title, content, group_id, sort_order, updated_at, deleted_at FROM pages WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order ASC"
     ).bind(session.userId);
   }
 
@@ -718,14 +754,14 @@ app.post("/api/notes", async (c) => {
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
   const maxOrder = await c.env.DB.prepare(
-    "SELECT COALESCE(MAX(sort_order), -1) as ord FROM pages WHERE user_id = ?"
+    "SELECT COALESCE(MAX(sort_order), -1) as ord FROM pages WHERE user_id = ? AND deleted_at IS NULL"
   )
     .bind(session.userId)
     .first<{ ord: number }>();
   const sort_order = (maxOrder?.ord ?? -1) + 1;
 
   await c.env.DB.prepare(
-    "INSERT INTO pages (id, user_id, group_id, title, content, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO pages (id, user_id, group_id, title, content, sort_order, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)"
   )
     .bind(id, session.userId, resolvedGroupId, title, content, sort_order, now, now)
     .run();
@@ -737,6 +773,7 @@ app.post("/api/notes", async (c) => {
     group_id: resolvedGroupId,
     sort_order,
     updated_at: now,
+    deleted_at: null,
   });
 });
 
@@ -760,7 +797,7 @@ app.post("/api/notes/reorder", async (c) => {
   }
 
   const { results } = await c.env.DB.prepare(
-    "SELECT id, group_id FROM pages WHERE user_id = ? ORDER BY sort_order ASC"
+    "SELECT id, group_id FROM pages WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order ASC"
   )
     .bind(session.userId)
     .all<{ id: string; group_id: string | null }>();
@@ -834,11 +871,7 @@ app.get("/api/notes/:id", async (c) => {
   const noteId = c.req.param("id");
   if (!noteId) return notFound();
 
-  const note = await c.env.DB.prepare(
-    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
 
   if (!note) return notFound();
   return ok(note);
@@ -850,19 +883,11 @@ const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
   const noteId = c.req.param("id");
   if (!noteId) return notFound();
 
-  const note = await c.env.DB.prepare(
-    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first<{
-      id: string;
-      title: string;
-      content: string;
-      group_id: string | null;
-      sort_order: number;
-      updated_at: string;
-    }>();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
   if (!note) return notFound();
+  if (note.deleted_at !== null) {
+    return err("CONFLICT", "휴지통 노트는 수정할 수 없습니다.", 409);
+  }
 
   const body = await c.req.json<{
     title?: string;
@@ -935,7 +960,7 @@ const updateNoteHandler = async (c: Context<{ Bindings: Env }>) => {
     .run();
 
   const updated = await c.env.DB.prepare(
-    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
+    "SELECT id, title, content, group_id, sort_order, updated_at, deleted_at FROM pages WHERE id = ? AND user_id = ?"
   )
     .bind(noteId, session.userId)
     .first();
@@ -953,12 +978,11 @@ app.patch("/api/notes/:id/group", async (c) => {
   const noteId = c.req.param("id");
   if (!noteId) return notFound();
 
-  const note = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first<{ id: string }>();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
   if (!note) return notFound();
+  if (note.deleted_at !== null) {
+    return err("CONFLICT", "휴지통 노트는 그룹을 바꿀 수 없습니다.", 409);
+  }
 
   const { group_id } = await c.req.json<{ group_id?: string | null }>();
   if (group_id === undefined) return err("VALIDATION", "group_id를 입력하세요.");
@@ -977,7 +1001,7 @@ app.patch("/api/notes/:id/group", async (c) => {
     .run();
 
   const updated = await c.env.DB.prepare(
-    "SELECT id, title, content, group_id, sort_order, updated_at FROM pages WHERE id = ? AND user_id = ?"
+    "SELECT id, title, content, group_id, sort_order, updated_at, deleted_at FROM pages WHERE id = ? AND user_id = ?"
   )
     .bind(noteId, session.userId)
     .first();
@@ -991,12 +1015,72 @@ app.delete("/api/notes/:id", async (c) => {
   const noteId = c.req.param("id");
   if (!noteId) return notFound();
 
-  const note = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
   if (!note) return notFound();
+  if (note.deleted_at !== null) {
+    return noContent();
+  }
+
+  const now = new Date().toISOString();
+  await c.env.DB.prepare("UPDATE pages SET deleted_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
+    .bind(now, now, noteId, session.userId)
+    .run();
+  await deactivateShareToken(c.env.DB, noteId);
+
+  return noContent();
+});
+
+app.post("/api/notes/:id/restore", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
+
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
+  if (!note) return notFound();
+  if (note.deleted_at === null) {
+    return err("CONFLICT", "휴지통에 있는 노트만 복원할 수 있습니다.", 409);
+  }
+
+  let restoredGroupId = note.group_id;
+  if (restoredGroupId !== null) {
+    const ownedGroupId = await resolveOwnedGroupId(c.env.DB, session.userId, restoredGroupId);
+    restoredGroupId = ownedGroupId === false
+      ? await getDefaultGroupId(c.env.DB, session.userId)
+      : ownedGroupId;
+  } else {
+    restoredGroupId = await getDefaultGroupId(c.env.DB, session.userId);
+  }
+
+  const maxOrder = await c.env.DB.prepare(
+    "SELECT COALESCE(MAX(sort_order), -1) as ord FROM pages WHERE user_id = ? AND deleted_at IS NULL"
+  )
+    .bind(session.userId)
+    .first<{ ord: number }>();
+  const sortOrder = (maxOrder?.ord ?? -1) + 1;
+  const now = new Date().toISOString();
+
+  await c.env.DB.prepare(
+    "UPDATE pages SET group_id = ?, sort_order = ?, deleted_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?"
+  )
+    .bind(restoredGroupId, sortOrder, now, noteId, session.userId)
+    .run();
+
+  const restored = await findOwnedNote(c.env.DB, session.userId, noteId);
+  return ok(restored);
+});
+
+app.delete("/api/notes/:id/permanent", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  const noteId = c.req.param("id");
+  if (!noteId) return notFound();
+
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
+  if (!note) return notFound();
+  if (note.deleted_at === null) {
+    return err("CONFLICT", "휴지통에 있는 노트만 영구 삭제할 수 있습니다.", 409);
+  }
 
   await c.env.DB.prepare("DELETE FROM pages WHERE id = ? AND user_id = ?")
     .bind(noteId, session.userId)
@@ -1015,12 +1099,11 @@ app.post("/api/notes/:id/share", async (c) => {
   if (!noteId) return notFound();
 
   // 노트 소유권 확인
-  const note = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
   if (!note) return notFound();
+  if (note.deleted_at !== null) {
+    return err("CONFLICT", "휴지통 노트는 공유할 수 없습니다.", 409);
+  }
 
   const body = await c.req.json<{ expires_at?: unknown }>();
   const expiresAt = validateShareExpiresAt(body.expires_at);
@@ -1051,11 +1134,7 @@ app.delete("/api/notes/:id/share", async (c) => {
   const noteId = c.req.param("id");
   if (!noteId) return notFound();
 
-  const note = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
   if (!note) return notFound();
 
   await deactivateShareToken(c.env.DB, noteId);
@@ -1069,12 +1148,17 @@ app.get("/api/notes/:id/share", async (c) => {
   const noteId = c.req.param("id");
   if (!noteId) return notFound();
 
-  const note = await c.env.DB.prepare(
-    "SELECT id FROM pages WHERE id = ? AND user_id = ?"
-  )
-    .bind(noteId, session.userId)
-    .first();
+  const note = await findOwnedNote(c.env.DB, session.userId, noteId);
   if (!note) return notFound();
+  if (note.deleted_at !== null) {
+    return ok({
+      is_active: false,
+      share_token: null,
+      expires_at: null,
+      access_count: 0,
+      share_url: null,
+    });
+  }
 
   const shareInfo = await getShareTokenForNote(c.env.DB, noteId);
   if (!shareInfo) {
@@ -1105,7 +1189,7 @@ app.get("/api/shared/:shareToken", async (c) => {
   if (!validation) return notFound();
 
   const note = await c.env.DB.prepare(
-    "SELECT title, content, updated_at FROM pages WHERE id = ?"
+    "SELECT title, content, updated_at FROM pages WHERE id = ? AND deleted_at IS NULL"
   )
     .bind(validation.noteId)
     .first();

@@ -11,6 +11,7 @@ import { ShareStatusPanel } from "./ShareStatusPanel";
 import { SpellCheckLink } from "./SpellCheckLink";
 import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
+import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import ThemeToggle from "./ThemeToggle";
 import type { PerfSample } from "../lib/performanceDebug";
 
@@ -29,6 +30,7 @@ type Props = {
   username: string;
   groups: Group[];
   selectedGroupId: string | null;
+  isTrashView: boolean;
   currentGroupLabel: string;
   defaultGroupId: string | null;
   defaultGroupName: string;
@@ -44,6 +46,7 @@ type Props = {
   content: string;
   saveLabel: string;
   saveStatus: "saved" | "saving" | "error" | "dirty" | "conflict";
+  selectedNoteDeletedAtLabel: string | null;
   charCount: number;
   countStatus: CountStatus;
   copyStatus: CopyStatus;
@@ -75,6 +78,8 @@ type Props = {
   onClearSearch: () => void;
   onSelectNote: (note: Note) => void;
   onDeleteNote: (noteId: string) => void;
+  onRestoreNote: (noteId: string) => void;
+  onPermanentDeleteNote: (noteId: string) => void;
   onMoveNoteGroup: (note: Note, groupId: string | null) => void;
   onReorderNotes: (nextNotes: Note[]) => void;
   onTitleChange: ChangeEventHandler<HTMLInputElement>;
@@ -109,6 +114,7 @@ export function NotesPageLayout({
   username,
   groups,
   selectedGroupId,
+  isTrashView,
   currentGroupLabel,
   defaultGroupId,
   defaultGroupName,
@@ -124,6 +130,7 @@ export function NotesPageLayout({
   content,
   saveLabel,
   saveStatus,
+  selectedNoteDeletedAtLabel,
   charCount,
   countStatus,
   copyStatus,
@@ -155,6 +162,8 @@ export function NotesPageLayout({
   onClearSearch,
   onSelectNote,
   onDeleteNote,
+  onRestoreNote,
+  onPermanentDeleteNote,
   onMoveNoteGroup,
   onReorderNotes,
   onTitleChange,
@@ -171,6 +180,8 @@ export function NotesPageLayout({
   shareError,
   onShareToggle,
 }: Props) {
+  const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
+
   return (
     <div
       style={{
@@ -312,6 +323,24 @@ export function NotesPageLayout({
                 전체 노트
               </button>
             </div>
+            <div
+              style={{
+                ...styles.groupRow,
+                ...(isTrashView ? styles.activeGroup : {}),
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...styles.groupSelectButton,
+                  ...(styles.trashGroupButton ?? {}),
+                }}
+                onClick={() => onSelectGroup(TRASH_NOTES_SCOPE_KEY)}
+                aria-pressed={isTrashView}
+              >
+                휴지통
+              </button>
+            </div>
             <SortableGroupList
               groups={groups}
               selectedGroupId={selectedGroupId}
@@ -355,35 +384,39 @@ export function NotesPageLayout({
               </span>
               <span style={styles.reorderHint}>{noteListStatusLabel}</span>
             </div>
-            <button
-              type="button"
-              style={styles.newNoteBtn}
-              onClick={onCreateNote}
-              aria-label="새 노트 만들기"
-            >
-              + 새 노트
-            </button>
-          </div>
-          <div style={styles.noteSearchRow}>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={onSearchQueryChange}
-              placeholder="노트 검색..."
-              aria-label="노트 검색"
-              style={styles.noteSearchInput}
-            />
-            {searchQuery.trim() && (
+            {!isTrashView && (
               <button
                 type="button"
-                style={styles.noteSearchClearBtn}
-                onClick={onClearSearch}
-                aria-label="검색 지우기"
+                style={styles.newNoteBtn}
+                onClick={onCreateNote}
+                aria-label="새 노트 만들기"
               >
-                지우기
+                + 새 노트
               </button>
             )}
           </div>
+          {!isTrashView && (
+            <div style={styles.noteSearchRow}>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={onSearchQueryChange}
+                placeholder="노트 검색..."
+                aria-label="노트 검색"
+                style={styles.noteSearchInput}
+              />
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  style={styles.noteSearchClearBtn}
+                  onClick={onClearSearch}
+                  aria-label="검색 지우기"
+                >
+                  지우기
+                </button>
+              )}
+            </div>
+          )}
           <div style={styles.noteListBody}>
             {notesLoadState === "loading" && notes.length === 0 && (
               <div style={styles.empty}>노트 목록을 불러오는 중입니다.</div>
@@ -391,11 +424,13 @@ export function NotesPageLayout({
             {notesLoadState === "error" && notes.length === 0 && (
               <div style={styles.empty}>노트 목록을 불러오지 못했습니다.</div>
             )}
-            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && searchQuery.trim() && (
+            {!isTrashView && notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && searchQuery.trim() && (
               <div style={styles.empty}>검색 결과가 없습니다.</div>
             )}
-            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && !searchQuery.trim() && (
-              <div style={styles.empty}>노트가 없습니다.</div>
+            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && (
+              <div style={styles.empty}>
+                {isTrashView ? "휴지통이 비어 있습니다." : "노트가 없습니다."}
+              </div>
             )}
             {notes.length > 0 && (
               <SortableNoteList
@@ -404,9 +439,12 @@ export function NotesPageLayout({
                 defaultGroupId={defaultGroupId}
                 selectedNoteId={selectedNote?.id ?? null}
                 isMobile={isMobile}
-                disabled={noteReorderBusy || Boolean(searchQuery.trim())}
+                disabled={isTrashView || noteReorderBusy || Boolean(searchQuery.trim())}
+                mode={isTrashView ? "trash" : "active"}
                 onSelectNote={onSelectNote}
                 onDeleteNote={onDeleteNote}
+                onRestoreNote={onRestoreNote}
+                onPermanentDeleteNote={onPermanentDeleteNote}
                 onMoveNoteGroup={onMoveNoteGroup}
                 onReorder={onReorderNotes}
               />
@@ -428,6 +466,7 @@ export function NotesPageLayout({
                     onChange={onTitleChange}
                     maxLength={120}
                     aria-label="노트 제목"
+                    readOnly={isSelectedNoteReadOnly}
                   />
                   {groups.length > 0 && (
                     <label style={{ ...styles.groupPicker, ...(isMobile ? styles.groupPickerMobile : {}) }}>
@@ -441,6 +480,7 @@ export function NotesPageLayout({
                           defaultGroupId && event.target.value === defaultGroupId ? null : event.target.value
                         )}
                         aria-label="현재 노트 그룹 선택"
+                        disabled={isSelectedNoteReadOnly}
                       >
                         {groups.map((group) => (
                           <option key={group.id} value={group.id}>
@@ -461,6 +501,7 @@ export function NotesPageLayout({
                       style={{
                         ...styles.statusBadge,
                         color:
+                          isSelectedNoteReadOnly ? "var(--color-text-secondary)" :
                           saveStatus === "error" || saveStatus === "conflict" ? "var(--color-danger)" :
                           saveStatus === "dirty" || saveStatus === "saving"
                             ? "var(--color-text-secondary)"
@@ -470,7 +511,7 @@ export function NotesPageLayout({
                       {saveLabel}
                     </span>
                     <CharacterCountIndicator count={charCount} state={countStatus} />
-                    {saveStatus === "error" && (
+                    {!isSelectedNoteReadOnly && saveStatus === "error" && (
                       <button
                         type="button"
                         style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
@@ -481,7 +522,7 @@ export function NotesPageLayout({
                         {isMobile ? <RetryIcon /> : "다시 시도"}
                       </button>
                     )}
-                    {saveStatus === "conflict" && (
+                    {!isSelectedNoteReadOnly && saveStatus === "conflict" && (
                       <button
                         type="button"
                         style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
@@ -492,14 +533,16 @@ export function NotesPageLayout({
                         {isMobile ? <ConflictIcon /> : "충돌 해결"}
                       </button>
                     )}
-                    <SpellCheckLink
-                      compact={isMobile}
-                      style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
-                      containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
-                      guidanceStyle={isMobile ? styles.mobileHidden : undefined}
-                    />
+                    {!isSelectedNoteReadOnly && (
+                      <SpellCheckLink
+                        compact={isMobile}
+                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                        containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
+                        guidanceStyle={isMobile ? styles.mobileHidden : undefined}
+                      />
+                    )}
                     <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
-                    {isMobile && (
+                    {isMobile && !isSelectedNoteReadOnly && (
                       <ShareStatusPanel
                         styles={styles}
                         shareInfo={shareInfo}
@@ -511,7 +554,7 @@ export function NotesPageLayout({
                     )}
                   </div>
                 </div>
-                {!isMobile && (
+                {!isMobile && !isSelectedNoteReadOnly && (
                   <ShareStatusPanel
                     styles={styles}
                     shareInfo={shareInfo}
@@ -522,6 +565,11 @@ export function NotesPageLayout({
                   />
                 )}
               </div>
+              {isSelectedNoteReadOnly && selectedNoteDeletedAtLabel && (
+                <div style={styles.readOnlyBanner}>
+                  휴지통에 보관된 노트입니다. {selectedNoteDeletedAtLabel}에 삭제되었습니다.
+                </div>
+              )}
               <textarea
                 style={{ ...styles.textarea, ...(isMobile ? styles.textareaMobile : {}) }}
                 placeholder="본문을 입력하세요..."
@@ -529,10 +577,13 @@ export function NotesPageLayout({
                 onChange={onContentChange}
                 maxLength={20000}
                 aria-label="노트 본문"
+                readOnly={isSelectedNoteReadOnly}
               />
             </>
           ) : (
-            <div style={styles.noNote}>노트를 선택하거나 새 노트를 만드세요.</div>
+            <div style={styles.noNote}>
+              {isTrashView ? "휴지통 노트를 선택해 내용을 확인하세요." : "노트를 선택하거나 새 노트를 만드세요."}
+            </div>
           )}
         </div>
       )}

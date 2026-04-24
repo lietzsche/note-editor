@@ -56,7 +56,7 @@ export function shouldScheduleAutoSave(
   selectedNote: Note | null,
   saveStatus: SaveStatus
 ) {
-  return Boolean(selectedNote && saveStatus !== "conflict");
+  return Boolean(selectedNote && selectedNote.deleted_at == null && saveStatus !== "conflict");
 }
 
 export function useNotePersistence({

@@ -29,6 +29,7 @@ import {
   shouldRevealMobileNotesPanelForGroupSelection,
   type PendingAction,
 } from "../lib/notesPageTransitions";
+import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
 import {
   appendPerfSample,
@@ -138,8 +139,10 @@ export default function NotesPage({
     removeGroup,
     updateNoteAcrossCaches,
     removeNoteFromCaches,
+    moveNoteToTrashInCaches,
     applyCreatedNoteToCaches,
     applyMovedNoteToCaches,
+    restoreNoteFromTrashInCaches,
     handleGroupReorder,
     handleNoteReorder,
   } = useNotesData({
@@ -179,7 +182,10 @@ export default function NotesPage({
   const {
     createNoteImmediately,
     createNote,
+    trashNoteImmediately,
     deleteNote,
+    restoreNote,
+    permanentDeleteNote,
     handleShareToggle,
     logoutImmediately,
     handleLogout,
@@ -205,6 +211,8 @@ export default function NotesPage({
     applyCreatedNoteToCaches,
     setNotesForScope,
     removeNoteFromCaches,
+    moveNoteToTrashInCaches,
+    restoreNoteFromTrashInCaches,
     upsertGroup,
     removeGroup,
     invalidateAllNotesCache,
@@ -218,6 +226,7 @@ export default function NotesPage({
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
   const isAdminUser = adminCapability === "available";
+  const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
 
   useEffect(() => {
     if (passwordChangeRequired) {
@@ -406,6 +415,12 @@ export default function NotesPage({
       setShareError(null);
       return;
     }
+    if (selectedNote.deleted_at != null) {
+      setShareInfo(null);
+      setShareError(null);
+      setShareLoading(false);
+      return;
+    }
     setShareError(null);
     setShareLoading(true);
     api.notes.share.get(selectedNote.id)
@@ -419,7 +434,7 @@ export default function NotesPage({
       .finally(() => {
         setShareLoading(false);
       });
-  }, [selectedNote?.id]);
+  }, [selectedNote?.deleted_at, selectedNote?.id]);
 
   function afterNextPaint(callback: () => void) {
     if (typeof window === "undefined") {
@@ -441,6 +456,7 @@ export default function NotesPage({
 
   function getGroupLabel(groupId: string | null) {
     if (groupId === null) return "전체 노트";
+    if (groupId === TRASH_NOTES_SCOPE_KEY) return "휴지통";
     return groups.find((group) => group.id === groupId)?.name ?? "그룹";
   }
 
@@ -613,7 +629,9 @@ export default function NotesPage({
     titleRef.current = note.title;
     contentRef.current = note.content;
     conflictNoteRef.current = null;
-    activateAutoSaveRunner(note.id);
+    if (note.deleted_at == null) {
+      activateAutoSaveRunner(note.id);
+    }
     startTransition(() => {
       setSelectedNote(nextEditorState.selectedNote);
       setTitle(nextEditorState.title);
@@ -689,6 +707,11 @@ export default function NotesPage({
       return;
     }
 
+    if (action.type === "delete-note") {
+      await trashNoteImmediately(action.noteId);
+      return;
+    }
+
     if (action.type === "move-note-group") {
       await moveNoteGroupImmediately(action.noteId, action.groupId);
       return;
@@ -748,6 +771,7 @@ export default function NotesPage({
   const {
     filteredNotes,
     isSearchActive,
+    isTrashView,
     saveLabel,
     groupListStatusLabel,
     effectiveNoteListStatusLabel,
@@ -770,6 +794,10 @@ export default function NotesPage({
   const selectedNoteGroupValue = selectedNote
     ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
     : "";
+  const effectiveSaveLabel = isSelectedNoteReadOnly ? "읽기 전용" : saveLabel;
+  const deletedAtLabel = selectedNote?.deleted_at
+    ? new Date(selectedNote.deleted_at).toLocaleString("ko-KR")
+    : null;
 
   const isConflictDialog = dialogMode === "conflict";
   const primaryDialogLabel =
@@ -797,6 +825,7 @@ export default function NotesPage({
         username={username}
         groups={groups}
         selectedGroupId={selectedGroupId}
+        isTrashView={isTrashView}
         currentGroupLabel={currentGroupLabel}
         defaultGroupId={defaultGroupId}
         defaultGroupName={DEFAULT_GROUP_NAME}
@@ -810,8 +839,9 @@ export default function NotesPage({
         selectedNoteGroupValue={selectedNoteGroupValue}
         title={title}
         content={content}
-        saveLabel={saveLabel}
+        saveLabel={effectiveSaveLabel}
         saveStatus={saveStatus}
+        selectedNoteDeletedAtLabel={deletedAtLabel}
         charCount={charCount}
         countStatus={countStatus}
         copyStatus={copyStatus}
@@ -854,6 +884,12 @@ export default function NotesPage({
         onSelectNote={selectNote}
         onDeleteNote={(noteId) => {
           void deleteNote(noteId);
+        }}
+        onRestoreNote={(noteId) => {
+          void restoreNote(noteId);
+        }}
+        onPermanentDeleteNote={(noteId) => {
+          void permanentDeleteNote(noteId);
         }}
         onMoveNoteGroup={(note, groupId) => {
           void handleMoveNoteGroup(note, groupId);

@@ -1,10 +1,12 @@
 import type { Note } from "./api";
 import type { SaveStatus } from "../pages/notesPageDerivations";
+import { TRASH_NOTES_SCOPE_KEY } from "./noteCache";
 
 export type PendingAction =
   | { type: "select-note"; note: Note }
   | { type: "select-group"; groupId: string | null }
   | { type: "create-note" }
+  | { type: "delete-note"; noteId: string }
   | { type: "move-note-group"; noteId: string; groupId: string | null }
   | { type: "logout" };
 
@@ -26,7 +28,14 @@ export function shouldClearSelectedNoteOnGroupSelection(
   groupId: string | null,
   selectedNote: Note | null
 ) {
-  return Boolean(groupId !== null && selectedNote && selectedNote.group_id !== groupId);
+  if (!selectedNote) return false;
+  if (groupId === TRASH_NOTES_SCOPE_KEY) {
+    return selectedNote.deleted_at == null;
+  }
+  if (selectedNote.deleted_at != null) {
+    return true;
+  }
+  return Boolean(groupId !== null && selectedNote.group_id !== groupId);
 }
 
 export function getNextMobilePanelAfterGroupSelection(isMobile: boolean) {
