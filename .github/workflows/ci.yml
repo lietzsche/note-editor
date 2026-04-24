@@ -27,9 +27,12 @@ jobs:
         run: npm ci
 
       - name: Prepare local env vars for workers tests
-        run: printf 'AUTH_SESSION_SECRET=%s\n' "$AUTH_SESSION_SECRET" > .dev.vars
+        run: |
+          printf 'AUTH_SESSION_SECRET=%s\n' "$AUTH_SESSION_SECRET" > .dev.vars
+          printf 'ADMIN_USERNAMES=%s\n' "$ADMIN_USERNAMES" >> .dev.vars
         env:
           AUTH_SESSION_SECRET: ci-test-session-secret-32-characters-minimum
+          ADMIN_USERNAMES: admin
 
       - name: Run verification gate
         run: npm run verify

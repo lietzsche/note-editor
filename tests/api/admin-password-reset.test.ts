@@ -146,7 +146,6 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await cleanDb();
-  env.ADMIN_USERNAMES = "admin";
 });
 
 describe("FEATURE-009 admin password reset", () => {
