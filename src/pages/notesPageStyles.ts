@@ -70,6 +70,18 @@ export const styles: Record<string, CSSProperties> = {
     padding: "6px 9px",
     fontWeight: 700,
   },
+  adminBtn: {
+    fontSize: "11px",
+    color: "var(--color-brand-contrast)",
+    cursor: "pointer",
+    background:
+      "linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-primary-hover))",
+    border: "1px solid transparent",
+    borderRadius: "999px",
+    padding: "6px 10px",
+    fontWeight: 700,
+    boxShadow: "0 8px 18px color-mix(in srgb, var(--color-brand-primary) 16%, transparent)",
+  },
   userInfo: {
     padding: "10px 14px",
     fontSize: "12px",

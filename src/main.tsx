@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ThemeProvider } from "./lib/theme";
+import "./styles/admin-console.css";
 import "./styles/tokens.css";
 import "./styles/auth.css";
 import "./styles/shared.css";

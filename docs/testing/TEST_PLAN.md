@@ -238,3 +238,13 @@ npm run dev
 4. Confirm the previous password no longer works after reset.
 5. Confirm the generated temporary password works for a fresh login.
 6. Confirm password reset audit history includes actor and target usernames.
+
+## 11. 2026-04-24 Admin Console and Login UI Addendum
+
+1. Confirm only allowlisted admins see the in-app admin console entry button.
+2. Confirm the admin console opens and closes correctly on desktop and mobile widths.
+3. Confirm the current logged-in admin account cannot be reset from the UI.
+4. Confirm password reset requires an explicit second confirmation step in the UI.
+5. Confirm the generated temporary password card can be copied and dismissed.
+6. Confirm login page keeps the form ahead of the hero section on narrow mobile layouts.
+7. Confirm login and signup mode switches preserve clear labels, field hints, and error feedback.

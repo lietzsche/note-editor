@@ -1,5 +1,13 @@
-import { startTransition, useEffect, useRef, useState } from "react";
-import { api, type Note } from "../lib/api";
+import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  api,
+  ApiError,
+  type AdminPasswordResetAuditEntry,
+  type AdminPasswordResetResult,
+  type AdminUser,
+  type Note,
+} from "../lib/api";
+import { AdminConsolePanel } from "../components/AdminConsolePanel";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { countGraphemes } from "../lib/editorProductivity";
 import {
@@ -79,6 +87,23 @@ export default function NotesPage({ username, onLogout }: Props) {
   } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [adminCapability, setAdminCapability] = useState<"checking" | "available" | "unavailable">("checking");
+  const [isAdminConsoleOpen, setIsAdminConsoleOpen] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState("");
+  const deferredAdminSearchQuery = useDeferredValue(adminSearchQuery);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState<string | null>(null);
+  const [adminAuditEntries, setAdminAuditEntries] = useState<AdminPasswordResetAuditEntry[]>([]);
+  const [adminAuditLoading, setAdminAuditLoading] = useState(false);
+  const [adminAuditError, setAdminAuditError] = useState<string | null>(null);
+  const [adminActionError, setAdminActionError] = useState<string | null>(null);
+  const [pendingAdminResetUserId, setPendingAdminResetUserId] = useState<string | null>(null);
+  const [adminResetBusyUserId, setAdminResetBusyUserId] = useState<string | null>(null);
+  const [adminResetResult, setAdminResetResult] = useState<AdminPasswordResetResult | null>(null);
+  const [adminPasswordCopyState, setAdminPasswordCopyState] = useState<"idle" | "success" | "error">("idle");
+  const [adminUsersReloadKey, setAdminUsersReloadKey] = useState(0);
+  const [adminAuditReloadKey, setAdminAuditReloadKey] = useState(0);
   const selectedNoteIdRef = useRef<string | null>(null);
   const selectedNoteUpdatedAtRef = useRef<string | null>(null);
   const titleRef = useRef(title);
@@ -180,6 +205,7 @@ export default function NotesPage({ username, onLogout }: Props) {
   });
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
+  const isAdminUser = adminCapability === "available";
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -196,6 +222,106 @@ export default function NotesPage({ username, onLogout }: Props) {
       mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setAdminUsersLoading(true);
+    api.admin.listUsers({ limit: 8 })
+      .then((users) => {
+        if (cancelled) return;
+        setAdminCapability("available");
+        setAdminUsers(users);
+        setAdminUsersError(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+
+        if (error instanceof ApiError && (
+          error.code === "FORBIDDEN" ||
+          error.code === "UNAUTHORIZED"
+        )) {
+          setAdminCapability("unavailable");
+          setAdminUsers([]);
+          setAdminUsersError(null);
+          return;
+        }
+
+        setAdminCapability("unavailable");
+        setAdminUsers([]);
+        setAdminUsersError(error instanceof Error ? error.message : "운영 권한을 확인하지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAdminUsersLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAdminUser || !isAdminConsoleOpen) return undefined;
+
+    let cancelled = false;
+    setAdminUsersLoading(true);
+    setAdminUsersError(null);
+
+    api.admin.listUsers({
+      search: deferredAdminSearchQuery.trim() || undefined,
+      limit: deferredAdminSearchQuery.trim() ? 12 : 8,
+    })
+      .then((users) => {
+        if (!cancelled) {
+          setAdminUsers(users);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAdminUsers([]);
+        setAdminUsersError(error instanceof Error ? error.message : "사용자 목록을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAdminUsersLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deferredAdminSearchQuery, adminUsersReloadKey, isAdminConsoleOpen, isAdminUser]);
+
+  useEffect(() => {
+    if (!isAdminUser || !isAdminConsoleOpen) return undefined;
+
+    let cancelled = false;
+    setAdminAuditLoading(true);
+    setAdminAuditError(null);
+
+    api.admin.listPasswordResetAudit(8)
+      .then((entries) => {
+        if (!cancelled) {
+          setAdminAuditEntries(entries);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAdminAuditEntries([]);
+        setAdminAuditError(error instanceof Error ? error.message : "감사 이력을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAdminAuditLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminAuditReloadKey, isAdminConsoleOpen, isAdminUser]);
 
   useEffect(() => {
     if (!PERF_DEBUG_ENABLED) return;
@@ -245,6 +371,16 @@ export default function NotesPage({ username, onLogout }: Props) {
   }, [countStatus, selectedNote?.id, content]);
 
   useEffect(() => {
+    if (adminPasswordCopyState === "idle") return undefined;
+
+    const timer = setTimeout(() => {
+      setAdminPasswordCopyState("idle");
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [adminPasswordCopyState]);
+
+  useEffect(() => {
     if (!selectedNote) {
       setShareInfo(null);
       setShareError(null);
@@ -286,6 +422,52 @@ export default function NotesPage({ username, onLogout }: Props) {
   function getGroupLabel(groupId: string | null) {
     if (groupId === null) return "전체 노트";
     return groups.find((group) => group.id === groupId)?.name ?? "그룹";
+  }
+
+  function openAdminConsole() {
+    setIsAdminConsoleOpen(true);
+    setAdminActionError(null);
+  }
+
+  function closeAdminConsole() {
+    setIsAdminConsoleOpen(false);
+    setAdminSearchQuery("");
+    setPendingAdminResetUserId(null);
+    setAdminActionError(null);
+    setAdminResetResult(null);
+    setAdminPasswordCopyState("idle");
+  }
+
+  async function handleAdminPasswordReset(userId: string) {
+    setAdminResetBusyUserId(userId);
+    setAdminActionError(null);
+
+    try {
+      const result = await api.admin.resetPassword(userId);
+      setAdminResetResult(result);
+      setPendingAdminResetUserId(null);
+      setAdminPasswordCopyState("idle");
+      setAdminUsersReloadKey((prev) => prev + 1);
+      setAdminAuditReloadKey((prev) => prev + 1);
+    } catch (error) {
+      setAdminActionError(error instanceof Error ? error.message : "비밀번호를 초기화하지 못했습니다.");
+    } finally {
+      setAdminResetBusyUserId(null);
+    }
+  }
+
+  async function handleAdminPasswordCopy() {
+    if (!adminResetResult || typeof navigator === "undefined" || !navigator.clipboard) {
+      setAdminPasswordCopyState("error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(adminResetResult.tempPassword);
+      setAdminPasswordCopyState("success");
+    } catch {
+      setAdminPasswordCopyState("error");
+    }
   }
 
   function hasBlockingEdits() {
@@ -546,102 +728,133 @@ export default function NotesPage({ username, onLogout }: Props) {
         ? "마지막 입력값은 유지되어 있습니다. 다시 저장하거나 버리고 이동할 수 있습니다."
         : "현재 편집 중인 내용을 저장한 뒤 이동할지, 버리고 이동할지 선택하세요.";
   return (
-    <NotesPageLayout
-      styles={styles}
-      isMobile={isMobile}
-      mobilePanel={mobilePanel}
-      setMobilePanel={setMobilePanel}
-      showGroupsPanel={showGroupsPanel}
-      showNotesPanel={showNotesPanel}
-      showEditorPanel={showEditorPanel}
-      username={username}
-      groups={groups}
-      selectedGroupId={selectedGroupId}
-      currentGroupLabel={currentGroupLabel}
-      defaultGroupId={defaultGroupId}
-      defaultGroupName={DEFAULT_GROUP_NAME}
-      groupListStatusLabel={groupListStatusLabel}
-      noteListStatusLabel={effectiveNoteListStatusLabel}
-      notes={filteredNotes}
-      totalNotesCount={notes.length}
-      notesLoadState={notesLoadState}
-      selectedNote={selectedNote}
-      searchQuery={searchQuery}
-      selectedNoteGroupValue={selectedNoteGroupValue}
-      title={title}
-      content={content}
-      saveLabel={saveLabel}
-      saveStatus={saveStatus}
-      charCount={charCount}
-      countStatus={countStatus}
-      copyStatus={copyStatus}
-      newGroupName={newGroupName}
-      groupReorderBusy={groupReorderStatus === "saving"}
-      noteReorderBusy={noteReorderStatus === "saving"}
-      dialogMode={dialogMode}
-      dialogTitle={dialogTitle}
-      dialogDescription={dialogDescription}
-      primaryDialogLabel={primaryDialogLabel}
-      isConflictDialog={isConflictDialog}
-      conflictNote={conflictNote}
-      hasPendingAction={Boolean(pendingAction)}
-      perfDebugEnabled={PERF_DEBUG_ENABLED}
-      perfSamples={perfSamples}
-      onLogout={handleLogout}
-      onSelectGroup={selectGroup}
-      onRenameGroup={(groupId, groupName) => {
-        void handleRenameGroup(groupId, groupName);
-      }}
-      onDeleteGroup={(groupId, groupName) => {
-        void handleDeleteGroup(groupId, groupName);
-      }}
-      onReorderGroups={(nextGroups) => {
-        void handleGroupReorder(nextGroups);
-      }}
-      onCreateGroup={(event) => {
-        void handleCreateGroup(event);
-      }}
-      onNewGroupNameChange={(event) => setNewGroupName(event.target.value)}
-      onCreateNote={() => {
-        void createNote();
-      }}
-      onSearchQueryChange={(event) => setSearchQuery(event.target.value)}
-      onClearSearch={() => setSearchQuery("")}
-      onSelectNote={selectNote}
-      onDeleteNote={(noteId) => {
-        void deleteNote(noteId);
-      }}
-      onMoveNoteGroup={(note, groupId) => {
-        void handleMoveNoteGroup(note, groupId);
-      }}
-      onReorderNotes={(nextNotes) => {
-        if (isSearchActive) return;
-        void handleNoteReorder(nextNotes);
-      }}
-      onTitleChange={handleTitleChange}
-      onContentChange={handleContentChange}
-      onMoveSelectedNoteGroup={(groupId) => {
-        void handleMoveSelectedNoteGroup(groupId);
-      }}
-      onRetrySave={() => {
-        void handleRetrySave();
-      }}
-      onOpenConflictDialog={() => setDialogMode("conflict")}
-      onCopy={() => {
-        void handleCopy();
-      }}
-      onDialogPrimaryAction={() => {
-        void handleDialogPrimaryAction();
-      }}
-      onDialogDiscardAction={() => {
-        void handleDialogDiscardAction();
-      }}
-      onDialogCancelAction={handleDialogCancelAction}
-      shareInfo={shareInfo}
-      shareLoading={shareLoading}
-      shareError={shareError}
-      onShareToggle={handleShareToggle}
-    />
+    <>
+      <NotesPageLayout
+        styles={styles}
+        isMobile={isMobile}
+        mobilePanel={mobilePanel}
+        setMobilePanel={setMobilePanel}
+        showGroupsPanel={showGroupsPanel}
+        showNotesPanel={showNotesPanel}
+        showEditorPanel={showEditorPanel}
+        username={username}
+        groups={groups}
+        selectedGroupId={selectedGroupId}
+        currentGroupLabel={currentGroupLabel}
+        defaultGroupId={defaultGroupId}
+        defaultGroupName={DEFAULT_GROUP_NAME}
+        groupListStatusLabel={groupListStatusLabel}
+        noteListStatusLabel={effectiveNoteListStatusLabel}
+        notes={filteredNotes}
+        totalNotesCount={notes.length}
+        notesLoadState={notesLoadState}
+        selectedNote={selectedNote}
+        searchQuery={searchQuery}
+        selectedNoteGroupValue={selectedNoteGroupValue}
+        title={title}
+        content={content}
+        saveLabel={saveLabel}
+        saveStatus={saveStatus}
+        charCount={charCount}
+        countStatus={countStatus}
+        copyStatus={copyStatus}
+        newGroupName={newGroupName}
+        groupReorderBusy={groupReorderStatus === "saving"}
+        noteReorderBusy={noteReorderStatus === "saving"}
+        dialogMode={dialogMode}
+        dialogTitle={dialogTitle}
+        dialogDescription={dialogDescription}
+        primaryDialogLabel={primaryDialogLabel}
+        isConflictDialog={isConflictDialog}
+        conflictNote={conflictNote}
+        hasPendingAction={Boolean(pendingAction)}
+        perfDebugEnabled={PERF_DEBUG_ENABLED}
+        perfSamples={perfSamples}
+        showAdminConsoleButton={isAdminUser}
+        onLogout={handleLogout}
+        onOpenAdminConsole={openAdminConsole}
+        onSelectGroup={selectGroup}
+        onRenameGroup={(groupId, groupName) => {
+          void handleRenameGroup(groupId, groupName);
+        }}
+        onDeleteGroup={(groupId, groupName) => {
+          void handleDeleteGroup(groupId, groupName);
+        }}
+        onReorderGroups={(nextGroups) => {
+          void handleGroupReorder(nextGroups);
+        }}
+        onCreateGroup={(event) => {
+          void handleCreateGroup(event);
+        }}
+        onNewGroupNameChange={(event) => setNewGroupName(event.target.value)}
+        onCreateNote={() => {
+          void createNote();
+        }}
+        onSearchQueryChange={(event) => setSearchQuery(event.target.value)}
+        onClearSearch={() => setSearchQuery("")}
+        onSelectNote={selectNote}
+        onDeleteNote={(noteId) => {
+          void deleteNote(noteId);
+        }}
+        onMoveNoteGroup={(note, groupId) => {
+          void handleMoveNoteGroup(note, groupId);
+        }}
+        onReorderNotes={(nextNotes) => {
+          if (isSearchActive) return;
+          void handleNoteReorder(nextNotes);
+        }}
+        onTitleChange={handleTitleChange}
+        onContentChange={handleContentChange}
+        onMoveSelectedNoteGroup={(groupId) => {
+          void handleMoveSelectedNoteGroup(groupId);
+        }}
+        onRetrySave={() => {
+          void handleRetrySave();
+        }}
+        onOpenConflictDialog={() => setDialogMode("conflict")}
+        onCopy={() => {
+          void handleCopy();
+        }}
+        onDialogPrimaryAction={() => {
+          void handleDialogPrimaryAction();
+        }}
+        onDialogDiscardAction={() => {
+          void handleDialogDiscardAction();
+        }}
+        onDialogCancelAction={handleDialogCancelAction}
+        shareInfo={shareInfo}
+        shareLoading={shareLoading}
+        shareError={shareError}
+        onShareToggle={handleShareToggle}
+      />
+      <AdminConsolePanel
+        isOpen={isAdminConsoleOpen}
+        currentUsername={username}
+        searchQuery={adminSearchQuery}
+        users={adminUsers}
+        usersLoading={adminUsersLoading}
+        usersError={adminUsersError}
+        auditEntries={adminAuditEntries}
+        auditLoading={adminAuditLoading}
+        auditError={adminAuditError}
+        actionError={adminActionError}
+        pendingResetUserId={pendingAdminResetUserId}
+        resetBusyUserId={adminResetBusyUserId}
+        resetResult={adminResetResult}
+        passwordCopyState={adminPasswordCopyState}
+        onClose={closeAdminConsole}
+        onSearchQueryChange={setAdminSearchQuery}
+        onRequestReset={setPendingAdminResetUserId}
+        onCancelReset={() => setPendingAdminResetUserId(null)}
+        onConfirmReset={(userId) => {
+          void handleAdminPasswordReset(userId);
+        }}
+        onCopyPassword={() => {
+          void handleAdminPasswordCopy();
+        }}
+        onDismissResetResult={() => setAdminResetResult(null)}
+      />
+    </>
   );
 
 }

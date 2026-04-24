@@ -59,7 +59,9 @@ type Props = {
   hasPendingAction: boolean;
   perfDebugEnabled: boolean;
   perfSamples: PerfSample[];
+  showAdminConsoleButton?: boolean;
   onLogout: () => void;
+  onOpenAdminConsole?: () => void;
   onSelectGroup: (groupId: string | null) => void;
   onRenameGroup: (groupId: string, groupName: string) => void;
   onDeleteGroup: (groupId: string, groupName: string) => void;
@@ -135,7 +137,9 @@ export function NotesPageLayout({
   hasPendingAction,
   perfDebugEnabled,
   perfSamples,
+  showAdminConsoleButton = false,
   onLogout,
+  onOpenAdminConsole,
   onSelectGroup,
   onRenameGroup,
   onDeleteGroup,
@@ -237,6 +241,16 @@ export function NotesPageLayout({
               <span style={{ fontWeight: 700, fontSize: "var(--font-size-lg)", whiteSpace: "nowrap" }}>노트 그룹</span>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <ThemeToggle compact={!isMobile} />
+                {showAdminConsoleButton && onOpenAdminConsole && (
+                  <button
+                    type="button"
+                    style={styles.adminBtn}
+                    onClick={onOpenAdminConsole}
+                    aria-label="운영 패널 열기"
+                  >
+                    운영
+                  </button>
+                )}
                 <button
                   type="button"
                   style={styles.logoutBtn}

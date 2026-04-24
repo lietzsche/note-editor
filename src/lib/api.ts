@@ -70,6 +70,23 @@ export const api = {
     me: () =>
       request<{ username: string }>("/api/auth/me"),
   },
+  admin: {
+    listUsers: ({ search, limit }: { search?: string; limit?: number } = {}) => {
+      const params = new URLSearchParams();
+      if (search?.trim()) params.set("search", search.trim());
+      if (limit) params.set("limit", String(limit));
+      const qs = params.toString();
+      return request<AdminUser[]>(`/api/admin/users${qs ? `?${qs}` : ""}`);
+    },
+    resetPassword: (userId: string) =>
+      request<AdminPasswordResetResult>(`/api/admin/users/${userId}/password-reset`, {
+        method: "POST",
+      }),
+    listPasswordResetAudit: (limit?: number) => {
+      const qs = typeof limit === "number" ? `?limit=${limit}` : "";
+      return request<AdminPasswordResetAuditEntry[]>(`/api/admin/audit/password-resets${qs}`);
+    },
+  },
 
   groups: {
     list: () =>
@@ -180,4 +197,28 @@ export type Group = {
   id: string;
   name: string;
   position: number;
+};
+
+export type AdminUser = {
+  id: string;
+  username: string;
+  created_at: string;
+};
+
+export type AdminPasswordResetResult = {
+  userId: string;
+  username: string;
+  tempPassword: string;
+  resetAt: string;
+  resetBy: string;
+};
+
+export type AdminPasswordResetAuditEntry = {
+  id: string;
+  admin_user_id: string;
+  admin_username: string;
+  target_user_id: string;
+  target_username: string;
+  reset_mode: string;
+  created_at: string;
 };
