@@ -17,6 +17,7 @@ async function setupSchema() {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
+      password_reset_required INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS groups (
@@ -111,6 +112,22 @@ async function login(username: string, password: string, base = BASE) {
 async function me(cookie: string, base = BASE) {
   return SELF.fetch(`${base}/api/auth/me`, {
     headers: { Cookie: cookie },
+  });
+}
+
+async function changePassword(
+  cookie: string,
+  currentPassword: string,
+  newPassword: string,
+  base = BASE
+) {
+  return SELF.fetch(`${base}/api/auth/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
   });
 }
 
@@ -260,6 +277,7 @@ describe("POST /api/auth/signup", () => {
     expect(res.status).toBe(201);
     const body = await res.json() as any;
     expect(body.data.username).toBe("alice");
+    expect(body.data.passwordChangeRequired).toBe(false);
   });
 
   it("비 ASCII username도 세션을 생성하고 보호 API에서 유지한다", async () => {
@@ -271,6 +289,7 @@ describe("POST /api/auth/signup", () => {
     expect(meRes.status).toBe(200);
 
     const body = await meRes.json() as any;
+    expect(body.data.passwordChangeRequired).toBe(false);
     expect(body.data.username).toBe("한글사용자");
   });
 
@@ -310,6 +329,8 @@ describe("POST /api/auth/login", () => {
   it("정상 자격증명으로 로그인 성공 후 200을 반환한다", async () => {
     const res = await login("alice", "password123");
     expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.data.passwordChangeRequired).toBe(false);
   });
 
   it("기존 SHA-256 비밀번호 해시는 로그인 성공 시 PBKDF2로 업그레이드한다", async () => {
@@ -369,6 +390,44 @@ describe("GET /api/auth/me", () => {
   it("세션 없이 호출하면 401을 반환한다", async () => {
     const res = await SELF.fetch(`${BASE}/api/auth/me`);
     expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /api/auth/change-password", () => {
+  beforeEach(async () => {
+    await signup("alice", "password123");
+  });
+
+  it("changes the password when the current password matches", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const changeRes = await changePassword(cookie, "password123", "newPassword456");
+    expect(changeRes.status).toBe(200);
+    const body = await changeRes.json() as any;
+    expect(body.data.passwordChangeRequired).toBe(false);
+
+    const oldPasswordLoginRes = await login("alice", "password123");
+    expect(oldPasswordLoginRes.status).toBe(401);
+
+    const newPasswordLoginRes = await login("alice", "newPassword456");
+    expect(newPasswordLoginRes.status).toBe(200);
+  });
+
+  it("returns 401 when the current password is wrong", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const changeRes = await changePassword(cookie, "wrongpassword", "newPassword456");
+    expect(changeRes.status).toBe(401);
+  });
+
+  it("returns 400 when the new password matches the current password", async () => {
+    const loginRes = await login("alice", "password123");
+    const cookie = extractCookie(loginRes);
+
+    const changeRes = await changePassword(cookie, "password123", "password123");
+    expect(changeRes.status).toBe(400);
   });
 });
 

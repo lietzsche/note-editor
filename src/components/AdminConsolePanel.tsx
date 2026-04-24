@@ -71,14 +71,14 @@ export function AdminConsolePanel({
               계정 복구
             </h2>
             <p className="admin-console__subtitle">
-              사용자 검색, 임시 비밀번호 발급, 감사 이력을 한 패널에서 처리합니다.
+              사용자 검색, 임시 비밀번호 발급, 그리고 복구 이력 확인을 한 패널에서 처리합니다.
             </p>
           </div>
           <button
             type="button"
             className="admin-console__close"
             onClick={onClose}
-            aria-label="운영 패널 닫기"
+            aria-label="운영자 패널 닫기"
           >
             닫기
           </button>
@@ -87,9 +87,9 @@ export function AdminConsolePanel({
         <div className="admin-console__body">
           <section className="admin-console__notice" aria-label="주의 안내">
             <div>
-              <strong>비밀번호 초기화는 즉시 적용됩니다.</strong>
+              <strong>비밀번호 초기화는 즉시 적용됩니다</strong>
               <p>
-                대상 사용자의 기존 세션은 바로 만료되고, 현재 비밀번호는 더 이상 사용할 수 없습니다.
+                대상 사용자의 기존 세션은 바로 만료되고, 임시 비밀번호로 로그인한 뒤 새 비밀번호를 직접 설정해야 합니다.
               </p>
             </div>
             <span className="admin-console__noticeBadge">세션 강제 만료</span>
@@ -120,7 +120,7 @@ export function AdminConsolePanel({
               </div>
 
               <p className="admin-console__resultCopy">
-                이 비밀번호는 다시 조회할 수 없으니, 필요한 채널로 바로 전달해야 합니다.
+                이 비밀번호는 다시 조회할 수 없으니, 필요한 채널로 바로 전달해야 합니다. 사용자는 이 값으로 로그인한 직후 새 비밀번호 설정 화면으로 이동합니다.
               </p>
 
               <div className="admin-console__passwordBox">

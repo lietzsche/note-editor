@@ -7,6 +7,7 @@ import {
   type AdminUser,
   type Note,
 } from "../lib/api";
+import { AccountSecurityPanel } from "../components/AccountSecurityPanel";
 import { AdminConsolePanel } from "../components/AdminConsolePanel";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { countGraphemes } from "../lib/editorProductivity";
@@ -46,6 +47,8 @@ import { useNotePersistence } from "./useNotePersistence";
 
 type Props = {
   username: string;
+  passwordChangeRequired: boolean;
+  onPasswordChangeRequiredChange: (required: boolean) => void;
   onLogout: () => void;
 };
 
@@ -60,7 +63,12 @@ type PendingGroupPerf = {
   source: "cold" | "warm";
 };
 
-export default function NotesPage({ username, onLogout }: Props) {
+export default function NotesPage({
+  username,
+  passwordChangeRequired,
+  onPasswordChangeRequiredChange,
+  onLogout,
+}: Props) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [title, setTitle] = useState("");
@@ -89,6 +97,10 @@ export default function NotesPage({ username, onLogout }: Props) {
   const [shareError, setShareError] = useState<string | null>(null);
   const [adminCapability, setAdminCapability] = useState<"checking" | "available" | "unavailable">("checking");
   const [isAdminConsoleOpen, setIsAdminConsoleOpen] = useState(false);
+  const [isAccountSecurityOpen, setIsAccountSecurityOpen] = useState(false);
+  const [accountSecurityBusy, setAccountSecurityBusy] = useState(false);
+  const [accountSecurityError, setAccountSecurityError] = useState<string | null>(null);
+  const [accountSecuritySuccess, setAccountSecuritySuccess] = useState<string | null>(null);
   const [adminSearchQuery, setAdminSearchQuery] = useState("");
   const deferredAdminSearchQuery = useDeferredValue(adminSearchQuery);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
@@ -206,6 +218,14 @@ export default function NotesPage({ username, onLogout }: Props) {
   const defaultGroup = groups.find((group) => group.name === DEFAULT_GROUP_NAME) ?? null;
   const defaultGroupId = defaultGroup?.id ?? null;
   const isAdminUser = adminCapability === "available";
+
+  useEffect(() => {
+    if (passwordChangeRequired) {
+      setIsAccountSecurityOpen(true);
+      setAccountSecurityError(null);
+      setAccountSecuritySuccess(null);
+    }
+  }, [passwordChangeRequired]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -429,6 +449,19 @@ export default function NotesPage({ username, onLogout }: Props) {
     setAdminActionError(null);
   }
 
+  function openAccountSecurity() {
+    setIsAccountSecurityOpen(true);
+    setAccountSecurityError(null);
+    setAccountSecuritySuccess(null);
+  }
+
+  function closeAccountSecurity() {
+    if (passwordChangeRequired) return;
+    setIsAccountSecurityOpen(false);
+    setAccountSecurityError(null);
+    setAccountSecuritySuccess(null);
+  }
+
   function closeAdminConsole() {
     setIsAdminConsoleOpen(false);
     setAdminSearchQuery("");
@@ -436,6 +469,30 @@ export default function NotesPage({ username, onLogout }: Props) {
     setAdminActionError(null);
     setAdminResetResult(null);
     setAdminPasswordCopyState("idle");
+  }
+
+  async function handleChangePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    setAccountSecurityBusy(true);
+    setAccountSecurityError(null);
+    setAccountSecuritySuccess(null);
+
+    try {
+      await api.auth.changePassword(payload.currentPassword, payload.newPassword);
+      onPasswordChangeRequiredChange(false);
+      setAccountSecuritySuccess("비밀번호를 변경했습니다. 현재 세션만 유지되고 다른 세션은 로그아웃됩니다.");
+      if (passwordChangeRequired) {
+        setIsAccountSecurityOpen(false);
+      }
+    } catch (error) {
+      setAccountSecurityError(
+        error instanceof Error ? error.message : "비밀번호를 변경하지 못했습니다."
+      );
+    } finally {
+      setAccountSecurityBusy(false);
+    }
   }
 
   async function handleAdminPasswordReset(userId: string) {
@@ -771,7 +828,9 @@ export default function NotesPage({ username, onLogout }: Props) {
         perfDebugEnabled={PERF_DEBUG_ENABLED}
         perfSamples={perfSamples}
         showAdminConsoleButton={isAdminUser}
+        passwordChangeRequired={passwordChangeRequired}
         onLogout={handleLogout}
+        onOpenAccountSecurity={openAccountSecurity}
         onOpenAdminConsole={openAdminConsole}
         onSelectGroup={selectGroup}
         onRenameGroup={(groupId, groupName) => {
@@ -826,6 +885,21 @@ export default function NotesPage({ username, onLogout }: Props) {
         shareLoading={shareLoading}
         shareError={shareError}
         onShareToggle={handleShareToggle}
+      />
+      <AccountSecurityPanel
+        isOpen={isAccountSecurityOpen}
+        required={passwordChangeRequired}
+        username={username}
+        submitting={accountSecurityBusy}
+        errorMessage={accountSecurityError}
+        successMessage={accountSecuritySuccess}
+        onClose={closeAccountSecurity}
+        onLogout={() => {
+          void handleLogout();
+        }}
+        onSubmit={(payload) => {
+          void handleChangePassword(payload);
+        }}
       />
       <AdminConsolePanel
         isOpen={isAdminConsoleOpen}

@@ -3,22 +3,25 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import NotesPage from "./pages/NotesPage";
 import SharedNotePage from "./pages/SharedNotePage";
-import { api } from "./lib/api";
+import { api, type AuthSession } from "./lib/api";
 
 type AuthState = "loading" | "authenticated" | "unauthenticated";
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>("loading");
-  const [username, setUsername] = useState("");
+  const [currentUser, setCurrentUser] = useState<AuthSession | null>(null);
 
   useEffect(() => {
     api.auth
       .me()
       .then((data) => {
-        setUsername(data.username);
+        setCurrentUser(data);
         setAuth("authenticated");
       })
-      .catch(() => setAuth("unauthenticated"));
+      .catch(() => {
+        setCurrentUser(null);
+        setAuth("unauthenticated");
+      });
   }, []);
 
   if (auth === "loading") {
@@ -42,8 +45,8 @@ export default function App() {
             <Navigate to="/" replace />
           ) : (
             <LoginPage
-              onLogin={(nextUsername) => {
-                setUsername(nextUsername);
+              onLogin={(nextUser) => {
+                setCurrentUser(nextUser);
                 setAuth("authenticated");
               }}
             />
@@ -59,10 +62,21 @@ export default function App() {
         element={
           auth === "authenticated" ? (
             <NotesPage
-              username={username}
+              username={currentUser?.username ?? ""}
+              passwordChangeRequired={currentUser?.passwordChangeRequired ?? false}
+              onPasswordChangeRequiredChange={(passwordChangeRequired) => {
+                setCurrentUser((prev) => (
+                  prev
+                    ? {
+                      ...prev,
+                      passwordChangeRequired,
+                    }
+                    : prev
+                ));
+              }}
               onLogout={() => {
                 setAuth("unauthenticated");
-                setUsername("");
+                setCurrentUser(null);
               }}
             />
           ) : (

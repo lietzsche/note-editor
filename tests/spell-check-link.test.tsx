@@ -73,6 +73,7 @@ describe("FEATURE-010 editor toolbar integration", () => {
         perfDebugEnabled={false}
         perfSamples={[]}
         onLogout={() => {}}
+        onOpenAccountSecurity={() => {}}
         onSelectGroup={() => {}}
         onRenameGroup={() => {}}
         onDeleteGroup={() => {}}
@@ -152,6 +153,7 @@ describe("FEATURE-011 note search", () => {
         perfDebugEnabled={false}
         perfSamples={[]}
         onLogout={() => {}}
+        onOpenAccountSecurity={() => {}}
         onSelectGroup={() => {}}
         onRenameGroup={() => {}}
         onDeleteGroup={() => {}}

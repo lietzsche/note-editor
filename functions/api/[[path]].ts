@@ -125,6 +125,13 @@ function generateTemporaryPassword(length = TEMP_PASSWORD_LENGTH) {
   ).join("");
 }
 
+function buildAuthResponse(username: string, passwordResetRequired: number | boolean) {
+  return {
+    username,
+    passwordChangeRequired: Boolean(passwordResetRequired),
+  };
+}
+
 // ── Auth routes ────────────────────────────────────────────────────────────
 
 app.post("/api/auth/signup", async (c) => {
@@ -164,7 +171,7 @@ app.post("/api/auth/signup", async (c) => {
     .run();
 
   await createSession(c, { userId: id, username });
-  return c.json({ data: { username } }, 201);
+  return c.json({ data: buildAuthResponse(username, false) }, 201);
 });
 
 // 5분 윈도우, 최대 5회 실패 시 차단
@@ -192,10 +199,15 @@ app.post("/api/auth/login", async (c) => {
     return err("RATE_LIMITED", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.", 429);
 
   const user = await c.env.DB.prepare(
-    "SELECT id, username, password_hash FROM users WHERE username = ?"
+    "SELECT id, username, password_hash, password_reset_required FROM users WHERE username = ?"
   )
     .bind(username)
-    .first<{ id: string; username: string; password_hash: string }>();
+    .first<{
+      id: string;
+      username: string;
+      password_hash: string;
+      password_reset_required: number;
+    }>();
 
   if (!user) {
     await recordLoginAttempt(c.env.DB, username);
@@ -221,7 +233,9 @@ app.post("/api/auth/login", async (c) => {
 
   await createSession(c, { userId: user.id, username: user.username });
   await recordAuditLog(c.env.DB, "login_success", username);
-  return c.json({ data: { username: user.username } }, 200);
+  return c.json({
+    data: buildAuthResponse(user.username, user.password_reset_required),
+  }, 200);
 });
 
 async function recordLoginAttempt(db: D1Database, username: string) {
@@ -254,7 +268,68 @@ app.post("/api/auth/logout", async (c) => {
 app.get("/api/auth/me", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
-  return ok({ username: session.username });
+
+  const user = await c.env.DB.prepare(
+    "SELECT username, password_reset_required FROM users WHERE id = ?"
+  )
+    .bind(session.userId)
+    .first<{ username: string; password_reset_required: number }>();
+
+  if (!user) return unauthorized();
+  return ok(buildAuthResponse(user.username, user.password_reset_required));
+});
+
+app.post("/api/auth/change-password", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+
+  const { currentPassword, newPassword } = await c.req.json<{
+    currentPassword: string;
+    newPassword: string;
+  }>();
+
+  if (!currentPassword || !newPassword) {
+    return err("VALIDATION", "currentPassword와 newPassword를 입력해주세요.");
+  }
+  if (newPassword.length < 6) {
+    return err("VALIDATION", "새 비밀번호는 6자 이상이어야 합니다.");
+  }
+  if (currentPassword === newPassword) {
+    return err("VALIDATION", "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+  }
+
+  const user = await c.env.DB.prepare(
+    "SELECT id, username, password_hash FROM users WHERE id = ?"
+  )
+    .bind(session.userId)
+    .first<{ id: string; username: string; password_hash: string }>();
+
+  if (!user) return unauthorized();
+
+  const passwordVerified = await verifyPassword(currentPassword, user.password_hash);
+  if (!passwordVerified) {
+    return err("AUTH_FAILED", "현재 비밀번호가 올바르지 않습니다.", 401);
+  }
+
+  const nextPasswordHash = await hashPassword(newPassword);
+  const now = new Date().toISOString();
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "UPDATE users SET password_hash = ?, password_reset_required = 0 WHERE id = ?"
+    ).bind(nextPasswordHash, user.id),
+    c.env.DB.prepare(
+      "DELETE FROM sessions WHERE user_id = ? AND id != ?"
+    ).bind(user.id, session.sessionId),
+    c.env.DB.prepare(
+      "DELETE FROM login_attempts WHERE username = ?"
+    ).bind(user.username),
+    c.env.DB.prepare(
+      "INSERT INTO audit_logs (id, event_type, username, created_at) VALUES (?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), "password_change", user.username, now),
+  ]);
+
+  return ok(buildAuthResponse(user.username, false));
 });
 
 app.get("/api/admin/users", async (c) => {
@@ -294,6 +369,9 @@ app.post("/api/admin/users/:userId/password-reset", async (c) => {
     .first<{ id: string; username: string }>();
 
   if (!user) return notFound();
+  if (user.id === session.userId) {
+    return err("SELF_RESET_FORBIDDEN", "현재 로그인한 관리자 계정은 여기서 초기화할 수 없습니다.", 422);
+  }
 
   const tempPassword = generateTemporaryPassword();
   const nextPasswordHash = await hashPassword(tempPassword);
@@ -301,7 +379,7 @@ app.post("/api/admin/users/:userId/password-reset", async (c) => {
 
   await c.env.DB.batch([
     c.env.DB.prepare(
-      "UPDATE users SET password_hash = ? WHERE id = ?"
+      "UPDATE users SET password_hash = ?, password_reset_required = 1 WHERE id = ?"
     ).bind(nextPasswordHash, user.id),
     c.env.DB.prepare(
       "DELETE FROM sessions WHERE user_id = ?"

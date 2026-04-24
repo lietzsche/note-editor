@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ThemeProvider } from "./lib/theme";
 import "./styles/admin-console.css";
+import "./styles/account-security.css";
 import "./styles/tokens.css";
 import "./styles/auth.css";
 import "./styles/shared.css";

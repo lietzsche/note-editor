@@ -60,7 +60,9 @@ type Props = {
   perfDebugEnabled: boolean;
   perfSamples: PerfSample[];
   showAdminConsoleButton?: boolean;
+  passwordChangeRequired?: boolean;
   onLogout: () => void;
+  onOpenAccountSecurity: () => void;
   onOpenAdminConsole?: () => void;
   onSelectGroup: (groupId: string | null) => void;
   onRenameGroup: (groupId: string, groupName: string) => void;
@@ -138,7 +140,9 @@ export function NotesPageLayout({
   perfDebugEnabled,
   perfSamples,
   showAdminConsoleButton = false,
+  passwordChangeRequired = false,
   onLogout,
+  onOpenAccountSecurity,
   onOpenAdminConsole,
   onSelectGroup,
   onRenameGroup,
@@ -263,7 +267,31 @@ export function NotesPageLayout({
               </div>
             </div>
           </div>
-          <div style={styles.userInfo}>{username}</div>
+          <div style={styles.userInfo}>
+            <div style={styles.userInfoHeader}>
+              <div style={styles.userIdentity}>
+                <span style={styles.userInfoLabel}>로그인 계정</span>
+                <strong style={styles.userInfoName}>@{username}</strong>
+              </div>
+              <button
+                type="button"
+                style={{
+                  ...styles.accountBtn,
+                  ...(passwordChangeRequired ? styles.accountBtnAlert : {}),
+                }}
+                onClick={onOpenAccountSecurity}
+              >
+                {passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+              </button>
+            </div>
+            <p
+              style={passwordChangeRequired ? styles.userInfoAlert : styles.userInfoHint}
+            >
+              {passwordChangeRequired
+                ? "임시 비밀번호로 로그인했습니다. 계속 사용하려면 새 비밀번호를 설정하세요."
+                : "비밀번호 변경과 계정 복구 안내는 계정 보안 패널에서 확인합니다."}
+            </p>
+          </div>
           <div style={styles.groupSectionHeader}>
             <span style={styles.reorderHint}>{groupListStatusLabel}</span>
           </div>

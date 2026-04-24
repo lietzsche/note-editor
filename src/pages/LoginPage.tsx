@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
-import { api } from "../lib/api";
+import { api, type AuthSession } from "../lib/api";
 
 type Props = {
-  onLogin: (username: string) => void;
+  onLogin: (authSession: AuthSession) => void;
 };
 
 type Mode = "login" | "signup";
@@ -16,7 +16,7 @@ const SECURITY_CARDS = [
   {
     label: "Recovery",
     title: "운영자 계정 복구",
-    body: "비밀번호를 잊은 경우 임시 비밀번호 발급으로 복구할 수 있습니다.",
+    body: "임시 비밀번호로 로그인한 뒤 바로 새 비밀번호를 설정하는 복구 흐름을 제공합니다.",
   },
   {
     label: "Audit",
@@ -59,7 +59,7 @@ export default function LoginPage({ onLogin }: Props) {
     try {
       const action = isSignup ? api.auth.signup : api.auth.login;
       const data = await action(username, password);
-      onLogin(data.username);
+      onLogin(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다.");
     } finally {
@@ -146,7 +146,7 @@ export default function LoginPage({ onLogin }: Props) {
               <p>
                 {isSignup
                   ? "username과 비밀번호만 준비하면 됩니다. 별도 이메일 확인 절차는 없습니다."
-                  : "운영자가 비밀번호를 초기화했다면 전달받은 임시 비밀번호로 먼저 로그인하세요."}
+                  : "운영자가 비밀번호를 초기화했다면 전달받은 임시 비밀번호로 로그인하면 새 비밀번호 설정 화면이 바로 열립니다."}
               </p>
             </div>
 
@@ -227,7 +227,7 @@ export default function LoginPage({ onLogin }: Props) {
                 <span className="auth-chip">감사 로그 기록</span>
               </div>
               <p>
-                비밀번호를 잊은 경우 일반적인 찾기 기능 대신 운영자 계정 복구 흐름으로 임시 비밀번호를 발급받습니다.
+                비밀번호를 잊은 경우 일반적인 찾기 기능 대신 운영자 계정 복구 흐름으로 임시 비밀번호를 발급받고, 로그인 직후 새 비밀번호로 전환합니다.
               </p>
             </div>
           </div>

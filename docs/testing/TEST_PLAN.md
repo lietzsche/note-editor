@@ -248,3 +248,14 @@ npm run dev
 5. Confirm the generated temporary password card can be copied and dismissed.
 6. Confirm login page keeps the form ahead of the hero section on narrow mobile layouts.
 7. Confirm login and signup mode switches preserve clear labels, field hints, and error feedback.
+
+## 12. 2026-04-24 Password Change Recovery Addendum
+
+1. Confirm `login` and `me` responses include `passwordChangeRequired`.
+2. Confirm admin password reset makes `passwordChangeRequired=true` for the target user.
+3. Confirm temporary-password login opens the in-app account security flow immediately.
+4. Confirm the user cannot dismiss the forced password change panel without either changing the password or logging out.
+5. Confirm `POST /api/auth/change-password` rejects a wrong current password with `401`.
+6. Confirm `POST /api/auth/change-password` rejects reusing the same password with `400`.
+7. Confirm successful password change clears `passwordChangeRequired`.
+8. Confirm successful password change keeps the current session alive but invalidates the user's other sessions.

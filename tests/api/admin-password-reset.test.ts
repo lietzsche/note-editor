@@ -14,6 +14,7 @@ async function setupSchema() {
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
+      password_reset_required INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS groups (
@@ -100,6 +101,22 @@ async function login(username: string, password: string, base = BASE) {
 async function me(cookie: string, base = BASE) {
   return SELF.fetch(`${base}/api/auth/me`, {
     headers: { Cookie: cookie },
+  });
+}
+
+async function changePassword(
+  cookie: string,
+  currentPassword: string,
+  newPassword: string,
+  base = BASE
+) {
+  return SELF.fetch(`${base}/api/auth/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookie,
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
   });
 }
 
@@ -199,8 +216,45 @@ describe("FEATURE-009 admin password reset", () => {
     const oldPasswordLoginRes = await login("alice", "password123");
     expect(oldPasswordLoginRes.status).toBe(401);
 
-    const newPasswordLoginRes = await login("alice", resetBody.data.tempPassword);
+    const tempLoginResA = await login("alice", resetBody.data.tempPassword);
+    expect(tempLoginResA.status).toBe(200);
+    const tempLoginBodyA = await tempLoginResA.json() as any;
+    expect(tempLoginBodyA.data.passwordChangeRequired).toBe(true);
+    const tempCookieA = extractCookie(tempLoginResA);
+
+    const tempLoginResB = await login("alice", resetBody.data.tempPassword);
+    expect(tempLoginResB.status).toBe(200);
+    const tempCookieB = extractCookie(tempLoginResB);
+
+    const tempMeRes = await me(tempCookieA);
+    expect(tempMeRes.status).toBe(200);
+    const tempMeBody = await tempMeRes.json() as any;
+    expect(tempMeBody.data.passwordChangeRequired).toBe(true);
+
+    const changeRes = await changePassword(
+      tempCookieA,
+      resetBody.data.tempPassword,
+      "newPassword456"
+    );
+    expect(changeRes.status).toBe(200);
+    const changeBody = await changeRes.json() as any;
+    expect(changeBody.data.passwordChangeRequired).toBe(false);
+
+    const survivingSessionRes = await me(tempCookieA);
+    expect(survivingSessionRes.status).toBe(200);
+    const survivingSessionBody = await survivingSessionRes.json() as any;
+    expect(survivingSessionBody.data.passwordChangeRequired).toBe(false);
+
+    const invalidatedOtherSessionRes = await me(tempCookieB);
+    expect(invalidatedOtherSessionRes.status).toBe(401);
+
+    const tempPasswordLoginRes = await login("alice", resetBody.data.tempPassword);
+    expect(tempPasswordLoginRes.status).toBe(401);
+
+    const newPasswordLoginRes = await login("alice", "newPassword456");
     expect(newPasswordLoginRes.status).toBe(200);
+    const newPasswordLoginBody = await newPasswordLoginRes.json() as any;
+    expect(newPasswordLoginBody.data.passwordChangeRequired).toBe(false);
 
     const auditRes = await listPasswordResetAudit(adminCookie);
     expect(auditRes.status).toBe(200);
@@ -217,5 +271,18 @@ describe("FEATURE-009 admin password reset", () => {
 
     const resetRes = await resetPassword(adminCookie, "missing-user-id");
     expect(resetRes.status).toBe(404);
+  });
+
+  it("blocks admins from resetting their own account", async () => {
+    const adminRes = await signup("admin", "password123");
+    const adminCookie = extractCookie(adminRes);
+    const adminUser = await env.DB.prepare(
+      "SELECT id FROM users WHERE username = ?"
+    ).bind("admin").first<{ id: string }>();
+
+    const resetRes = await resetPassword(adminCookie, adminUser!.id);
+    expect(resetRes.status).toBe(422);
+    const body = await resetRes.json() as any;
+    expect(body.error.code).toBe("SELF_RESET_FORBIDDEN");
   });
 });

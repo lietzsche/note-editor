@@ -56,19 +56,24 @@ async function request<T, E = unknown>(
 export const api = {
   auth: {
     signup: (username: string, password: string) =>
-      request<{ username: string }>("/api/auth/signup", {
+      request<AuthSession>("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify({ username, password }),
       }),
     login: (username: string, password: string) =>
-      request<{ username: string }>("/api/auth/login", {
+      request<AuthSession>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ username, password }),
       }),
     logout: () =>
       request<void>("/api/auth/logout", { method: "POST" }),
     me: () =>
-      request<{ username: string }>("/api/auth/me"),
+      request<AuthSession>("/api/auth/me"),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<AuthSession>("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
   },
   admin: {
     listUsers: ({ search, limit }: { search?: string; limit?: number } = {}) => {
@@ -187,6 +192,11 @@ export type Note = {
   group_id: string | null;
   sort_order: number;
   updated_at: string;
+};
+
+export type AuthSession = {
+  username: string;
+  passwordChangeRequired: boolean;
 };
 
 export type SharedNote = Pick<Note, "title" | "content" | "updated_at"> & {
