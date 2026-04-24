@@ -33,6 +33,26 @@ export function getNextMobilePanelAfterGroupSelection(isMobile: boolean) {
   return isMobile ? "notes" : null;
 }
 
+export function shouldRevealMobileNotesPanelForGroupSelection(args: {
+  isMobile: boolean;
+  selectedGroupId: string | null;
+  nextGroupId: string | null;
+}) {
+  return args.isMobile && args.nextGroupId === args.selectedGroupId;
+}
+
+export function getNextMobilePanelAfterNoteSelection(isMobile: boolean) {
+  return isMobile ? "editor" : null;
+}
+
+export function shouldRevealMobileEditorForNoteSelection(args: {
+  isMobile: boolean;
+  selectedNote: Note | null;
+  nextNote: Note;
+}) {
+  return args.isMobile && args.nextNote.id === args.selectedNote?.id;
+}
+
 export function shouldOpenTransitionForGroupSelection(args: {
   selectedGroupId: string | null;
   nextGroupId: string | null;

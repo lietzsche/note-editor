@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Note } from "../src/lib/api";
 import {
+  getNextMobilePanelAfterNoteSelection,
   getNextMobilePanelAfterGroupSelection,
   getTransitionDialogMode,
   hasBlockingEdits,
   shouldClearSelectedNoteOnGroupSelection,
   shouldOpenTransitionForGroupSelection,
   shouldOpenTransitionForNoteSelection,
+  shouldRevealMobileEditorForNoteSelection,
+  shouldRevealMobileNotesPanelForGroupSelection,
 } from "../src/lib/notesPageTransitions";
 
 const selectedNote: Note = {
@@ -41,6 +44,8 @@ describe("FEATURE notes page transitions", () => {
   it("returns the notes panel for mobile group selection and no override on desktop", () => {
     expect(getNextMobilePanelAfterGroupSelection(true)).toBe("notes");
     expect(getNextMobilePanelAfterGroupSelection(false)).toBeNull();
+    expect(getNextMobilePanelAfterNoteSelection(true)).toBe("editor");
+    expect(getNextMobilePanelAfterNoteSelection(false)).toBeNull();
   });
 
   it("opens a transition only when the selection changes and blocking edits exist", () => {
@@ -66,5 +71,41 @@ describe("FEATURE notes page transitions", () => {
       nextNote: { ...selectedNote, id: "note-2" },
       saveStatus: "error",
     })).toBe(true);
+  });
+
+  it("reveals the mobile notes panel when the current group is selected again", () => {
+    expect(shouldRevealMobileNotesPanelForGroupSelection({
+      isMobile: true,
+      selectedGroupId: "g1",
+      nextGroupId: "g1",
+    })).toBe(true);
+    expect(shouldRevealMobileNotesPanelForGroupSelection({
+      isMobile: false,
+      selectedGroupId: "g1",
+      nextGroupId: "g1",
+    })).toBe(false);
+    expect(shouldRevealMobileNotesPanelForGroupSelection({
+      isMobile: true,
+      selectedGroupId: "g1",
+      nextGroupId: "g2",
+    })).toBe(false);
+  });
+
+  it("reveals the mobile editor when the current note is selected again", () => {
+    expect(shouldRevealMobileEditorForNoteSelection({
+      isMobile: true,
+      selectedNote,
+      nextNote: selectedNote,
+    })).toBe(true);
+    expect(shouldRevealMobileEditorForNoteSelection({
+      isMobile: false,
+      selectedNote,
+      nextNote: selectedNote,
+    })).toBe(false);
+    expect(shouldRevealMobileEditorForNoteSelection({
+      isMobile: true,
+      selectedNote,
+      nextNote: { ...selectedNote, id: "note-2" },
+    })).toBe(false);
   });
 });

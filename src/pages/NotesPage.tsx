@@ -9,12 +9,15 @@ import {
   type CountStatus,
 } from "../lib/noteEditorSession";
 import {
+  getNextMobilePanelAfterNoteSelection,
   getNextMobilePanelAfterGroupSelection,
   getTransitionDialogMode,
   hasBlockingEdits as hasBlockingEditsForNote,
   shouldClearSelectedNoteOnGroupSelection,
   shouldOpenTransitionForGroupSelection,
   shouldOpenTransitionForNoteSelection,
+  shouldRevealMobileEditorForNoteSelection,
+  shouldRevealMobileNotesPanelForGroupSelection,
   type PendingAction,
 } from "../lib/notesPageTransitions";
 import { getNoteGroupSelectValue } from "../lib/noteGroupSelect";
@@ -326,6 +329,14 @@ export default function NotesPage({ username, onLogout }: Props) {
       openTransitionDialog({ type: "select-group", groupId });
       return;
     }
+    if (shouldRevealMobileNotesPanelForGroupSelection({
+      isMobile,
+      selectedGroupId,
+      nextGroupId: groupId,
+    })) {
+      setMobilePanel("notes");
+      return;
+    }
     if (groupId === selectedGroupId) return;
     applyGroupSelection(groupId);
   }
@@ -406,6 +417,17 @@ export default function NotesPage({ username, onLogout }: Props) {
       saveStatus,
     })) {
       openTransitionDialog({ type: "select-note", note });
+      return;
+    }
+    if (shouldRevealMobileEditorForNoteSelection({
+      isMobile,
+      selectedNote,
+      nextNote: note,
+    })) {
+      const nextMobilePanel = getNextMobilePanelAfterNoteSelection(isMobile);
+      if (nextMobilePanel) {
+        setMobilePanel(nextMobilePanel);
+      }
       return;
     }
     if (note.id === selectedNote?.id) return;
