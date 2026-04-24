@@ -229,3 +229,12 @@ npm run dev
 3. Confirm keyboard drag-handle reorder for both lists.
 4. Confirm group reorder persistence after reload and relogin.
 5. Confirm group-scoped note reorder still updates the derived `All notes` order.
+
+## 10. 2026-04-24 Admin Password Reset Addendum
+
+1. Add manual and integration coverage for `GET /api/admin/users`.
+2. Confirm non-admin access to admin routes returns 403.
+3. Confirm password reset invalidates the target user's existing sessions.
+4. Confirm the previous password no longer works after reset.
+5. Confirm the generated temporary password works for a fresh login.
+6. Confirm password reset audit history includes actor and target usernames.

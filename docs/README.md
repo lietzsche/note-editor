@@ -45,6 +45,9 @@ Older reorder docs remain in the tree as historical baseline records.
 - `docs/features/FEATURE-005-editor-productivity.md`
 - `docs/features/FEATURE-006-note-list-reorder-and-group-move.md`
 - `docs/features/FEATURE-007-auto-save-conflict-serialization.md`
+- `docs/features/FEATURE-008-note-public-sharing.md`
+- `docs/features/FEATURE-009-admin-password-reset.md`
+- `docs/features/FEATURE-010-spell-check-integration.md`
 
 ## 5. Operations
 

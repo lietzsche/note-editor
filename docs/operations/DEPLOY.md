@@ -38,6 +38,9 @@ npx wrangler secret put AUTH_SESSION_SECRET
 
 # 선택: 세션 TTL 변경 시 (기본 604800 = 7일)
 npx wrangler secret put AUTH_SESSION_TTL_SECONDS
+
+# 운영자 username allowlist (예: admin,ops_lead)
+npx wrangler secret put ADMIN_USERNAMES
 ```
 
 ## 4. D1 스키마 반영 (Migration Framework)

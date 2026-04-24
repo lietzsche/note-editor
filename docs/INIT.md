@@ -74,6 +74,7 @@ cp .dev.vars.example .dev.vars
 AUTH_PASSWORD=<로컬_테스트_비밀번호>
 AUTH_SESSION_SECRET=<로컬_세션_시크릿_32자_이상>
 AUTH_SESSION_TTL_SECONDS=604800
+ADMIN_USERNAMES=<쉼표로_구분한_운영자_username_목록>
 ```
 
 > `.dev.vars`는 `.gitignore`에 포함되어 있어야 한다.

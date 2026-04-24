@@ -3,6 +3,7 @@ export type Env = {
   ASSETS: Fetcher;
   AUTH_SESSION_SECRET: string;
   AUTH_SESSION_TTL_SECONDS?: string;
+  ADMIN_USERNAMES?: string;
 };
 
 export type User = {

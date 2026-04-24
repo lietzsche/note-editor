@@ -32,6 +32,10 @@ const GROUP_NAME_MAX_LENGTH = 40;
 const GROUP_MAX_COUNT = 30;
 const NOTE_TITLE_MAX_LENGTH = 120;
 const NOTE_CONTENT_MAX_LENGTH = 20_000;
+const ADMIN_USER_LIST_LIMIT = 20;
+const PASSWORD_RESET_AUDIT_LIMIT = 50;
+const TEMP_PASSWORD_LENGTH = 16;
+const TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
 app.onError((error) => {
   if (error instanceof SyntaxError) {
@@ -90,6 +94,35 @@ async function hasDuplicateGroupName(
 
   const existingGroup = await query.first<{ id: string }>();
   return Boolean(existingGroup);
+}
+
+function isAdminUsername(env: Env, username: string) {
+  const adminUsernames = (env.ADMIN_USERNAMES ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return adminUsernames.includes(username);
+}
+
+function escapeLikeQuery(value: string) {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+function parseQueryLimit(value: string | undefined, fallback: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, max);
+}
+
+function generateTemporaryPassword(length = TEMP_PASSWORD_LENGTH) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+
+  return Array.from(
+    bytes,
+    (byte) => TEMP_PASSWORD_CHARS[byte % TEMP_PASSWORD_CHARS.length]
+  ).join("");
 }
 
 // ── Auth routes ────────────────────────────────────────────────────────────
@@ -222,6 +255,103 @@ app.get("/api/auth/me", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
   return ok({ username: session.username });
+});
+
+app.get("/api/admin/users", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  if (!isAdminUsername(c.env, session.username)) return forbidden();
+
+  const search = c.req.query("search")?.trim() ?? "";
+  const limit = parseQueryLimit(c.req.query("limit"), ADMIN_USER_LIST_LIMIT, 100);
+  const statement = search
+    ? c.env.DB.prepare(
+      "SELECT id, username, created_at FROM users WHERE username LIKE ? ESCAPE '\\' ORDER BY username ASC LIMIT ?"
+    ).bind(`%${escapeLikeQuery(search)}%`, limit)
+    : c.env.DB.prepare(
+      "SELECT id, username, created_at FROM users ORDER BY username ASC LIMIT ?"
+    ).bind(limit);
+
+  const { results } = await statement.all<{
+    id: string;
+    username: string;
+    created_at: string;
+  }>();
+
+  return ok(results);
+});
+
+app.post("/api/admin/users/:userId/password-reset", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  if (!isAdminUsername(c.env, session.username)) return forbidden();
+
+  const userId = c.req.param("userId");
+  const user = await c.env.DB.prepare(
+    "SELECT id, username FROM users WHERE id = ?"
+  )
+    .bind(userId)
+    .first<{ id: string; username: string }>();
+
+  if (!user) return notFound();
+
+  const tempPassword = generateTemporaryPassword();
+  const nextPasswordHash = await hashPassword(tempPassword);
+  const now = new Date().toISOString();
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "UPDATE users SET password_hash = ? WHERE id = ?"
+    ).bind(nextPasswordHash, user.id),
+    c.env.DB.prepare(
+      "DELETE FROM sessions WHERE user_id = ?"
+    ).bind(user.id),
+    c.env.DB.prepare(
+      "DELETE FROM login_attempts WHERE username = ?"
+    ).bind(user.username),
+    c.env.DB.prepare(
+      "INSERT INTO admin_password_resets (id, admin_user_id, admin_username, target_user_id, target_username, reset_mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      crypto.randomUUID(),
+      session.userId,
+      session.username,
+      user.id,
+      user.username,
+      "generated",
+      now
+    ),
+  ]);
+
+  return ok({
+    userId: user.id,
+    username: user.username,
+    tempPassword,
+    resetAt: now,
+    resetBy: session.username,
+  });
+});
+
+app.get("/api/admin/audit/password-resets", async (c) => {
+  const session = await getSession(c);
+  if (!session) return unauthorized();
+  if (!isAdminUsername(c.env, session.username)) return forbidden();
+
+  const limit = parseQueryLimit(c.req.query("limit"), PASSWORD_RESET_AUDIT_LIMIT, 200);
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, admin_user_id, admin_username, target_user_id, target_username, reset_mode, created_at FROM admin_password_resets ORDER BY created_at DESC LIMIT ?"
+  )
+    .bind(limit)
+    .all<{
+      id: string;
+      admin_user_id: string;
+      admin_username: string;
+      target_user_id: string;
+      target_username: string;
+      reset_mode: string;
+      created_at: string;
+    }>();
+
+  return ok(results);
 });
 
 // ── Groups routes ──────────────────────────────────────────────────────────
