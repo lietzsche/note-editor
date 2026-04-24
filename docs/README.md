@@ -48,6 +48,7 @@ Older reorder docs remain in the tree as historical baseline records.
 - `docs/features/FEATURE-008-note-public-sharing.md`
 - `docs/features/FEATURE-009-admin-password-reset.md`
 - `docs/features/FEATURE-010-spell-check-integration.md`
+- `docs/features/FEATURE-011-note-trash-and-restore.md`
 
 ## 5. Operations
 
