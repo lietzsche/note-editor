@@ -11,6 +11,10 @@ type SearchPreview = {
   hasTrailingEllipsis: boolean;
 };
 
+type SearchPreviewMatch = SearchPreview & {
+  index: number;
+};
+
 const DEFAULT_PREVIEW_RADIUS = 24;
 
 type NormalizedPreview = {
@@ -35,14 +39,14 @@ export function findMatchRange(text: string, query: string) {
   };
 }
 
-export function countMatchRanges(text: string, query: string) {
+function findMatchRanges(text: string, query: string) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
-    return 0;
+    return [];
   }
 
   const haystack = text.toLocaleLowerCase();
-  let count = 0;
+  const matches: Array<{ start: number; end: number }> = [];
   let fromIndex = 0;
 
   while (fromIndex < haystack.length) {
@@ -50,11 +54,18 @@ export function countMatchRanges(text: string, query: string) {
     if (matchIndex < 0) {
       break;
     }
-    count += 1;
+    matches.push({
+      start: matchIndex,
+      end: matchIndex + normalizedQuery.length,
+    });
     fromIndex = matchIndex + normalizedQuery.length;
   }
 
-  return count;
+  return matches;
+}
+
+export function countMatchRanges(text: string, query: string) {
+  return findMatchRanges(text, query).length;
 }
 
 export function splitHighlightSegments(text: string, query: string): HighlightSegment[] {
@@ -84,6 +95,25 @@ export function buildSearchPreview(
     return null;
   }
 
+  return buildSearchPreviewForMatch(text, match, radius);
+}
+
+export function buildSearchPreviews(
+  text: string,
+  query: string,
+  radius = DEFAULT_PREVIEW_RADIUS
+): SearchPreviewMatch[] {
+  return findMatchRanges(text, query).flatMap((match, index) => {
+    const preview = buildSearchPreviewForMatch(text, match, radius);
+    return preview ? [{ ...preview, index: index + 1 }] : [];
+  });
+}
+
+function buildSearchPreviewForMatch(
+  text: string,
+  match: { start: number; end: number },
+  radius: number
+) {
   const previewStart = Math.max(0, match.start - radius);
   const previewEnd = Math.min(text.length, match.end + radius);
   let effectiveStart = previewStart;

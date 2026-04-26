@@ -271,7 +271,9 @@ describe("FEATURE-011 note search", () => {
 
     expect(markup).toContain("SEARCH MATCH");
     expect(markup).toContain("총 3개 일치");
-    expect(markup).toContain("외 1개 더");
+    expect(markup).toContain("1 / 2");
+    expect(markup).toContain("이전 본문 검색 일치 보기");
+    expect(markup).toContain("다음 본문 검색 일치 보기");
     expect(markup).toContain("Trip to Seoul");
     expect(markup).toContain("Seoul hotel");
   });

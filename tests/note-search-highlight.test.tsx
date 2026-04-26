@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SortableNoteList } from "../src/components/SortableNoteList";
 import {
   buildSearchPreview,
+  buildSearchPreviews,
   countMatchRanges,
   findMatchRange,
   splitHighlightSegments,
@@ -26,6 +27,35 @@ describe("FEATURE-011 note search highlight utilities", () => {
 
   it("counts multiple matches in the same text", () => {
     expect(countMatchRanges("Seoul nights in seoul city", "seoul")).toBe(2);
+  });
+
+  it("builds a preview for each body match", () => {
+    expect(buildSearchPreviews("Seoul middle seoul end Seoul", "seoul", 6)).toEqual([
+      {
+        index: 1,
+        text: "Seoul",
+        matchStart: 0,
+        matchEnd: 5,
+        hasLeadingEllipsis: false,
+        hasTrailingEllipsis: true,
+      },
+      {
+        index: 2,
+        text: "seoul end",
+        matchStart: 0,
+        matchEnd: 5,
+        hasLeadingEllipsis: true,
+        hasTrailingEllipsis: true,
+      },
+      {
+        index: 3,
+        text: "end Seoul",
+        matchStart: 4,
+        matchEnd: 9,
+        hasLeadingEllipsis: true,
+        hasTrailingEllipsis: false,
+      },
+    ]);
   });
 
   it("builds a trimmed content preview around the first match", () => {

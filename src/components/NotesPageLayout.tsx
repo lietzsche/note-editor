@@ -1,12 +1,14 @@
-import type {
-  ChangeEventHandler,
-  CSSProperties,
-  FormEventHandler,
-  ReactNode,
+import {
+  useEffect,
+  useState,
+  type ChangeEventHandler,
+  type CSSProperties,
+  type FormEventHandler,
+  type ReactNode,
 } from "react";
 import type { Group, Note } from "../lib/api";
 import {
-  buildSearchPreview,
+  buildSearchPreviews,
   countMatchRanges,
   findMatchRange,
   splitHighlightSegments,
@@ -193,15 +195,32 @@ export function NotesPageLayout({
   shareError,
   onShareToggle,
 }: Props) {
+  const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
   const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());
   const titleMatch = isEditorSearchActive ? findMatchRange(title, searchQuery) : null;
-  const contentPreview = isEditorSearchActive ? buildSearchPreview(content, searchQuery) : null;
+  const contentPreviews = isEditorSearchActive ? buildSearchPreviews(content, searchQuery) : [];
+  const activeContentMatchIndex = contentPreviews.length > 0
+    ? Math.min(contentMatchIndex, contentPreviews.length - 1)
+    : 0;
+  const contentPreview = contentPreviews[activeContentMatchIndex] ?? null;
   const titleMatchCount = isEditorSearchActive ? countMatchRanges(title, searchQuery) : 0;
   const contentMatchCount = isEditorSearchActive ? countMatchRanges(content, searchQuery) : 0;
   const totalMatchCount = titleMatchCount + contentMatchCount;
   const showSearchContextPanel = searchContextVisible && totalMatchCount > 0;
   const hasHiddenSearchContext = !searchContextVisible && totalMatchCount > 0;
+
+  useEffect(() => {
+    setContentMatchIndex(0);
+  }, [content, searchQuery, selectedNote?.id]);
+
+  function goToPreviousContentMatch() {
+    setContentMatchIndex(Math.max(0, activeContentMatchIndex - 1));
+  }
+
+  function goToNextContentMatch() {
+    setContentMatchIndex(Math.min(contentPreviews.length - 1, activeContentMatchIndex + 1));
+  }
 
   return (
     <div
@@ -637,10 +656,41 @@ export function NotesPageLayout({
                     <div style={styles.searchContextRow}>
                       <div style={styles.searchContextRowHeader}>
                         <span style={styles.searchContextLabel}>본문</span>
-                        <span style={styles.searchContextCount}>
-                          {contentMatchCount}개
-                          {contentMatchCount > 1 ? `, 외 ${contentMatchCount - 1}개 더` : ""}
-                        </span>
+                        {contentMatchCount > 1 ? (
+                          <div style={styles.searchContextNavigator}>
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.searchContextNavButton,
+                                ...(activeContentMatchIndex === 0 ? styles.searchContextNavButtonDisabled : {}),
+                              }}
+                              onClick={goToPreviousContentMatch}
+                              disabled={activeContentMatchIndex === 0}
+                              aria-label="이전 본문 검색 일치 보기"
+                              title="이전 일치"
+                            >
+                              <ChevronLeftIcon />
+                            </button>
+                            <span style={styles.searchContextCount} aria-live="polite">
+                              {activeContentMatchIndex + 1} / {contentMatchCount}
+                            </span>
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.searchContextNavButton,
+                                ...(activeContentMatchIndex >= contentPreviews.length - 1 ? styles.searchContextNavButtonDisabled : {}),
+                              }}
+                              onClick={goToNextContentMatch}
+                              disabled={activeContentMatchIndex >= contentPreviews.length - 1}
+                              aria-label="다음 본문 검색 일치 보기"
+                              title="다음 일치"
+                            >
+                              <ChevronRightIcon />
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={styles.searchContextCount}>{contentMatchCount}개</span>
+                        )}
                       </div>
                       <div style={styles.searchContextValue}>
                         {contentPreview.hasLeadingEllipsis ? "..." : ""}
@@ -869,6 +919,44 @@ function ConflictIcon() {
       <path d="M12 9v4" />
       <path d="M12 17h.01" />
       <path d="m10.29 3.86-8.2 14.2A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.73-2.94l-8.2-14.2a2 2 0 0 0-3.42 0Z" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 18l6-6-6-6" />
     </svg>
   );
 }

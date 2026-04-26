@@ -269,4 +269,5 @@ npm run dev
 5. Confirm note reorder remains disabled while an active search query is present.
 6. Confirm opening a searched note keeps the title/body match context visible in the editor panel.
 7. Confirm multiple matches in one note show total and field-level counts without expanding the whole body.
-8. Confirm the user can hide the editor search context and reopen it while the same search is still active.
+8. Confirm body searches with multiple matches show the current match position as `1 / N` and allow moving to previous/next match previews.
+9. Confirm the user can hide the editor search context and reopen it while the same search is still active.
