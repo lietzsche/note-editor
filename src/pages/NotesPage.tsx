@@ -79,6 +79,7 @@ export default function NotesPage({
   const [countStatus, setCountStatus] = useState<CountStatus>("count-ready");
   const [newGroupName, setNewGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchContextDismissed, setSearchContextDismissed] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
@@ -384,6 +385,10 @@ export default function NotesPage({
   useEffect(() => {
     titleRef.current = title;
   }, [title]);
+
+  useEffect(() => {
+    setSearchContextDismissed(false);
+  }, [searchQuery, selectedNote?.id]);
 
   useEffect(() => {
     contentRef.current = content;
@@ -857,6 +862,7 @@ export default function NotesPage({
         hasPendingAction={Boolean(pendingAction)}
         perfDebugEnabled={PERF_DEBUG_ENABLED}
         perfSamples={perfSamples}
+        searchContextVisible={!searchContextDismissed}
         showAdminConsoleButton={isAdminUser}
         passwordChangeRequired={passwordChangeRequired}
         onLogout={handleLogout}
@@ -910,6 +916,8 @@ export default function NotesPage({
         onCopy={() => {
           void handleCopy();
         }}
+        onShowSearchContext={() => setSearchContextDismissed(false)}
+        onHideSearchContext={() => setSearchContextDismissed(true)}
         onDialogPrimaryAction={() => {
           void handleDialogPrimaryAction();
         }}

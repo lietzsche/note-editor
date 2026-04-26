@@ -523,6 +523,12 @@ export const styles: Record<string, CSSProperties> = {
     gap: "8px",
     flexWrap: "wrap",
   },
+  searchContextHeaderActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
   searchContextEyebrow: {
     fontSize: "11px",
     fontWeight: 700,
@@ -545,16 +551,38 @@ export const styles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "4px",
   },
+  searchContextRowHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
   searchContextLabel: {
     fontSize: "11px",
     fontWeight: 700,
     color: "var(--color-text-muted)",
+  },
+  searchContextCount: {
+    fontSize: "11px",
+    color: "var(--color-text-secondary)",
+    fontWeight: 600,
   },
   searchContextValue: {
     fontSize: "13px",
     lineHeight: 1.5,
     color: "var(--color-text-primary)",
     wordBreak: "break-word",
+  },
+  searchContextDismissButton: {
+    minHeight: "28px",
+    padding: "0 10px",
+    borderRadius: "999px",
+    border: "1px solid var(--color-border-subtle)",
+    background: "var(--app-panel-bg-strong)",
+    color: "var(--color-text-secondary)",
+    fontSize: "11px",
+    fontWeight: 600,
   },
   searchContextHighlight: {
     background: "color-mix(in srgb, var(--color-warning, #f4c542) 38%, transparent)",

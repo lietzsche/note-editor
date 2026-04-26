@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SortableNoteList } from "../src/components/SortableNoteList";
 import {
   buildSearchPreview,
+  countMatchRanges,
   findMatchRange,
   splitHighlightSegments,
 } from "../src/lib/noteSearchHighlight";
@@ -21,6 +22,10 @@ describe("FEATURE-011 note search highlight utilities", () => {
       { text: "Sprint ", highlighted: false },
       { text: "Plan", highlighted: true },
     ]);
+  });
+
+  it("counts multiple matches in the same text", () => {
+    expect(countMatchRanges("Seoul nights in seoul city", "seoul")).toBe(2);
   });
 
   it("builds a trimmed content preview around the first match", () => {

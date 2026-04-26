@@ -7,6 +7,7 @@ import type {
 import type { Group, Note } from "../lib/api";
 import {
   buildSearchPreview,
+  countMatchRanges,
   findMatchRange,
   splitHighlightSegments,
 } from "../lib/noteSearchHighlight";
@@ -68,6 +69,7 @@ type Props = {
   hasPendingAction: boolean;
   perfDebugEnabled: boolean;
   perfSamples: PerfSample[];
+  searchContextVisible?: boolean;
   showAdminConsoleButton?: boolean;
   passwordChangeRequired?: boolean;
   onLogout: () => void;
@@ -94,6 +96,8 @@ type Props = {
   onRetrySave: () => void;
   onOpenConflictDialog: () => void;
   onCopy: () => void;
+  onShowSearchContext?: () => void;
+  onHideSearchContext?: () => void;
   onDialogPrimaryAction: () => void;
   onDialogDiscardAction: () => void;
   onDialogCancelAction: () => void;
@@ -152,6 +156,7 @@ export function NotesPageLayout({
   hasPendingAction,
   perfDebugEnabled,
   perfSamples,
+  searchContextVisible = true,
   showAdminConsoleButton = false,
   passwordChangeRequired = false,
   onLogout,
@@ -178,6 +183,8 @@ export function NotesPageLayout({
   onRetrySave,
   onOpenConflictDialog,
   onCopy,
+  onShowSearchContext,
+  onHideSearchContext,
   onDialogPrimaryAction,
   onDialogDiscardAction,
   onDialogCancelAction,
@@ -190,7 +197,11 @@ export function NotesPageLayout({
   const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());
   const titleMatch = isEditorSearchActive ? findMatchRange(title, searchQuery) : null;
   const contentPreview = isEditorSearchActive ? buildSearchPreview(content, searchQuery) : null;
-  const showSearchContextPanel = Boolean(titleMatch || contentPreview);
+  const titleMatchCount = isEditorSearchActive ? countMatchRanges(title, searchQuery) : 0;
+  const contentMatchCount = isEditorSearchActive ? countMatchRanges(content, searchQuery) : 0;
+  const totalMatchCount = titleMatchCount + contentMatchCount;
+  const showSearchContextPanel = searchContextVisible && totalMatchCount > 0;
+  const hasHiddenSearchContext = !searchContextVisible && totalMatchCount > 0;
 
   return (
     <div
@@ -552,6 +563,17 @@ export function NotesPageLayout({
                         guidanceStyle={isMobile ? styles.mobileHidden : undefined}
                       />
                     )}
+                    {hasHiddenSearchContext && onShowSearchContext && (
+                      <button
+                        type="button"
+                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                        onClick={onShowSearchContext}
+                        aria-label="검색 정보 다시 보기"
+                        title="검색 정보 다시 보기"
+                      >
+                        {isMobile ? "검색" : "검색 정보"}
+                      </button>
+                    )}
                     <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
                     {isMobile && !isSelectedNoteReadOnly && (
                       <ShareStatusPanel
@@ -580,11 +602,26 @@ export function NotesPageLayout({
                 <div style={styles.searchContextPanel} aria-live="polite">
                   <div style={styles.searchContextHeader}>
                     <span style={styles.searchContextEyebrow}>SEARCH MATCH</span>
-                    <span style={styles.searchContextBadge}>편집 화면에서도 검색 위치 유지</span>
+                    <div style={styles.searchContextHeaderActions}>
+                      <span style={styles.searchContextBadge}>총 {totalMatchCount}개 일치</span>
+                      {onHideSearchContext && (
+                        <button
+                          type="button"
+                          style={styles.searchContextDismissButton}
+                          onClick={onHideSearchContext}
+                          aria-label="검색 정보 숨기기"
+                        >
+                          숨기기
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {titleMatch && (
                     <div style={styles.searchContextRow}>
-                      <span style={styles.searchContextLabel}>제목</span>
+                      <div style={styles.searchContextRowHeader}>
+                        <span style={styles.searchContextLabel}>제목</span>
+                        <span style={styles.searchContextCount}>{titleMatchCount}개</span>
+                      </div>
                       <div style={styles.searchContextValue}>
                         {renderEditorHighlightedText(title || "(제목 없음)", searchQuery, styles.searchContextHighlight)}
                       </div>
@@ -592,7 +629,13 @@ export function NotesPageLayout({
                   )}
                   {contentPreview && (
                     <div style={styles.searchContextRow}>
-                      <span style={styles.searchContextLabel}>본문</span>
+                      <div style={styles.searchContextRowHeader}>
+                        <span style={styles.searchContextLabel}>본문</span>
+                        <span style={styles.searchContextCount}>
+                          {contentMatchCount}개
+                          {contentMatchCount > 1 ? `, 외 ${contentMatchCount - 1}개 더` : ""}
+                        </span>
+                      </div>
                       <div style={styles.searchContextValue}>
                         {contentPreview.hasLeadingEllipsis ? "..." : ""}
                         {renderEditorPreviewHighlight(contentPreview, styles.searchContextHighlight)}

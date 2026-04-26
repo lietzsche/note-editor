@@ -30,6 +30,28 @@ export function findMatchRange(text: string, query: string) {
   };
 }
 
+export function countMatchRanges(text: string, query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return 0;
+  }
+
+  const haystack = text.toLocaleLowerCase();
+  let count = 0;
+  let fromIndex = 0;
+
+  while (fromIndex < haystack.length) {
+    const matchIndex = haystack.indexOf(normalizedQuery, fromIndex);
+    if (matchIndex < 0) {
+      break;
+    }
+    count += 1;
+    fromIndex = matchIndex + normalizedQuery.length;
+  }
+
+  return count;
+}
+
 export function splitHighlightSegments(text: string, query: string): HighlightSegment[] {
   const match = findMatchRange(text, query);
   if (!match) {
