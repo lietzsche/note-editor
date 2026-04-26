@@ -259,3 +259,12 @@ npm run dev
 6. Confirm `POST /api/auth/change-password` rejects reusing the same password with `400`.
 7. Confirm successful password change clears `passwordChangeRequired`.
 8. Confirm successful password change keeps the current session alive but invalidates the user's other sessions.
+
+## 13. 2026-04-26 Note Search Highlight Addendum
+
+1. Confirm active-note search still filters by title and body without case sensitivity.
+2. Confirm matching title text is highlighted inside the note list row.
+3. Confirm matching body text shows a one-line preview with highlighted match context.
+4. Confirm search highlight does not appear in trash view because trash scope bypasses search.
+5. Confirm note reorder remains disabled while an active search query is present.
+6. Confirm opening a searched note keeps the title/body match context visible in the editor panel.

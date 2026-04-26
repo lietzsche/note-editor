@@ -2,8 +2,14 @@ import type {
   ChangeEventHandler,
   CSSProperties,
   FormEventHandler,
+  ReactNode,
 } from "react";
 import type { Group, Note } from "../lib/api";
+import {
+  buildSearchPreview,
+  findMatchRange,
+  splitHighlightSegments,
+} from "../lib/noteSearchHighlight";
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
 import { CopyAllButton } from "./CopyAllButton";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
@@ -181,6 +187,10 @@ export function NotesPageLayout({
   onShareToggle,
 }: Props) {
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
+  const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());
+  const titleMatch = isEditorSearchActive ? findMatchRange(title, searchQuery) : null;
+  const contentPreview = isEditorSearchActive ? buildSearchPreview(content, searchQuery) : null;
+  const showSearchContextPanel = Boolean(titleMatch || contentPreview);
 
   return (
     <div
@@ -439,6 +449,7 @@ export function NotesPageLayout({
                 defaultGroupId={defaultGroupId}
                 selectedNoteId={selectedNote?.id ?? null}
                 isMobile={isMobile}
+                searchQuery={searchQuery}
                 disabled={isTrashView || noteReorderBusy || Boolean(searchQuery.trim())}
                 mode={isTrashView ? "trash" : "active"}
                 onSelectNote={onSelectNote}
@@ -565,6 +576,32 @@ export function NotesPageLayout({
                   />
                 )}
               </div>
+              {showSearchContextPanel && (
+                <div style={styles.searchContextPanel} aria-live="polite">
+                  <div style={styles.searchContextHeader}>
+                    <span style={styles.searchContextEyebrow}>SEARCH MATCH</span>
+                    <span style={styles.searchContextBadge}>편집 화면에서도 검색 위치 유지</span>
+                  </div>
+                  {titleMatch && (
+                    <div style={styles.searchContextRow}>
+                      <span style={styles.searchContextLabel}>제목</span>
+                      <div style={styles.searchContextValue}>
+                        {renderEditorHighlightedText(title || "(제목 없음)", searchQuery, styles.searchContextHighlight)}
+                      </div>
+                    </div>
+                  )}
+                  {contentPreview && (
+                    <div style={styles.searchContextRow}>
+                      <span style={styles.searchContextLabel}>본문</span>
+                      <div style={styles.searchContextValue}>
+                        {contentPreview.hasLeadingEllipsis ? "..." : ""}
+                        {renderEditorPreviewHighlight(contentPreview, styles.searchContextHighlight)}
+                        {contentPreview.hasTrailingEllipsis ? "..." : ""}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {isSelectedNoteReadOnly && selectedNoteDeletedAtLabel && (
                 <div style={styles.readOnlyBanner}>
                   휴지통에 보관된 노트입니다. {selectedNoteDeletedAtLabel}에 삭제되었습니다.
@@ -645,6 +682,41 @@ export function NotesPageLayout({
         <PerformanceDebugPanel samples={perfSamples} />
       )}
     </div>
+  );
+}
+
+function renderEditorHighlightedText(
+  text: string,
+  query: string,
+  highlightStyle: CSSProperties
+) {
+  const segments = splitHighlightSegments(text, query);
+  return segments.map((segment, index) => (
+    <span
+      key={`${segment.highlighted ? "hit" : "plain"}-${index}-${segment.text}`}
+      style={segment.highlighted ? highlightStyle : undefined}
+    >
+      {segment.text}
+    </span>
+  ));
+}
+
+function renderEditorPreviewHighlight(
+  preview: {
+    text: string;
+    matchStart: number;
+    matchEnd: number;
+  },
+  highlightStyle: CSSProperties
+): ReactNode {
+  return (
+    <>
+      {preview.text.slice(0, preview.matchStart)}
+      <span style={highlightStyle}>
+        {preview.text.slice(preview.matchStart, preview.matchEnd)}
+      </span>
+      {preview.text.slice(preview.matchEnd)}
+    </>
   );
 }
 

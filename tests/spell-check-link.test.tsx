@@ -186,6 +186,93 @@ describe("FEATURE-011 note search", () => {
     expect(markup).toContain("search");
     expect(markup).toContain("body");
   });
+
+  it("keeps highlighted search context visible in the editor for the selected note", () => {
+    const note = {
+      ...buildNote(),
+      title: "Trip to Seoul",
+      content: "Remember to book the Seoul hotel soon",
+    };
+
+    const markup = renderToStaticMarkup(
+      <NotesPageLayout
+        styles={buildStyles()}
+        isMobile={false}
+        mobilePanel="editor"
+        setMobilePanel={() => {}}
+        showGroupsPanel={false}
+        showNotesPanel={false}
+        showEditorPanel
+        username="tester"
+        groups={buildGroups()}
+        selectedGroupId={null}
+        currentGroupLabel="all notes"
+        defaultGroupId={null}
+        defaultGroupName="default"
+        groupListStatusLabel=""
+        noteListStatusLabel=""
+        notes={[note]}
+        totalNotesCount={1}
+        notesLoadState="ready"
+        selectedNote={note}
+        searchQuery="seoul"
+        selectedNoteGroupValue=""
+        title={note.title}
+        content={note.content}
+        saveLabel="saved"
+        saveStatus="saved"
+        charCount={note.content.length}
+        countStatus="count-ready"
+        copyStatus="ready"
+        newGroupName=""
+        groupReorderBusy={false}
+        noteReorderBusy={false}
+        dialogMode={null}
+        dialogTitle=""
+        dialogDescription=""
+        primaryDialogLabel=""
+        isConflictDialog={false}
+        conflictNote={null}
+        hasPendingAction={false}
+        perfDebugEnabled={false}
+        perfSamples={[]}
+        onLogout={() => {}}
+        onOpenAccountSecurity={() => {}}
+        onSelectGroup={() => {}}
+        onRenameGroup={() => {}}
+        onDeleteGroup={() => {}}
+        onReorderGroups={() => {}}
+        onCreateGroup={(event) => event.preventDefault()}
+        onNewGroupNameChange={() => {}}
+        onCreateNote={() => {}}
+        onSearchQueryChange={() => {}}
+        onClearSearch={() => {}}
+        onSelectNote={() => {}}
+        onDeleteNote={() => {}}
+        onRestoreNote={() => {}}
+        onPermanentDeleteNote={() => {}}
+        onMoveNoteGroup={() => {}}
+        onReorderNotes={() => {}}
+        onTitleChange={() => {}}
+        onContentChange={() => {}}
+        onMoveSelectedNoteGroup={() => {}}
+        onRetrySave={() => {}}
+        onOpenConflictDialog={() => {}}
+        onCopy={() => {}}
+        onDialogPrimaryAction={() => {}}
+        onDialogDiscardAction={() => {}}
+        onDialogCancelAction={() => {}}
+        shareInfo={null}
+        shareLoading={false}
+        shareError={null}
+        onShareToggle={() => {}}
+      />
+    );
+
+    expect(markup).toContain("SEARCH MATCH");
+    expect(markup).toContain("Trip to Seoul");
+    expect(markup).toContain("Remember to book the Seoul hotel soon");
+  });
 });
 
 function buildNote(): Note {

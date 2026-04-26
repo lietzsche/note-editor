@@ -15,8 +15,12 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Group, Note } from "../lib/api";
+import {
+  buildSearchPreview,
+  splitHighlightSegments,
+} from "../lib/noteSearchHighlight";
 import {
   getNoteGroupIdFromSelectValue,
   getNoteGroupSelectValue,
@@ -31,6 +35,7 @@ type Props = {
   defaultGroupId: string | null;
   selectedNoteId: string | null;
   isMobile: boolean;
+  searchQuery?: string;
   disabled?: boolean;
   mode?: Mode;
   onSelectNote: (note: Note) => void;
@@ -47,6 +52,7 @@ type RowProps = {
   defaultGroupId: string | null;
   isActive: boolean;
   isMobile: boolean;
+  searchQuery: string;
   isSortingDisabled: boolean;
   mode: Mode;
   onSelectNote: (note: Note) => void;
@@ -72,6 +78,7 @@ function SortableNoteRow({
   defaultGroupId,
   isActive,
   isMobile,
+  searchQuery,
   isSortingDisabled,
   mode,
   onSelectNote,
@@ -94,6 +101,8 @@ function SortableNoteRow({
   });
 
   const noteGroupValue = getNoteGroupSelectValue(note.group_id, defaultGroupId);
+  const isSearchActive = searchQuery.trim().length > 0;
+  const contentPreview = isSearchActive ? buildSearchPreview(note.content, searchQuery) : null;
   const itemStyle: CSSProperties = {
     ...styles.noteItem,
     ...(mode === "trash" ? styles.noteItemTrash : {}),
@@ -133,7 +142,16 @@ function SortableNoteRow({
           aria-pressed={isActive}
           aria-label={`${note.title || "제목 없음"} 노트 열기`}
         >
-          <div style={styles.noteTitle}>{note.title || "(제목 없음)"}</div>
+          <div style={styles.noteTitle}>
+            {renderHighlightedText(note.title || "(제목 없음)", searchQuery)}
+          </div>
+          {contentPreview && (
+            <div style={styles.notePreview}>
+              {contentPreview.hasLeadingEllipsis ? "..." : ""}
+              {renderPreviewHighlight(contentPreview)}
+              {contentPreview.hasTrailingEllipsis ? "..." : ""}
+            </div>
+          )}
           <div style={styles.noteDate}>
             {mode === "trash" ? "삭제됨 " : ""}
             {formatNoteTimestamp(note, mode)}
@@ -219,6 +237,7 @@ export function SortableNoteList({
   defaultGroupId,
   selectedNoteId,
   isMobile,
+  searchQuery = "",
   disabled = false,
   mode = "active",
   onSelectNote,
@@ -264,6 +283,7 @@ export function SortableNoteList({
             defaultGroupId={defaultGroupId}
             isActive={selectedNoteId === note.id}
             isMobile={isMobile}
+            searchQuery={searchQuery}
             isSortingDisabled
             mode={mode}
             onSelectNote={onSelectNote}
@@ -288,6 +308,7 @@ export function SortableNoteList({
             defaultGroupId={defaultGroupId}
             isActive={selectedNoteId === note.id}
             isMobile={isMobile}
+            searchQuery={searchQuery}
             isSortingDisabled={isSortingDisabled}
             mode={mode}
             onSelectNote={onSelectNote}
@@ -299,6 +320,34 @@ export function SortableNoteList({
         ))}
       </SortableContext>
     </DndContext>
+  );
+}
+
+function renderHighlightedText(text: string, query: string) {
+  const segments = splitHighlightSegments(text, query);
+  return segments.map((segment, index) => (
+    <span
+      key={`${segment.highlighted ? "hit" : "plain"}-${index}-${segment.text}`}
+      style={segment.highlighted ? styles.searchHighlight : undefined}
+    >
+      {segment.text}
+    </span>
+  ));
+}
+
+function renderPreviewHighlight(preview: {
+  text: string;
+  matchStart: number;
+  matchEnd: number;
+}): ReactNode {
+  return (
+    <>
+      {preview.text.slice(0, preview.matchStart)}
+      <span style={styles.searchHighlight}>
+        {preview.text.slice(preview.matchStart, preview.matchEnd)}
+      </span>
+      {preview.text.slice(preview.matchEnd)}
+    </>
   );
 }
 
@@ -344,10 +393,27 @@ const styles = {
     whiteSpace: "nowrap",
     color: "var(--color-text-primary)",
   } satisfies CSSProperties,
+  notePreview: {
+    marginTop: "5px",
+    fontSize: "12px",
+    lineHeight: 1.45,
+    color: "var(--color-text-secondary)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
   noteDate: {
     fontSize: "12px",
     color: "var(--color-text-muted)",
     marginTop: "4px",
+  } satisfies CSSProperties,
+  searchHighlight: {
+    background: "color-mix(in srgb, var(--color-warning, #f4c542) 38%, transparent)",
+    color: "inherit",
+    borderRadius: "4px",
+    padding: "0 1px",
+    boxDecorationBreak: "clone",
+    WebkitBoxDecorationBreak: "clone",
   } satisfies CSSProperties,
   noteActions: {
     display: "flex",
