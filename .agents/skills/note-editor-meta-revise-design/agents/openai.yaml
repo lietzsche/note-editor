@@ -1,0 +1,4 @@
+interface:
+  display_name: "디자인 수정 체인"
+  short_description: "디자인 기획부터 구현, 리뷰, 문서화까지의 메타 체인"
+  default_prompt: "$note-editor-meta-revise-design를 사용해 디자인 수정 요청을 기획부터 구현, 리뷰, 문서화까지 진행한다."

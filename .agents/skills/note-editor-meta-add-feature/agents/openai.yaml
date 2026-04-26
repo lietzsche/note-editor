@@ -1,0 +1,4 @@
+interface:
+  display_name: "기능 추가 풀사이클"
+  short_description: "기존 프로젝트 기능 추가의 기획-구현-리뷰-문서화 메타 체인"
+  default_prompt: "$note-editor-meta-add-feature를 사용해 기존 프로젝트에 새 기능을 추가하는 작업을 기획부터 구현, 리뷰, 문서화까지 진행한다."

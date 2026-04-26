@@ -1,0 +1,4 @@
+interface:
+  display_name: "오류 수정 체인"
+  short_description: "오류 확인부터 수정, 리뷰, 문서화까지의 메타 체인"
+  default_prompt: "$note-editor-meta-fix-bug를 사용해 오류를 확인하고 수정한 뒤 리뷰와 문서화까지 진행한다."
