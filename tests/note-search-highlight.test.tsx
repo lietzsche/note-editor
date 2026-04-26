@@ -37,6 +37,16 @@ describe("FEATURE-011 note search highlight utilities", () => {
       hasTrailingEllipsis: true,
     });
   });
+
+  it("keeps the highlight range aligned after collapsing preview whitespace", () => {
+    expect(buildSearchPreview("Alpha\n\n  beta Seoul hotel soon", "Seoul", 24)).toEqual({
+      text: "Alpha beta Seoul hotel soon",
+      matchStart: 11,
+      matchEnd: 16,
+      hasLeadingEllipsis: false,
+      hasTrailingEllipsis: false,
+    });
+  });
 });
 
 describe("FEATURE-011 note search highlight rendering", () => {

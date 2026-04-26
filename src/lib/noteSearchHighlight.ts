@@ -13,6 +13,11 @@ type SearchPreview = {
 
 const DEFAULT_PREVIEW_RADIUS = 24;
 
+type NormalizedPreview = {
+  text: string;
+  boundaryMap: number[];
+};
+
 export function findMatchRange(text: string, query: string) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
@@ -100,21 +105,78 @@ export function buildSearchPreview(
   }
 
   const rawPreview = text.slice(effectiveStart, effectiveEnd);
-  const previewText = rawPreview.replace(/\s+/g, " ").trim();
+  const normalizedPreview = normalizePreview(rawPreview);
+  const previewText = normalizedPreview.text;
   if (!previewText) {
     return null;
   }
 
-  const trimmedOffset = rawPreview.indexOf(previewText);
-  const normalizedStart = effectiveStart + Math.max(trimmedOffset, 0);
-  const effectiveMatchStart = Math.max(0, match.start - normalizedStart);
-  const effectiveMatchEnd = Math.min(previewText.length, effectiveMatchStart + (match.end - match.start));
+  const rawMatchStart = Math.max(0, match.start - effectiveStart);
+  const rawMatchEnd = Math.min(rawPreview.length, match.end - effectiveStart);
+  const effectiveMatchStart = normalizedPreview.boundaryMap[rawMatchStart] ?? 0;
+  const effectiveMatchEnd = normalizedPreview.boundaryMap[rawMatchEnd] ?? effectiveMatchStart;
 
   return {
     text: previewText,
     matchStart: effectiveMatchStart,
     matchEnd: effectiveMatchEnd,
-    hasLeadingEllipsis: normalizedStart > 0,
-    hasTrailingEllipsis: normalizedStart + previewText.length < text.length,
+    hasLeadingEllipsis: effectiveStart + normalizedPreview.rawStart > 0,
+    hasTrailingEllipsis: effectiveStart + normalizedPreview.rawEnd < text.length,
+  };
+}
+
+function normalizePreview(rawText: string): NormalizedPreview & {
+  rawStart: number;
+  rawEnd: number;
+} {
+  const rawStart = rawText.search(/\S/);
+  if (rawStart < 0) {
+    return {
+      text: "",
+      boundaryMap: Array.from({ length: rawText.length + 1 }, () => 0),
+      rawStart: 0,
+      rawEnd: rawText.length,
+    };
+  }
+
+  let rawEnd = rawText.length;
+  while (rawEnd > rawStart && /\s/.test(rawText.charAt(rawEnd - 1))) {
+    rawEnd -= 1;
+  }
+
+  const boundaryMap = Array.from({ length: rawText.length + 1 }, () => 0);
+  let text = "";
+  let outputIndex = 0;
+  let inWhitespace = false;
+
+  for (let index = rawStart; index < rawEnd; index += 1) {
+    boundaryMap[index] = outputIndex;
+    const char = rawText.charAt(index);
+    if (/\s/.test(char)) {
+      if (!inWhitespace) {
+        text += " ";
+        outputIndex += 1;
+        inWhitespace = true;
+      }
+    } else {
+      text += char;
+      outputIndex += char.length;
+      inWhitespace = false;
+    }
+    boundaryMap[index + 1] = outputIndex;
+  }
+
+  for (let index = 0; index <= rawStart; index += 1) {
+    boundaryMap[index] = 0;
+  }
+  for (let index = rawEnd; index <= rawText.length; index += 1) {
+    boundaryMap[index] = outputIndex;
+  }
+
+  return {
+    text,
+    boundaryMap,
+    rawStart,
+    rawEnd,
   };
 }
