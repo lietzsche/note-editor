@@ -160,7 +160,7 @@ function SortableNoteRow({
         <div
           style={{
             ...styles.noteActions,
-            ...(!isMobile ? styles.noteActionsCompact : {}),
+            ...(isMobile ? styles.noteActionsMobile : styles.noteActionsCompact),
           }}
         >
           {mode === "trash" ? (
@@ -168,40 +168,40 @@ function SortableNoteRow({
               <button
                 type="button"
                 style={{
-                  ...styles.restoreButton,
+                  ...(isMobile ? styles.noteIconButton : styles.restoreButton),
                   ...(!isMobile ? styles.restoreButtonCompact : {}),
                 }}
                 onClick={() => onRestoreNote(note.id)}
                 title="노트 복원"
                 aria-label={`${note.title || "제목 없음"} 노트 복원`}
               >
-                복원
+                {isMobile ? <RestoreIcon /> : "복원"}
               </button>
               <button
                 type="button"
                 style={{
-                  ...styles.permanentDeleteButton,
+                  ...(isMobile ? styles.noteDangerIconButton : styles.permanentDeleteButton),
                   ...(!isMobile ? styles.permanentDeleteButtonCompact : {}),
                 }}
                 onClick={() => onPermanentDeleteNote(note.id)}
                 title="영구 삭제"
                 aria-label={`${note.title || "제목 없음"} 노트 영구 삭제`}
               >
-                삭제
+                {isMobile ? <TrashIcon /> : "삭제"}
               </button>
             </>
           ) : (
             <button
               type="button"
               style={{
-                ...styles.deleteButton,
+                ...(isMobile ? styles.noteIconButton : styles.deleteButton),
                 ...(!isMobile ? styles.deleteButtonCompact : {}),
               }}
               onClick={() => onDeleteNote(note.id)}
               title="노트 삭제"
               aria-label={`${note.title || "제목 없음"} 노트 삭제`}
             >
-              삭제
+              {isMobile ? <TrashIcon /> : "삭제"}
             </button>
           )}
         </div>
@@ -351,6 +351,50 @@ function renderPreviewHighlight(preview: {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
+function RestoreIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v6h6" />
+      <path d="M12 8v5l3 2" />
+    </svg>
+  );
+}
+
 const styles = {
   noteItem: {
     margin: "8px",
@@ -424,6 +468,9 @@ const styles = {
   noteActionsCompact: {
     gap: "2px",
   } satisfies CSSProperties,
+  noteActionsMobile: {
+    gap: "6px",
+  } satisfies CSSProperties,
   noteGroupMoveRow: {
     marginTop: "8px",
   } satisfies CSSProperties,
@@ -469,6 +516,34 @@ const styles = {
     minWidth: "42px",
     minHeight: "32px",
     fontSize: "11px",
+  } satisfies CSSProperties,
+  noteIconButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "44px",
+    width: "44px",
+    minHeight: "44px",
+    padding: 0,
+    border: "1px solid var(--color-border-subtle)",
+    borderRadius: "999px",
+    background: "var(--app-control-bg)",
+    color: "var(--color-text-secondary)",
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  noteDangerIconButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "44px",
+    width: "44px",
+    minHeight: "44px",
+    padding: 0,
+    border: "1px solid color-mix(in srgb, var(--color-danger) 26%, var(--color-border-subtle))",
+    borderRadius: "999px",
+    background: "color-mix(in srgb, var(--color-danger) 7%, var(--app-control-bg))",
+    color: "var(--color-danger)",
+    flexShrink: 0,
   } satisfies CSSProperties,
   restoreButton: {
     background: "var(--color-bg-emphasis)",

@@ -275,26 +275,27 @@ export function NotesPageLayout({
           <div style={styles.sidebarHeader}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
               <span style={{ fontWeight: 700, fontSize: "var(--font-size-lg)", whiteSpace: "nowrap" }}>노트 그룹</span>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <ThemeToggle compact={!isMobile} />
+              <div style={isMobile ? styles.mobileHeaderActions : { display: "flex", gap: "8px", alignItems: "center" }}>
+                <ThemeToggle compact />
                 {showAdminConsoleButton && onOpenAdminConsole && (
                   <button
                     type="button"
-                    style={styles.adminBtn}
+                    style={isMobile ? styles.mobileHeaderIconButton : styles.adminBtn}
                     onClick={onOpenAdminConsole}
                     aria-label="운영 패널 열기"
+                    title="운영 패널 열기"
                   >
-                    운영
+                    {isMobile ? <AdminIcon /> : "운영"}
                   </button>
                 )}
                 <button
                   type="button"
-                  style={styles.logoutBtn}
+                  style={isMobile ? styles.mobileHeaderIconButton : styles.logoutBtn}
                   onClick={onLogout}
                   title="로그아웃"
                   aria-label="로그아웃"
                 >
-                  로그아웃
+                  {isMobile ? <LogoutIcon /> : "로그아웃"}
                 </button>
               </div>
             </div>
@@ -308,12 +309,14 @@ export function NotesPageLayout({
               <button
                 type="button"
                 style={{
-                  ...styles.accountBtn,
+                  ...(isMobile ? styles.accountIconButton : styles.accountBtn),
                   ...(passwordChangeRequired ? styles.accountBtnAlert : {}),
                 }}
                 onClick={onOpenAccountSecurity}
+                aria-label={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+                title={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
               >
-                {passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+                {isMobile ? <SecurityIcon alert={passwordChangeRequired} /> : passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
               </button>
             </div>
             <p
@@ -408,11 +411,12 @@ export function NotesPageLayout({
             {!isTrashView && (
               <button
                 type="button"
-                style={styles.newNoteBtn}
+                style={isMobile ? styles.noteListIconButton : styles.newNoteBtn}
                 onClick={onCreateNote}
                 aria-label="새 노트 만들기"
+                title="새 노트 만들기"
               >
-                + 새 노트
+                {isMobile ? <NewNoteIcon /> : "+ 새 노트"}
               </button>
             )}
           </div>
@@ -429,11 +433,12 @@ export function NotesPageLayout({
               {searchQuery.trim() && (
                 <button
                   type="button"
-                  style={styles.noteSearchClearBtn}
+                  style={isMobile ? styles.noteSearchClearIconButton : styles.noteSearchClearBtn}
                   onClick={onClearSearch}
                   aria-label="검색 지우기"
+                  title="검색 지우기"
                 >
-                  지우기
+                  {isMobile ? <CloseIcon /> : "지우기"}
                 </button>
               )}
             </div>
@@ -571,7 +576,7 @@ export function NotesPageLayout({
                         aria-label="검색 정보 다시 보기"
                         title="검색 정보 다시 보기"
                       >
-                        {isMobile ? "검색" : "검색 정보"}
+                        {isMobile ? <SearchInfoIcon /> : "검색 정보"}
                       </button>
                     )}
                     <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
@@ -607,11 +612,12 @@ export function NotesPageLayout({
                       {onHideSearchContext && (
                         <button
                           type="button"
-                          style={styles.searchContextDismissButton}
+                          style={isMobile ? styles.searchContextDismissIconButton : styles.searchContextDismissButton}
                           onClick={onHideSearchContext}
                           aria-label="검색 정보 숨기기"
+                          title="검색 정보 숨기기"
                         >
-                          숨기기
+                          {isMobile ? <CloseIcon /> : "숨기기"}
                         </button>
                       )}
                     </div>
@@ -863,6 +869,138 @@ function ConflictIcon() {
       <path d="M12 9v4" />
       <path d="M12 17h.01" />
       <path d="m10.29 3.86-8.2 14.2A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.73-2.94l-8.2-14.2a2 2 0 0 0-3.42 0Z" />
+    </svg>
+  );
+}
+
+function AdminIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4Z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+      <path d="M21 19V5" />
+    </svg>
+  );
+}
+
+function SecurityIcon({ alert }: { alert: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4Z" />
+      {alert ? (
+        <>
+          <path d="M12 8v5" />
+          <path d="M12 17h.01" />
+        </>
+      ) : (
+        <path d="M9 12l2 2 4-4" />
+      )}
+    </svg>
+  );
+}
+
+function NewNoteIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M12 12v6" />
+      <path d="M9 15h6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6L6 18" />
+      <path d="M6 6l12 12" />
+    </svg>
+  );
+}
+
+function SearchInfoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10.5 18a7.5 7.5 0 1 1 5.3-12.8 7.5 7.5 0 0 1-5.3 12.8Z" />
+      <path d="M16 16l5 5" />
+      <path d="M10.5 8v.01" />
+      <path d="M10.5 11v4" />
     </svg>
   );
 }
