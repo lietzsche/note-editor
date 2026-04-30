@@ -504,7 +504,7 @@ export function NotesPageLayout({
           {selectedNote ? (
             <>
               <div style={{ ...styles.editorToolbar, ...(isMobile ? styles.editorToolbarMobile : {}) }}>
-                <div style={{ ...styles.editorPrimaryRow, ...(isMobile ? styles.editorPrimaryRowMobile : {}) }}>
+                <div style={{ ...styles.editorTitleRow, ...(isMobile ? styles.editorTitleRowMobile : {}) }}>
                   <input
                     style={{ ...styles.titleInput, ...(isMobile ? styles.titleInputMobile : {}) }}
                     placeholder="제목"
@@ -536,13 +536,9 @@ export function NotesPageLayout({
                       </select>
                     </label>
                   )}
-                  <div
-                    style={{
-                      ...styles.toolbarRight,
-                      ...(isMobile ? styles.toolbarRightMobile : {}),
-                    }}
-                    aria-live="polite"
-                  >
+                </div>
+                <div style={{ ...styles.editorUtilityRow, ...(isMobile ? styles.editorUtilityRowMobile : {}) }}>
+                  <div style={styles.editorStatusCluster} aria-live="polite">
                     <span
                       style={{
                         ...styles.statusBadge,
@@ -557,6 +553,8 @@ export function NotesPageLayout({
                       {saveLabel}
                     </span>
                     <CharacterCountIndicator count={charCount} state={countStatus} />
+                  </div>
+                  <div style={{ ...styles.editorActionCluster, ...(isMobile ? styles.editorActionClusterMobile : {}) }}>
                     {!isSelectedNoteReadOnly && saveStatus === "error" && (
                       <button
                         type="button"
@@ -599,7 +597,7 @@ export function NotesPageLayout({
                       </button>
                     )}
                     <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
-                    {isMobile && !isSelectedNoteReadOnly && (
+                    {!isSelectedNoteReadOnly && (
                       <ShareStatusPanel
                         styles={styles}
                         shareInfo={shareInfo}
@@ -611,16 +609,6 @@ export function NotesPageLayout({
                     )}
                   </div>
                 </div>
-                {!isMobile && !isSelectedNoteReadOnly && (
-                  <ShareStatusPanel
-                    styles={styles}
-                    shareInfo={shareInfo}
-                    shareLoading={shareLoading}
-                    shareError={shareError}
-                    onShareToggle={onShareToggle}
-                    size="md"
-                  />
-                )}
               </div>
               {showSearchContextPanel && (
                 <div style={styles.searchContextPanel} aria-live="polite">

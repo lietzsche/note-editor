@@ -468,24 +468,55 @@ export const styles: Record<string, CSSProperties> = {
   editorToolbar: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
+    alignItems: "stretch",
     padding: "14px 18px",
     borderBottom: "1px solid var(--color-border-subtle)",
     background: "var(--app-panel-bg-strong)",
-    gap: "12px",
+    gap: "10px",
   },
   editorToolbarMobile: {
     padding: "6px 8px",
     gap: "6px",
   },
-  editorPrimaryRow: {
+  editorTitleRow: {
     width: "100%",
     display: "flex",
     alignItems: "center",
-    flexWrap: "wrap",
     gap: "12px",
   },
-  editorPrimaryRowMobile: {
+  editorTitleRowMobile: {
+    gap: "6px",
+  },
+  editorUtilityRow: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    minHeight: "44px",
+  },
+  editorUtilityRowMobile: {
+    gap: "6px",
+    minHeight: "44px",
+  },
+  editorStatusCluster: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    minWidth: 0,
+    flexShrink: 0,
+  },
+  editorActionCluster: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "8px",
+    minWidth: 0,
+    flex: 1,
+    overflowX: "auto",
+    scrollbarWidth: "none",
+  },
+  editorActionClusterMobile: {
     gap: "6px",
   },
   titleInput: {
@@ -495,7 +526,7 @@ export const styles: Record<string, CSSProperties> = {
     outline: "none",
     fontSize: "22px",
     fontWeight: 700,
-    letterSpacing: "-0.02em",
+    letterSpacing: 0,
     background: "transparent",
     color: "var(--color-text-primary)",
   },
@@ -524,7 +555,7 @@ export const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-primary)",
   },
   groupPickerSelectMobile: {
-    maxWidth: "112px",
+    maxWidth: "104px",
     minHeight: "36px",
     padding: "4px 26px 4px 8px",
     fontSize: "12px",

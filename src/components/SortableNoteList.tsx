@@ -101,6 +101,7 @@ function SortableNoteRow({
   });
 
   const noteGroupValue = getNoteGroupSelectValue(note.group_id, defaultGroupId);
+  const noteGroupName = getNoteGroupName(note.group_id, groups, defaultGroupId);
   const isSearchActive = searchQuery.trim().length > 0;
   const contentPreview = isSearchActive ? buildSearchPreview(note.content, searchQuery) : null;
   const itemStyle: CSSProperties = {
@@ -155,6 +156,7 @@ function SortableNoteRow({
           <div style={styles.noteDate}>
             {mode === "trash" ? "삭제됨 " : ""}
             {formatNoteTimestamp(note, mode)}
+            {mode === "active" && ` · ${noteGroupName}`}
           </div>
         </button>
         <div
@@ -208,8 +210,12 @@ function SortableNoteRow({
       </div>
       {mode === "active" && groups.length > 1 && (
         <div style={styles.noteGroupMoveRow}>
+          <span style={styles.noteGroupMoveLabel}>그룹</span>
           <select
-            style={styles.noteGroupMoveSelect}
+            style={{
+              ...styles.noteGroupMoveSelect,
+              ...(isMobile ? styles.noteGroupMoveSelectMobile : {}),
+            }}
             value={noteGroupValue}
             onChange={(event) => {
               onMoveNoteGroup(
@@ -217,7 +223,7 @@ function SortableNoteRow({
                 getNoteGroupIdFromSelectValue(event.target.value, defaultGroupId)
               );
             }}
-            aria-label={`${note.title || "Untitled"} note group move`}
+            aria-label={`${note.title || "제목 없음"} 노트 그룹 이동`}
           >
             {groups.map((group) => (
               <option key={group.id} value={group.id}>
@@ -229,6 +235,16 @@ function SortableNoteRow({
       )}
     </div>
   );
+}
+
+function getNoteGroupName(
+  groupId: string | null,
+  groups: Group[],
+  defaultGroupId: string | null
+) {
+  const resolvedGroupId = groupId ?? defaultGroupId;
+  const group = groups.find((candidate) => candidate.id === resolvedGroupId);
+  return group?.name ?? "미분류";
 }
 
 export function SortableNoteList({
@@ -431,7 +447,7 @@ const styles = {
   noteTitle: {
     fontWeight: 700,
     fontSize: "14px",
-    letterSpacing: "-0.01em",
+    letterSpacing: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -472,17 +488,30 @@ const styles = {
     gap: "6px",
   } satisfies CSSProperties,
   noteGroupMoveRow: {
-    marginTop: "8px",
+    marginTop: "6px",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  } satisfies CSSProperties,
+  noteGroupMoveLabel: {
+    flexShrink: 0,
+    color: "var(--color-text-muted)",
+    fontSize: "11px",
+    fontWeight: 700,
   } satisfies CSSProperties,
   noteGroupMoveSelect: {
-    width: "100%",
-    minHeight: "36px",
-    padding: "4px 8px",
-    border: "1px solid var(--color-border-subtle)",
+    minWidth: 0,
+    flex: 1,
+    minHeight: "32px",
+    padding: "4px 28px 4px 8px",
+    border: "1px solid transparent",
     borderRadius: "999px",
-    background: "var(--app-control-bg)",
-    color: "var(--color-text-primary)",
+    background: "color-mix(in srgb, var(--app-control-bg) 68%, transparent)",
+    color: "var(--color-text-secondary)",
     fontSize: "12px",
+  } satisfies CSSProperties,
+  noteGroupMoveSelectMobile: {
+    minHeight: "44px",
   } satisfies CSSProperties,
   dragHandle: {
     minWidth: "44px",
@@ -503,10 +532,10 @@ const styles = {
     opacity: 0.45,
   } satisfies CSSProperties,
   deleteButton: {
-    background: "none",
+    background: "color-mix(in srgb, var(--app-control-bg) 58%, transparent)",
     border: "1px solid var(--color-border-subtle)",
     borderRadius: "999px",
-    color: "var(--color-text-secondary)",
+    color: "var(--color-text-muted)",
     fontSize: "12px",
     lineHeight: 1,
     minWidth: "44px",
@@ -514,7 +543,7 @@ const styles = {
   } satisfies CSSProperties,
   deleteButtonCompact: {
     minWidth: "42px",
-    minHeight: "32px",
+    minHeight: "34px",
     fontSize: "11px",
   } satisfies CSSProperties,
   noteIconButton: {
