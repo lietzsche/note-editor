@@ -54,6 +54,7 @@ describe("NOTES-PAGE derived state", () => {
       selectedGroupId: null,
       isMobile: false,
       mobilePanel: "groups",
+      zenMode: false,
     });
 
     expect(derived.isSearchActive).toBe(true);
@@ -102,6 +103,7 @@ describe("NOTES-PAGE derived state", () => {
       selectedGroupId: TRASH_NOTES_SCOPE_KEY,
       isMobile: false,
       mobilePanel: "notes",
+      zenMode: false,
     });
 
     expect(derived.isTrashView).toBe(true);
@@ -109,5 +111,36 @@ describe("NOTES-PAGE derived state", () => {
     expect(derived.filteredNotes.map((note) => note.id)).toEqual(["n1", "n2"]);
     expect(derived.noteListStatusLabel).toBe("최근 삭제 순으로 표시됩니다.");
     expect(derived.currentGroupLabel).toBe("휴지통");
+  });
+
+  it("hides other panels and shows only the editor panel when Zen Mode is active", () => {
+    expect(getPanelVisibility(false, "groups", true)).toEqual({
+      showGroupsPanel: false,
+      showNotesPanel: false,
+      showEditorPanel: true,
+    });
+    expect(getPanelVisibility(true, "notes", true)).toEqual({
+      showGroupsPanel: false,
+      showNotesPanel: false,
+      showEditorPanel: true,
+    });
+
+    const derived = deriveNotesPageState({
+      groups,
+      notes,
+      searchQuery: "",
+      saveStatus: "saved",
+      groupReorderStatus: "idle",
+      noteReorderStatus: "idle",
+      notesLoadState: "ready",
+      selectedGroupId: null,
+      isMobile: false,
+      mobilePanel: "editor",
+      zenMode: true,
+    });
+
+    expect(derived.showGroupsPanel).toBe(false);
+    expect(derived.showNotesPanel).toBe(false);
+    expect(derived.showEditorPanel).toBe(true);
   });
 });

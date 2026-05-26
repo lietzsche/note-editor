@@ -17,6 +17,7 @@ type DeriveNotesPageStateArgs = {
   selectedGroupId: string | null;
   isMobile: boolean;
   mobilePanel: MobilePanel;
+  zenMode: boolean;
 };
 
 export function deriveNotesPageState({
@@ -30,6 +31,7 @@ export function deriveNotesPageState({
   selectedGroupId,
   isMobile,
   mobilePanel,
+  zenMode,
 }: DeriveNotesPageStateArgs) {
   const isTrashView = selectedGroupId === TRASH_NOTES_SCOPE_KEY;
   const normalizedSearchQuery = isTrashView ? "" : searchQuery.trim().toLocaleLowerCase();
@@ -56,7 +58,7 @@ export function deriveNotesPageState({
       ? `${filteredNotes.length}개 검색 결과`
       : noteListStatusLabel,
     currentGroupLabel: getCurrentGroupLabel(groups, selectedGroupId),
-    ...getPanelVisibility(isMobile, mobilePanel),
+    ...getPanelVisibility(isMobile, mobilePanel, zenMode),
   };
 }
 
@@ -113,7 +115,14 @@ export function getCurrentGroupLabel(groups: Group[], selectedGroupId: string | 
     : "전체 노트";
 }
 
-export function getPanelVisibility(isMobile: boolean, mobilePanel: MobilePanel) {
+export function getPanelVisibility(isMobile: boolean, mobilePanel: MobilePanel, zenMode?: boolean) {
+  if (zenMode) {
+    return {
+      showGroupsPanel: false,
+      showNotesPanel: false,
+      showEditorPanel: true,
+    };
+  }
   return {
     showGroupsPanel: !isMobile || mobilePanel === "groups",
     showNotesPanel: !isMobile || mobilePanel === "notes",

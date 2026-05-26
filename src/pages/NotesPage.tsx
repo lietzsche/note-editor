@@ -84,6 +84,14 @@ export default function NotesPage({
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("groups");
+  const [zenMode, setZenMode] = useState(false);
+
+  useEffect(() => {
+    if (!selectedNote) {
+      setZenMode(false);
+    }
+  }, [selectedNote]);
+
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
   const [conflictNote, setConflictNote] = useState<Note | null>(null);
@@ -795,6 +803,7 @@ export default function NotesPage({
     selectedGroupId,
     isMobile,
     mobilePanel,
+    zenMode,
   });
   const selectedNoteGroupValue = selectedNote
     ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
@@ -929,6 +938,8 @@ export default function NotesPage({
         shareLoading={shareLoading}
         shareError={shareError}
         onShareToggle={handleShareToggle}
+        zenMode={zenMode}
+        onToggleZenMode={() => setZenMode((prev) => !prev)}
       />
       <AccountSecurityPanel
         isOpen={isAccountSecurityOpen}

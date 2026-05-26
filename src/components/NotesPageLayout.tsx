@@ -113,6 +113,8 @@ type Props = {
   shareLoading: boolean;
   shareError: string | null;
   onShareToggle: () => void;
+  zenMode: boolean;
+  onToggleZenMode: () => void;
 };
 
 export function NotesPageLayout({
@@ -194,6 +196,8 @@ export function NotesPageLayout({
   shareLoading,
   shareError,
   onShareToggle,
+  zenMode,
+  onToggleZenMode,
 }: Props) {
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
@@ -214,6 +218,21 @@ export function NotesPageLayout({
     setContentMatchIndex(0);
   }, [content, searchQuery, selectedNote?.id]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "\\") {
+        if (selectedNote) {
+          event.preventDefault();
+          onToggleZenMode();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedNote, onToggleZenMode]);
+
   function goToPreviousContentMatch() {
     setContentMatchIndex(Math.max(0, activeContentMatchIndex - 1));
   }
@@ -230,7 +249,7 @@ export function NotesPageLayout({
         flexDirection: isMobile ? "column" : "row",
       }}
     >
-      {isMobile && (
+      {isMobile && !zenMode && (
         <nav style={styles.mobileTabs} aria-label="모바일 패널 전환">
           <button
             type="button"
@@ -500,7 +519,13 @@ export function NotesPageLayout({
       )}
 
       {showEditorPanel && (
-        <div style={{ ...styles.editor, ...(isMobile ? styles.editorMobile : {}) }}>
+        <div
+          style={{
+            ...styles.editor,
+            ...(isMobile ? styles.editorMobile : {}),
+            ...(zenMode && !isMobile ? styles.editorZen : {}),
+          }}
+        >
           {selectedNote ? (
             <>
               <div style={{ ...styles.editorToolbar, ...(isMobile ? styles.editorToolbarMobile : {}) }}>
@@ -597,6 +622,20 @@ export function NotesPageLayout({
                       </button>
                     )}
                     <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
+                    <button
+                      type="button"
+                      style={{
+                        ...(isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn),
+                        ...(zenMode ? styles.zenModeToggleBtnActive : {}),
+                      }}
+                      onClick={onToggleZenMode}
+                      aria-pressed={zenMode}
+                      aria-label="몰입 모드 토글 (Ctrl + \)"
+                      title="몰입 모드 토글 (Ctrl + \)"
+                    >
+                      <ZenIcon active={zenMode} />
+                      {!isMobile && (zenMode ? "몰입 해제" : "몰입 모드")}
+                    </button>
                     {!isSelectedNoteReadOnly && (
                       <ShareStatusPanel
                         styles={styles}
@@ -1077,6 +1116,45 @@ function SearchInfoIcon() {
       <path d="M16 16l5 5" />
       <path d="M10.5 8v.01" />
       <path d="M10.5 11v4" />
+    </svg>
+  );
+}
+
+function ZenIcon({ active }: { active: boolean }) {
+  if (active) {
+    return (
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" fill="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }

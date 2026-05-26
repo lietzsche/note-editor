@@ -1043,4 +1043,18 @@ export const styles: Record<string, CSSProperties> = {
     lineHeight: 1.6,
     color: "var(--color-text-primary)",
   },
+  editorZen: {
+    maxWidth: "800px",
+    margin: "0 auto",
+    width: "100%",
+    boxShadow: "var(--shadow-md), var(--shadow-inset)",
+  },
+  zenModeToggleBtnActive: {
+    background: "var(--color-bg-accent-soft)",
+    color: "var(--color-brand-primary)",
+    borderColor: "var(--color-brand-primary)",
+  },
+  mobileTabsHidden: {
+    display: "none",
+  },
 };
