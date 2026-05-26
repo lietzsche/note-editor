@@ -32,6 +32,7 @@ export default function LoginPage({ onLogin }: Props) {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   const usernameId = useId();
   const passwordId = useId();
@@ -70,56 +71,75 @@ export default function LoginPage({ onLogin }: Props) {
   return (
     <main className="auth-shell">
       <section className="auth-card" aria-labelledby="auth-title">
+        {/* 히어로 영역: 몽환적 그라디언트 오브제 데코레이션 중심 */}
         <div className="auth-hero">
           <div className="auth-headline">
-            <span className="auth-eyebrow">Note Editor Workspace</span>
+            <span className="auth-eyebrow">Note Editor</span>
             <h1 id="auth-title" className="auth-title">
-              노트와 작업 흐름을 바로 이어가는 개인 작업 공간
+              생각을 기록하고 흐름을 이어가다
             </h1>
             <p className="auth-copy">
-              로그인과 가입을 같은 화면에서 처리하되, 세션 정책과 복구 방식을 바로 이해할 수 있게 정리했습니다.
+              나만의 독립된 공간에서 안전하게 노트를 관리하고 생각을 정리해 보세요.
             </p>
           </div>
 
-          <div className="auth-storyboard" aria-hidden="true">
-            <article className="auth-story-card auth-story-card--spotlight">
-              <span className="auth-story-card__label">Workflow</span>
-              <strong className="auth-story-card__title">로그인 후 바로 이어지는 편집 흐름</strong>
-              <div className="auth-flow">
-                <span className="auth-flow__step">로그인</span>
-                <span className="auth-flow__divider" />
-                <span className="auth-flow__step">그룹 선택</span>
-                <span className="auth-flow__divider" />
-                <span className="auth-flow__step">노트 편집</span>
+          {/* 추상적인 몽환적 데코레이션 요소 */}
+          <div className="auth-hero__decorations" aria-hidden="true">
+            <div className="auth-hero__glow-sphere auth-hero__glow-sphere--1" />
+            <div className="auth-hero__glow-sphere auth-hero__glow-sphere--2" />
+            <div className="auth-hero__mockup">
+              <div className="auth-hero__mockup-bar" />
+              <div className="auth-hero__mockup-lines">
+                <span className="auth-hero__mockup-line" />
+                <span className="auth-hero__mockup-line auth-hero__mockup-line--short" />
               </div>
-            </article>
-
-            <div className="auth-storyboard__grid">
-              {SECURITY_CARDS.map((card) => (
-                <article key={card.label} className="auth-story-card">
-                  <span className="auth-story-card__label">{card.label}</span>
-                  <strong className="auth-story-card__title">{card.title}</strong>
-                  <p className="auth-story-card__body">{card.body}</p>
-                </article>
-              ))}
             </div>
           </div>
         </div>
 
+        {/* 로그인/가입 패널 영역 */}
         <div className="auth-panel">
-          <div className="auth-panel__inner">
+          {/* 정보 도움말 트리거 버튼 */}
+          <button
+            type="button"
+            className={`auth-info-trigger${showInfo ? " is-active" : ""}`}
+            onClick={() => setShowInfo(!showInfo)}
+            aria-label="보안 및 세션 정책 안내 보기"
+            aria-expanded={showInfo}
+          >
+            <svg
+              className="auth-info-icon"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </button>
+
+          <div className={`auth-panel__inner is-${mode}`}>
             <div className="auth-panel__header">
-              <span className="auth-panel__kicker">{isSignup ? "Create account" : "Sign in"}</span>
+              <span className="auth-panel__kicker">
+                {isSignup ? "Create account" : "Sign in"}
+              </span>
               <h2 className="auth-panel__title">
-                {isSignup ? "작업 공간을 만들고 바로 시작하세요" : "기존 작업 공간으로 들어갑니다"}
+                {isSignup ? "작업 공간 시작하기" : "작업 공간 진입하기"}
               </h2>
               <p className="auth-panel__subtitle">
                 {isSignup
-                  ? "가입 즉시 세션이 생성되고 노트 화면으로 이동합니다."
-                  : "로그인에 성공하면 보호된 노트 화면으로 바로 연결됩니다."}
+                  ? "가입 즉시 노트를 작성할 수 있는 개인 공간이 생성됩니다."
+                  : "기존 세션을 통해 안전하게 보호된 노트로 연결됩니다."}
               </p>
             </div>
 
+            {/* 깔끔한 미니멀 탭 전환 */}
             <div className="auth-switch" role="tablist" aria-label="인증 모드">
               <button
                 type="button"
@@ -139,15 +159,6 @@ export default function LoginPage({ onLogin }: Props) {
               >
                 회원가입
               </button>
-            </div>
-
-            <div className="auth-mode-note" aria-live="polite">
-              <strong>{isSignup ? "새 계정은 즉시 작업 가능한 상태로 열립니다." : "기존 세션이 없다면 다시 로그인해야 합니다."}</strong>
-              <p>
-                {isSignup
-                  ? "username과 비밀번호만 준비하면 됩니다. 별도 이메일 확인 절차는 없습니다."
-                  : "운영자가 비밀번호를 초기화했다면 전달받은 임시 비밀번호로 로그인하면 새 비밀번호 설정 화면이 바로 열립니다."}
-              </p>
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit}>
@@ -183,11 +194,11 @@ export default function LoginPage({ onLogin }: Props) {
                   aria-describedby={error ? errorId : undefined}
                   required
                 />
-                <span className="auth-field__hint">
-                  {isSignup
-                    ? "비밀번호는 최소 6자 이상이어야 합니다."
-                    : "로그인 실패가 누적되면 잠시 동안 시도가 제한됩니다."}
-                </span>
+                {isSignup && (
+                  <span className="auth-field__hint">
+                    비밀번호는 최소 6자 이상이어야 합니다.
+                  </span>
+                )}
               </div>
 
               {isSignup && (
@@ -199,7 +210,7 @@ export default function LoginPage({ onLogin }: Props) {
                     id={passwordConfirmId}
                     className="auth-field__input"
                     type="password"
-                    placeholder="같은 비밀번호를 다시 입력"
+                    placeholder="비밀번호를 다시 입력하세요"
                     value={passwordConfirm}
                     onChange={(event) => setPasswordConfirm(event.target.value)}
                     autoComplete="new-password"
@@ -216,23 +227,71 @@ export default function LoginPage({ onLogin }: Props) {
               )}
 
               <button className="auth-submit" type="submit" disabled={loading}>
-                {loading ? "처리 중..." : isSignup ? "계정 만들기" : "로그인하기"}
+                {loading ? (
+                  <span className="auth-submit__spinner" />
+                ) : isSignup ? (
+                  "계정 생성 및 시작"
+                ) : (
+                  "로그인하여 시작"
+                )}
               </button>
             </form>
+          </div>
+        </div>
+      </section>
 
-            <div className="auth-meta">
-              <div className="auth-meta__list" aria-label="인증 정책">
+      {/* 정보 도움말 오버레이 모달 (기존 복잡한 텍스트들을 깔끔히 흡수) */}
+      <div
+        className={`auth-info-backdrop${showInfo ? " is-visible" : ""}`}
+        onClick={() => setShowInfo(false)}
+        role="presentation"
+      >
+        <div
+          className="auth-info-modal"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="시스템 보안 및 세션 정책"
+        >
+          <div className="auth-info-modal__header">
+            <h3 className="auth-info-modal__title">Workspace 정책 및 보안</h3>
+            <button
+              type="button"
+              className="auth-info-modal__close"
+              onClick={() => setShowInfo(false)}
+              aria-label="닫기"
+            >
+              &times;
+            </button>
+          </div>
+          <div className="auth-info-modal__body">
+            <div className="auth-info-modal__grid">
+              {SECURITY_CARDS.map((card) => (
+                <article key={card.label} className="auth-info-modal__card">
+                  <span className="auth-info-modal__card-label">
+                    {card.label}
+                  </span>
+                  <strong className="auth-info-modal__card-title">
+                    {card.title}
+                  </strong>
+                  <p className="auth-info-modal__card-body">{card.body}</p>
+                </article>
+              ))}
+            </div>
+            <div className="auth-info-modal__footer">
+              <div className="auth-info-modal__chips" aria-label="보안 기술">
                 <span className="auth-chip">HttpOnly 쿠키</span>
                 <span className="auth-chip">SameSite=Lax</span>
                 <span className="auth-chip">감사 로그 기록</span>
               </div>
-              <p>
-                비밀번호를 잊은 경우 일반적인 찾기 기능 대신 운영자 계정 복구 흐름으로 임시 비밀번호를 발급받고, 로그인 직후 새 비밀번호로 전환합니다.
+              <p className="auth-info-modal__footer-text">
+                비밀번호를 분실하신 경우 일반적인 찾기 대신, 운영자를 통한 계정 복구 흐름을 통해 임시 비밀번호를 발급받은 뒤 로그인하여 새 비밀번호를 설정할 수 있습니다.
               </p>
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
+

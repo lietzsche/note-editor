@@ -90,10 +90,10 @@ describe("login page redesign", () => {
   it("renders the refreshed workspace-focused login screen", () => {
     const markup = renderToStaticMarkup(<LoginPage onLogin={() => {}} />);
 
-    expect(markup).toContain("개인 작업 공간");
+    expect(markup).toContain("생각을 기록하고 흐름을 이어가다");
     expect(markup).toContain("로그인");
     expect(markup).toContain("회원가입");
     expect(markup).toContain("운영자 계정 복구");
-    expect(markup).toContain("새 비밀번호 설정 화면");
+    expect(markup).toContain("새 비밀번호를 설정");
   });
 });
