@@ -1,7 +1,12 @@
 name = "note-editor"
+account_id = "7b3dcb1ab75d22c7ef4254754ac4a68e"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 main = "functions/api/[[path]].ts"
+
+[[routes]]
+pattern = "note.lietzsche.org"
+custom_domain = true
 
 [assets]
 directory = "./build"

@@ -1,7 +1,8 @@
 # DEPLOY.md
 
-- 문서 버전: v1.1
+- 문서 버전: v1.2
 - 작성일: 2026-04-11
+- 수정일: 2026-11-01
 - 목적: Cloudflare Workers + D1 배포 절차 표준화
 
 관련 문서:
@@ -17,6 +18,8 @@
 
 1. 프로젝트/DB 확정값
 - 프로젝트명: `note-editor`
+- Cloudflare 계정: `stxtory@gmail.com` (`7b3dcb1ab75d22c7ef4254754ac4a68e`)
+- 운영 URL: `https://note.lietzsche.org`
 - D1 DB명: `note-editor-db`
 - D1 database_id: `c633c65e-4033-4ae7-ba5b-d753e1cb557e`
 
@@ -62,6 +65,15 @@ npm run deploy
 ```
 
 > `npm run deploy` = `npm run build && npx wrangler deploy`
+
+`wrangler.toml`의 `routes`에 `note.lietzsche.org`를 `custom_domain = true`로
+등록한다. 도메인과 Worker는 위 계정에 있으며, Cloudflare가 DNS와 HTTPS
+인증서를 관리한다. 이후 배포도 같은 계정과 도메인 설정을 사용한다.
+
+2026-11-01에는 기존 운영 Worker에 Custom Domain을 연결했다.
+도메인 연결을 위해 앱 코드를 새로 배포하거나 D1 데이터를 변경하지 않았다.
+기존 주소의 브라우저 로그인과 로컬 저장 상태는 새 도메인으로 자동 이전되지
+않으므로, 새 주소에서 다시 로그인한다.
 
 배포 결과 URL, 시각, 담당자 기록.
 
