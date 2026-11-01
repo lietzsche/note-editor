@@ -45,7 +45,7 @@ export function ShareStatusPanel({
   useEffect(() => {
     if (!isOpen) return undefined;
 
-    function handlePointerDown(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent | MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
@@ -57,10 +57,10 @@ export function ShareStatusPanel({
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
@@ -443,15 +443,15 @@ const popoverStyles: Record<string, CSSProperties> = {
     position: "absolute",
     top: "calc(100% + 8px)",
     right: 0,
-    width: "min(320px, calc(100vw - 24px))",
+    width: "min(300px, calc(100vw - 24px))",
     padding: "14px",
     borderRadius: "var(--radius-lg)",
     border: "1px solid var(--color-border-default)",
     background: "var(--color-bg-surface)",
-    boxShadow: "var(--shadow-md)",
+    boxShadow: "var(--shadow-lg)",
     display: "grid",
     gap: "10px",
-    zIndex: 60,
+    zIndex: 80,
   },
   header: {
     display: "flex",

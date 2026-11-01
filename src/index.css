@@ -14,6 +14,7 @@ html {
 body {
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-family-base);
   background: var(--app-shell-bg);
   color: var(--color-text-primary);
@@ -51,6 +52,7 @@ body {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 button {

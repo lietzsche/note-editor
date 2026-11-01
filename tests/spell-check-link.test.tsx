@@ -368,6 +368,178 @@ describe("FEATURE-011 note search", () => {
     expect(markup).not.toContain("SEARCH MATCH");
     expect(markup).toContain("검색 정보");
   });
+
+  it("hides the mobile utility row and shows a direct Zen Mode exit button in the title row during mobile Zen Mode", () => {
+    const markup = renderToStaticMarkup(
+      <NotesPageLayout
+        styles={buildStyles()}
+        isMobile
+        mobilePanel="editor"
+        setMobilePanel={() => {}}
+        showGroupsPanel={false}
+        showNotesPanel={false}
+        showEditorPanel
+        username="tester"
+        groups={[{ id: "g-1", name: "업무", position: 0 }]}
+        selectedGroupId={null}
+        isTrashView={false}
+        currentGroupLabel="전체 노트"
+        defaultGroupId={null}
+        defaultGroupName="미분류"
+        groupListStatusLabel=""
+        noteListStatusLabel=""
+        notes={buildNotes()}
+        totalNotesCount={1}
+        notesLoadState="ready"
+        selectedNote={buildNote()}
+        searchQuery=""
+        selectedNoteGroupValue=""
+        title="title"
+        content="body"
+        saveLabel="saved"
+        saveStatus="saved"
+        selectedNoteDeletedAtLabel={null}
+        charCount={4}
+        countStatus="count-ready"
+        copyStatus="ready"
+        newGroupName=""
+        groupReorderBusy={false}
+        noteReorderBusy={false}
+        dialogMode={null}
+        dialogTitle=""
+        dialogDescription=""
+        primaryDialogLabel=""
+        isConflictDialog={false}
+        conflictNote={null}
+        hasPendingAction={false}
+        perfDebugEnabled={false}
+        perfSamples={[]}
+        onLogout={() => {}}
+        onOpenAccountSecurity={() => {}}
+        onSelectGroup={() => {}}
+        onRenameGroup={() => {}}
+        onDeleteGroup={() => {}}
+        onReorderGroups={() => {}}
+        onCreateGroup={(event) => event.preventDefault()}
+        onNewGroupNameChange={() => {}}
+        onCreateNote={() => {}}
+        onSearchQueryChange={() => {}}
+        onClearSearch={() => {}}
+        onSelectNote={() => {}}
+        onDeleteNote={() => {}}
+        onRestoreNote={() => {}}
+        onPermanentDeleteNote={() => {}}
+        onMoveNoteGroup={() => {}}
+        onReorderNotes={() => {}}
+        onTitleChange={() => {}}
+        onContentChange={() => {}}
+        onMoveSelectedNoteGroup={() => {}}
+        onRetrySave={() => {}}
+        onOpenConflictDialog={() => {}}
+        onCopy={() => {}}
+        onDialogPrimaryAction={() => {}}
+        onDialogDiscardAction={() => {}}
+        onDialogCancelAction={() => {}}
+        shareInfo={null}
+        shareLoading={false}
+        shareError={null}
+        onShareToggle={() => {}}
+        zenMode
+        onToggleZenMode={() => {}}
+      />
+    );
+
+    expect(markup).toContain("몰입 모드 해제");
+    expect(markup).toContain("노트 목록으로 돌아가기");
+    expect(markup).not.toContain("노트 공유 설정");
+    expect(markup).not.toContain("현재 노트 휴지통으로 이동");
+    expect(markup).not.toContain("모바일 패널 전환");
+  });
+
+  it("keeps group action buttons visible on mobile even for inactive groups", () => {
+    const markup = renderToStaticMarkup(
+      <NotesPageLayout
+        styles={buildStyles()}
+        isMobile
+        mobilePanel="groups"
+        setMobilePanel={() => {}}
+        showGroupsPanel
+        showNotesPanel={false}
+        showEditorPanel={false}
+        username="tester"
+        groups={[{ id: "g-1", name: "업무", position: 0 }]}
+        selectedGroupId={null}
+        isTrashView={false}
+        currentGroupLabel="전체 노트"
+        defaultGroupId={null}
+        defaultGroupName="미분류"
+        groupListStatusLabel=""
+        noteListStatusLabel=""
+        notes={buildNotes()}
+        totalNotesCount={1}
+        notesLoadState="ready"
+        selectedNote={null}
+        searchQuery=""
+        selectedNoteGroupValue=""
+        title=""
+        content=""
+        saveLabel="saved"
+        saveStatus="saved"
+        selectedNoteDeletedAtLabel={null}
+        charCount={0}
+        countStatus="count-ready"
+        copyStatus="ready"
+        newGroupName=""
+        groupReorderBusy={false}
+        noteReorderBusy={false}
+        dialogMode={null}
+        dialogTitle=""
+        dialogDescription=""
+        primaryDialogLabel=""
+        isConflictDialog={false}
+        conflictNote={null}
+        hasPendingAction={false}
+        perfDebugEnabled={false}
+        perfSamples={[]}
+        onLogout={() => {}}
+        onOpenAccountSecurity={() => {}}
+        onSelectGroup={() => {}}
+        onRenameGroup={() => {}}
+        onDeleteGroup={() => {}}
+        onReorderGroups={() => {}}
+        onCreateGroup={(event) => event.preventDefault()}
+        onNewGroupNameChange={() => {}}
+        onCreateNote={() => {}}
+        onSearchQueryChange={() => {}}
+        onClearSearch={() => {}}
+        onSelectNote={() => {}}
+        onDeleteNote={() => {}}
+        onRestoreNote={() => {}}
+        onPermanentDeleteNote={() => {}}
+        onMoveNoteGroup={() => {}}
+        onReorderNotes={() => {}}
+        onTitleChange={() => {}}
+        onContentChange={() => {}}
+        onMoveSelectedNoteGroup={() => {}}
+        onRetrySave={() => {}}
+        onOpenConflictDialog={() => {}}
+        onCopy={() => {}}
+        onDialogPrimaryAction={() => {}}
+        onDialogDiscardAction={() => {}}
+        onDialogCancelAction={() => {}}
+        shareInfo={null}
+        shareLoading={false}
+        shareError={null}
+        onShareToggle={() => {}}
+        zenMode={false}
+        onToggleZenMode={() => {}}
+      />
+    );
+
+    expect(markup).toContain("업무 그룹 이름 변경");
+    expect(markup).toContain("업무 그룹 삭제");
+    expect(markup).not.toContain("opacity:0");
+  });
 });
 
 function buildNote(): Note {

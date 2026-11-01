@@ -81,9 +81,9 @@ export function SpellCheckLink({
 
 const compactLinkStyle: CSSProperties = {
   justifyContent: "center",
-  minWidth: "44px",
-  minHeight: "44px",
-  width: "44px",
+  minWidth: "40px",
+  minHeight: "40px",
+  width: "40px",
   padding: 0,
   borderRadius: "999px",
   flexShrink: 0,

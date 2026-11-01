@@ -3,20 +3,25 @@ import type { CSSProperties } from "react";
 export const styles: Record<string, CSSProperties> = {
   layout: {
     display: "flex",
-    height: "100vh",
+    height: "100dvh",
+    minHeight: "100vh",
     overflow: "hidden",
     padding: "12px",
     gap: "10px",
     background: "var(--app-shell-bg)",
   },
   layoutMobile: {
-    padding: "4px",
-    gap: "4px",
+    height: "100dvh",
+    minHeight: "100dvh",
+    padding: "6px 6px calc(6px + env(safe-area-inset-bottom, 0px))",
+    gap: "6px",
   },
   mobileTabs: {
     display: "flex",
-    gap: "4px",
+    flexShrink: 0,
+    gap: "6px",
     padding: "4px",
+    marginTop: "auto",
     marginBottom: 0,
     border: "1px solid var(--color-border-subtle)",
     borderRadius: "var(--radius-lg)",
@@ -280,6 +285,9 @@ export const styles: Record<string, CSSProperties> = {
     fontSize: "12px",
     outline: "none",
   },
+  groupInputMobile: {
+    fontSize: "16px",
+  },
   addBtn: {
     minWidth: "44px",
     minHeight: "44px",
@@ -366,6 +374,10 @@ export const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-primary)",
     fontSize: "13px",
     outline: "none",
+  },
+  noteSearchInputMobile: {
+    minHeight: "42px",
+    fontSize: "16px",
   },
   noteSearchClearBtn: {
     minHeight: "40px",
@@ -552,12 +564,13 @@ export const styles: Record<string, CSSProperties> = {
   },
   editorUtilityRowMobile: {
     gap: "6px",
-    minHeight: "44px",
+    minHeight: "40px",
+    flexWrap: "wrap",
   },
   editorStatusCluster: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
     minWidth: 0,
     flexShrink: 0,
   },
@@ -568,11 +581,10 @@ export const styles: Record<string, CSSProperties> = {
     gap: "8px",
     minWidth: 0,
     flex: 1,
-    overflowX: "auto",
-    scrollbarWidth: "none",
+    flexWrap: "wrap",
   },
   editorActionClusterMobile: {
-    gap: "6px",
+    gap: "4px",
   },
   titleInput: {
     flex: 1,
@@ -610,10 +622,10 @@ export const styles: Record<string, CSSProperties> = {
     color: "var(--color-text-primary)",
   },
   groupPickerSelectMobile: {
-    maxWidth: "104px",
-    minHeight: "36px",
+    maxWidth: "108px",
+    minHeight: "38px",
     padding: "4px 26px 4px 8px",
-    fontSize: "12px",
+    fontSize: "16px",
   },
   toolbarRight: {
     display: "flex",
@@ -851,9 +863,9 @@ export const styles: Record<string, CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    minWidth: "44px",
-    width: "44px",
-    minHeight: "44px",
+    minWidth: "40px",
+    width: "40px",
+    minHeight: "40px",
     padding: 0,
     borderRadius: "999px",
     border: "1px solid var(--color-border-subtle)",

@@ -23,6 +23,7 @@ type Props = {
   groups: Group[];
   selectedGroupId: string | null;
   defaultGroupName: string;
+  isMobile?: boolean;
   disabled?: boolean;
   onSelectGroup: (groupId: string) => void;
   onRenameGroup: (groupId: string, groupName: string) => void;
@@ -33,6 +34,7 @@ type Props = {
 type RowProps = {
   group: Group;
   isActive: boolean;
+  isMobile: boolean;
   isSortingDisabled: boolean;
   showActions: boolean;
   onSelectGroup: (groupId: string) => void;
@@ -43,6 +45,7 @@ type RowProps = {
 function SortableGroupRow({
   group,
   isActive,
+  isMobile,
   isSortingDisabled,
   showActions,
   onSelectGroup,
@@ -101,7 +104,10 @@ function SortableGroupRow({
     setIsEditing(false);
   }
 
-  const showRowActions = showActions && (isActive || isHovered || isFocusedWithin || isEditing || isConfirmingDelete);
+  const showRowActions =
+    showActions &&
+    (isMobile || isActive || isHovered || isFocusedWithin || isEditing || isConfirmingDelete);
+  const showDragHandle = isMobile || isActive || isHovered || isFocusedWithin || isDragging;
 
   const rowStyle: CSSProperties = {
     ...styles.groupRow,
@@ -137,8 +143,9 @@ function SortableGroupRow({
         type="button"
         style={{
           ...styles.dragHandle,
+          ...(isMobile ? styles.dragHandleMobile : {}),
           ...(isActive ? styles.activeIconButton : {}),
-          ...(!isActive && !isHovered && !isFocusedWithin ? styles.subtleHandleHidden : {}),
+          ...(!showDragHandle ? styles.subtleHandleHidden : {}),
           ...(isSortingDisabled || isEditing ? styles.disabledHandle : {}),
         }}
         aria-label={`${group.name} 그룹 순서 변경`}
@@ -162,6 +169,7 @@ function SortableGroupRow({
             type="text"
             style={{
               ...styles.inlineEditInput,
+              ...(isMobile ? styles.inlineEditInputMobile : {}),
               ...(isActive ? styles.inlineEditInputActive : {}),
             }}
             value={draftName}
@@ -179,6 +187,7 @@ function SortableGroupRow({
             type="submit"
             style={{
               ...styles.iconButton,
+              ...(isMobile ? styles.iconButtonMobile : {}),
               ...(isActive ? styles.activeIconButton : {}),
             }}
             aria-label="그룹 이름 저장"
@@ -190,6 +199,7 @@ function SortableGroupRow({
             type="button"
             style={{
               ...styles.iconButton,
+              ...(isMobile ? styles.iconButtonMobile : {}),
               ...(isActive ? styles.activeIconButton : {}),
             }}
             onClick={cancelEditing}
@@ -203,7 +213,10 @@ function SortableGroupRow({
         <>
           <button
             type="button"
-            style={styles.groupSelectButton}
+            style={{
+              ...styles.groupSelectButton,
+              ...(isMobile ? styles.groupSelectButtonMobile : {}),
+            }}
             onClick={() => onSelectGroup(group.id)}
             aria-pressed={isActive}
           >
@@ -213,6 +226,7 @@ function SortableGroupRow({
             <div
               style={{
                 ...styles.groupActionButtons,
+                ...(isMobile ? styles.groupActionButtonsMobile : {}),
                 ...(!showRowActions ? styles.subtleHandleHidden : {}),
               }}
             >
@@ -220,7 +234,10 @@ function SortableGroupRow({
                 <>
                   <button
                     type="button"
-                    style={styles.dangerConfirmButton}
+                    style={{
+                      ...styles.dangerConfirmButton,
+                      ...(isMobile ? styles.dangerConfirmButtonMobile : {}),
+                    }}
                     onClick={() => {
                       setIsConfirmingDelete(false);
                       onDeleteGroup(group.id, group.name);
@@ -234,6 +251,7 @@ function SortableGroupRow({
                     type="button"
                     style={{
                       ...styles.iconButton,
+                      ...(isMobile ? styles.iconButtonMobile : {}),
                       ...(isActive ? styles.activeIconButton : {}),
                     }}
                     onClick={() => setIsConfirmingDelete(false)}
@@ -248,6 +266,7 @@ function SortableGroupRow({
                     type="button"
                     style={{
                       ...styles.iconButton,
+                      ...(isMobile ? styles.iconButtonMobile : {}),
                       ...(isActive ? styles.activeIconButton : {}),
                     }}
                     onClick={startEditing}
@@ -260,6 +279,7 @@ function SortableGroupRow({
                     type="button"
                     style={{
                       ...styles.iconButton,
+                      ...(isMobile ? styles.iconButtonMobile : {}),
                       ...(isActive ? styles.activeIconButton : {}),
                     }}
                     onClick={() => setIsConfirmingDelete(true)}
@@ -282,6 +302,7 @@ export function SortableGroupList({
   groups,
   selectedGroupId,
   defaultGroupName,
+  isMobile = false,
   disabled = false,
   onSelectGroup,
   onRenameGroup,
@@ -321,6 +342,7 @@ export function SortableGroupList({
             key={group.id}
             group={group}
             isActive={selectedGroupId === group.id}
+            isMobile={isMobile}
             isSortingDisabled={isSortingDisabled}
             showActions={group.name !== defaultGroupName}
             onSelectGroup={onSelectGroup}
@@ -364,6 +386,10 @@ const styles = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
+  groupSelectButtonMobile: {
+    minHeight: "44px",
+    fontSize: "14px",
+  } satisfies CSSProperties,
   inlineEditForm: {
     flex: 1,
     minWidth: 0,
@@ -384,6 +410,10 @@ const styles = {
     fontSize: "12px",
     outline: "none",
   } satisfies CSSProperties,
+  inlineEditInputMobile: {
+    minHeight: "38px",
+    fontSize: "16px",
+  } satisfies CSSProperties,
   inlineEditInputActive: {
     borderColor: "var(--color-brand-primary)",
   } satisfies CSSProperties,
@@ -393,6 +423,10 @@ const styles = {
     gap: "2px",
     paddingRight: "4px",
     transition: "opacity var(--motion-fast) var(--easing-standard)",
+  } satisfies CSSProperties,
+  groupActionButtonsMobile: {
+    gap: "4px",
+    paddingRight: "6px",
   } satisfies CSSProperties,
   dragHandle: {
     minWidth: "28px",
@@ -408,6 +442,13 @@ const styles = {
     lineHeight: 1,
     opacity: 0.65,
     transition: "opacity var(--motion-fast) var(--easing-standard)",
+  } satisfies CSSProperties,
+  dragHandleMobile: {
+    minWidth: "36px",
+    width: "36px",
+    minHeight: "44px",
+    fontSize: "16px",
+    opacity: 0.8,
   } satisfies CSSProperties,
   subtleHandleHidden: {
     opacity: 0,
@@ -428,6 +469,13 @@ const styles = {
     minHeight: "28px",
     flexShrink: 0,
   } satisfies CSSProperties,
+  iconButtonMobile: {
+    border: "1px solid color-mix(in srgb, currentColor 20%, transparent)",
+    fontSize: "12px",
+    padding: "0 10px",
+    minHeight: "36px",
+    opacity: 0.92,
+  } satisfies CSSProperties,
   dangerConfirmButton: {
     background: "var(--color-danger)",
     border: "1px solid var(--color-danger)",
@@ -439,6 +487,11 @@ const styles = {
     padding: "0 8px",
     minHeight: "28px",
     flexShrink: 0,
+  } satisfies CSSProperties,
+  dangerConfirmButtonMobile: {
+    fontSize: "12px",
+    padding: "0 10px",
+    minHeight: "36px",
   } satisfies CSSProperties,
   activeIconButton: {
     color: "inherit",

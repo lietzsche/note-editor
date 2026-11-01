@@ -93,6 +93,12 @@ export default function NotesPage({
     }
   }, [selectedNote]);
 
+  useEffect(() => {
+    if (isMobile && mobilePanel !== "editor" && zenMode) {
+      setZenMode(false);
+    }
+  }, [isMobile, mobilePanel, zenMode]);
+
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
   const [conflictNote, setConflictNote] = useState<Note | null>(null);

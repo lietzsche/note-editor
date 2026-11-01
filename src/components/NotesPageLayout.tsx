@@ -262,56 +262,6 @@ export function NotesPageLayout({
         flexDirection: isMobile ? "column" : "row",
       }}
     >
-      {isMobile && !zenMode && (
-        <nav style={styles.mobileTabs} aria-label="모바일 패널 전환">
-          <button
-            type="button"
-            style={{
-              ...styles.mobileTabButton,
-              ...(mobilePanel === "groups" ? styles.mobileTabButtonActive : {}),
-            }}
-            onClick={() => setMobilePanel("groups")}
-            aria-pressed={mobilePanel === "groups"}
-            aria-label="그룹 패널"
-            title="그룹"
-          >
-            <GroupsIcon />
-            <span>그룹</span>
-          </button>
-          <button
-            type="button"
-            style={{
-              ...styles.mobileTabButton,
-              ...(mobilePanel === "notes" ? styles.mobileTabButtonActive : {}),
-            }}
-            onClick={() => setMobilePanel("notes")}
-            aria-pressed={mobilePanel === "notes"}
-            aria-label="노트 목록 패널"
-            title="노트"
-          >
-            <NotesIcon />
-            <span>노트</span>
-          </button>
-          <button
-            type="button"
-            style={{
-              ...styles.mobileTabButton,
-              ...(mobilePanel === "editor" ? styles.mobileTabButtonActive : {}),
-            }}
-            onClick={() => {
-              if (selectedNote) setMobilePanel("editor");
-            }}
-            aria-pressed={mobilePanel === "editor"}
-            disabled={!selectedNote}
-            aria-label="편집 패널"
-            title="편집"
-          >
-            <EditIcon />
-            <span>편집</span>
-          </button>
-        </nav>
-      )}
-
       {showGroupsPanel && (
         <aside
           style={{
@@ -387,6 +337,7 @@ export function NotesPageLayout({
               groups={groups}
               selectedGroupId={selectedGroupId}
               defaultGroupName={defaultGroupName}
+              isMobile={isMobile}
               disabled={groupReorderBusy}
               onSelectGroup={onSelectGroup}
               onRenameGroup={onRenameGroup}
@@ -397,7 +348,7 @@ export function NotesPageLayout({
 
           <form onSubmit={onCreateGroup} style={styles.newGroupForm}>
             <input
-              style={styles.groupInput}
+              style={{ ...styles.groupInput, ...(isMobile ? styles.groupInputMobile : {}) }}
               placeholder="새 그룹 이름..."
               value={newGroupName}
               onChange={onNewGroupNameChange}
@@ -486,7 +437,7 @@ export function NotesPageLayout({
                 onChange={onSearchQueryChange}
                 placeholder="노트 검색..."
                 aria-label="노트 검색"
-                style={styles.noteSearchInput}
+                style={{ ...styles.noteSearchInput, ...(isMobile ? styles.noteSearchInputMobile : {}) }}
               />
               {searchQuery.trim() && (
                 <button
@@ -563,7 +514,12 @@ export function NotesPageLayout({
                     <button
                       type="button"
                       style={styles.mobileBackBtn}
-                      onClick={() => setMobilePanel("notes")}
+                      onClick={() => {
+                        if (zenMode) {
+                          onToggleZenMode();
+                        }
+                        setMobilePanel("notes");
+                      }}
                       aria-label="노트 목록으로 돌아가기"
                       title="노트 목록"
                     >
@@ -581,7 +537,7 @@ export function NotesPageLayout({
                     aria-label="노트 제목"
                     readOnly={isSelectedNoteReadOnly}
                   />
-                  {groups.length > 0 && (
+                  {groups.length > 0 && (!isMobile || !zenMode) && (
                     <label style={{ ...styles.groupPicker, ...(isMobile ? styles.groupPickerMobile : {}) }}>
                       <span style={{ ...styles.groupPickerLabel, ...(isMobile ? styles.visuallyHidden : {}) }}>
                         그룹
@@ -603,7 +559,23 @@ export function NotesPageLayout({
                       </select>
                     </label>
                   )}
+                  {isMobile && zenMode && (
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.toolbarIconButton,
+                        ...styles.zenModeToggleBtnActive,
+                      }}
+                      onClick={onToggleZenMode}
+                      aria-pressed={zenMode}
+                      aria-label="몰입 모드 해제"
+                      title="몰입 모드 해제"
+                    >
+                      <ZenIcon active={zenMode} />
+                    </button>
+                  )}
                 </div>
+                {(!isMobile || !zenMode) && (
                 <div style={{ ...styles.editorUtilityRow, ...(isMobile ? styles.editorUtilityRowMobile : {}) }}>
                   <div style={styles.editorStatusCluster} aria-live="polite">
                     <span
@@ -703,6 +675,7 @@ export function NotesPageLayout({
                     )}
                   </div>
                 </div>
+                )}
               </div>
               {showSearchContextPanel && (
                 <div style={styles.searchContextPanel} aria-live="polite">
@@ -860,6 +833,56 @@ export function NotesPageLayout({
             </div>
           )}
         </div>
+      )}
+
+      {isMobile && !zenMode && (
+        <nav style={styles.mobileTabs} aria-label="모바일 패널 전환">
+          <button
+            type="button"
+            style={{
+              ...styles.mobileTabButton,
+              ...(mobilePanel === "groups" ? styles.mobileTabButtonActive : {}),
+            }}
+            onClick={() => setMobilePanel("groups")}
+            aria-pressed={mobilePanel === "groups"}
+            aria-label="그룹 패널"
+            title="그룹"
+          >
+            <GroupsIcon />
+            <span>그룹</span>
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.mobileTabButton,
+              ...(mobilePanel === "notes" ? styles.mobileTabButtonActive : {}),
+            }}
+            onClick={() => setMobilePanel("notes")}
+            aria-pressed={mobilePanel === "notes"}
+            aria-label="노트 목록 패널"
+            title="노트"
+          >
+            <NotesIcon />
+            <span>노트</span>
+          </button>
+          <button
+            type="button"
+            style={{
+              ...styles.mobileTabButton,
+              ...(mobilePanel === "editor" ? styles.mobileTabButtonActive : {}),
+            }}
+            onClick={() => {
+              if (selectedNote) setMobilePanel("editor");
+            }}
+            aria-pressed={mobilePanel === "editor"}
+            disabled={!selectedNote}
+            aria-label="편집 패널"
+            title="편집"
+          >
+            <EditIcon />
+            <span>편집</span>
+          </button>
+        </nav>
       )}
 
       {dialogMode && (
