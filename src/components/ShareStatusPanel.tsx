@@ -1,4 +1,5 @@
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { copyText } from "../lib/editorProductivity";
 
 export type ShareInfo = {
   share_token: string | null;
@@ -8,7 +9,7 @@ export type ShareInfo = {
   share_url: string | null;
 } | null;
 
-type ShareStatusPanelSize = "xs" | "sm" | "md";
+type ShareStatusPanelSize = "xs" | "sm" | "md" | "popover";
 
 type Props = {
   styles: Record<string, CSSProperties>;
@@ -17,6 +18,7 @@ type Props = {
   shareError: string | null;
   onShareToggle: () => void;
   size?: ShareStatusPanelSize;
+  compactTrigger?: boolean;
 };
 
 export function ShareStatusPanel({
@@ -26,13 +28,179 @@ export function ShareStatusPanel({
   shareError,
   onShareToggle,
   size = "md",
+  compactTrigger = false,
 }: Props) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "success" | "error">("idle");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
   const isActive = Boolean(shareInfo?.is_active && shareInfo.share_url);
   const iconOnly = size === "xs";
-  const compact = size !== "md";
+  const isPopover = size === "popover";
+  const compact = size === "sm" || size === "xs";
   const shareUrl = shareInfo?.share_url ?? "#";
   const statusLabel = shareLoading ? "처리 중" : isActive ? "공유 중" : "비공개";
   const actionLabel = shareLoading ? "공유 처리 중" : isActive ? "공유 끄기" : "공유 링크 만들기";
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (copyState === "idle") return undefined;
+    const timer = setTimeout(() => setCopyState("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [copyState]);
+
+  async function handleCopyShareLink() {
+    if (!shareInfo?.share_url) return;
+    const fullUrl =
+      typeof window !== "undefined" && shareInfo.share_url.startsWith("/")
+        ? `${window.location.origin}${shareInfo.share_url}`
+        : shareInfo.share_url;
+    const result = await copyText(
+      typeof navigator !== "undefined" ? navigator.clipboard : null,
+      fullUrl
+    );
+    setCopyState(result === "success" ? "success" : "error");
+  }
+
+  if (isPopover) {
+    return (
+      <div ref={containerRef} style={popoverStyles.wrapper}>
+        <button
+          type="button"
+          style={{
+            ...(compactTrigger ? styles.toolbarIconButton : styles.secondaryActionBtn),
+            ...(isActive ? popoverStyles.triggerActive : {}),
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
+          aria-label={`노트 공유 설정 (${statusLabel})`}
+          title={`노트 공유 설정 (${statusLabel})`}
+        >
+          {shareLoading ? <LoadingIcon /> : <ShareIcon />}
+          {!compactTrigger && (
+            <>
+              <span>공유</span>
+              {isActive && <span style={popoverStyles.activeDot} aria-hidden="true" />}
+            </>
+          )}
+        </button>
+
+        {isOpen && (
+          <section
+            style={popoverStyles.card}
+            role="dialog"
+            aria-label="노트 공유 설정"
+            aria-live="polite"
+          >
+            <div style={popoverStyles.header}>
+              <div style={popoverStyles.headerCopy}>
+                <span style={styles.shareStatusEyebrow}>PUBLIC SHARE</span>
+                <strong style={styles.shareStatusTitle}>
+                  {isActive ? "공개 링크가 켜져 있습니다" : "비공개 노트입니다"}
+                </strong>
+              </div>
+              <span
+                style={{
+                  ...styles.shareStatusBadge,
+                  ...(isActive ? styles.shareStatusBadgeActive : {}),
+                }}
+              >
+                {statusLabel}
+              </span>
+            </div>
+
+            <p style={styles.shareStatusDescription}>
+              {isActive
+                ? "링크를 가진 사람은 누구나 읽기 전용으로 열람할 수 있습니다."
+                : "공개 링크를 생성하면 로그인 없이 노트를 읽을 수 있습니다."}
+            </p>
+
+            {shareError && (
+              <div style={styles.shareStatusError} role="alert">
+                {shareError}
+              </div>
+            )}
+
+            {isActive && (
+              <div style={popoverStyles.linkSection}>
+                <div style={popoverStyles.urlRow}>
+                  <code style={popoverStyles.urlCode}>{shareUrl}</code>
+                  <button
+                    type="button"
+                    style={popoverStyles.copyBtn}
+                    onClick={() => {
+                      void handleCopyShareLink();
+                    }}
+                  >
+                    {copyState === "success"
+                      ? "복사됨!"
+                      : copyState === "error"
+                        ? "실패"
+                        : "링크 복사"}
+                  </button>
+                </div>
+                <div style={popoverStyles.metaRow}>
+                  <span style={styles.shareMeta}>
+                    조회 {shareInfo?.access_count ?? 0}회 · {formatExpiry(shareInfo?.expires_at ?? null)}
+                  </span>
+                  <a
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.shareLink}
+                  >
+                    새 탭에서 열기 ↗
+                  </a>
+                </div>
+              </div>
+            )}
+
+            <div style={popoverStyles.footer}>
+              <button
+                type="button"
+                style={{
+                  ...styles.secondaryActionBtn,
+                  ...(isActive ? styles.shareStopButton : styles.shareStartButton),
+                  width: "100%",
+                  justifyContent: "center",
+                }}
+                onClick={onShareToggle}
+                disabled={shareLoading}
+              >
+                {shareLoading ? "처리 중..." : isActive ? "공유 끄기" : "공유 링크 만들기"}
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
 
   if (iconOnly) {
     return (
@@ -253,3 +421,94 @@ function formatExpiry(expiresAt: string | null) {
 
   return `${date.toLocaleString("ko-KR")} 만료`;
 }
+
+const popoverStyles: Record<string, CSSProperties> = {
+  wrapper: {
+    position: "relative",
+    display: "inline-flex",
+    flexShrink: 0,
+  },
+  triggerActive: {
+    borderColor: "color-mix(in srgb, var(--color-success) 40%, var(--color-border-subtle))",
+    background: "color-mix(in srgb, var(--color-success) 10%, var(--app-control-bg))",
+    color: "var(--color-success)",
+  },
+  activeDot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "999px",
+    background: "var(--color-success)",
+  },
+  card: {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    right: 0,
+    width: "min(320px, calc(100vw - 24px))",
+    padding: "14px",
+    borderRadius: "var(--radius-lg)",
+    border: "1px solid var(--color-border-default)",
+    background: "var(--color-bg-surface)",
+    boxShadow: "var(--shadow-md)",
+    display: "grid",
+    gap: "10px",
+    zIndex: 60,
+  },
+  header: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "8px",
+  },
+  headerCopy: {
+    display: "grid",
+    gap: "2px",
+    minWidth: 0,
+  },
+  linkSection: {
+    display: "grid",
+    gap: "8px",
+    padding: "10px",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--color-border-subtle)",
+    background: "var(--app-control-bg)",
+  },
+  urlRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  urlCode: {
+    flex: 1,
+    minWidth: 0,
+    padding: "6px 8px",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-bg-canvas)",
+    border: "1px solid var(--color-border-subtle)",
+    color: "var(--color-text-primary)",
+    fontSize: "12px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  copyBtn: {
+    minHeight: "30px",
+    padding: "0 10px",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--color-bg-emphasis)",
+    color: "var(--color-text-inverse)",
+    fontSize: "11px",
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  metaRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  footer: {
+    display: "flex",
+    paddingTop: "4px",
+  },
+};

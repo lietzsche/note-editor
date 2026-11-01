@@ -105,6 +105,8 @@ describe("FEATURE-010 editor toolbar integration", () => {
 
     expect(markup).toContain("맞춤법 검사");
     expect(markup).toContain(SPELL_CHECK_URL);
+    expect(markup).toContain("노트 공유 설정");
+    expect(markup).toContain("현재 노트 휴지통으로 이동");
   });
 });
 

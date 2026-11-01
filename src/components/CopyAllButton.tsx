@@ -9,14 +9,17 @@ type Props = {
 };
 
 const baseStyle: CSSProperties = {
-  minHeight: "44px",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "5px",
+  minHeight: "36px",
   padding: "4px 12px",
   color: "var(--color-brand-contrast)",
   border: "none",
-  borderRadius: "var(--radius)",
+  borderRadius: "999px",
   cursor: "pointer",
   fontSize: "12px",
-  fontWeight: 500,
+  fontWeight: 600,
 };
 
 export function CopyAllButton({
@@ -51,7 +54,8 @@ export function CopyAllButton({
       aria-label={label}
       title={label}
     >
-      {compact ? <CopyIcon /> : label}
+      <CopyIcon />
+      {!compact && <span>{label}</span>}
     </button>
   );
 }
@@ -62,6 +66,7 @@ const compactStyle: CSSProperties = {
   justifyContent: "center",
   minWidth: "44px",
   width: "44px",
+  minHeight: "44px",
   padding: 0,
   borderRadius: "999px",
   flexShrink: 0,

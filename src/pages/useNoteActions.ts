@@ -23,7 +23,7 @@ type UseNoteActionsArgs = {
   hasBlockingEdits: () => boolean;
   openTransitionDialog: (action: PendingAction) => void;
   clearSelectedNoteView: () => void;
-  openNote: (note: Note) => void;
+  openNote: (note: Note, options?: { isNewlyCreated?: boolean }) => void;
   loadNotes: (groupId?: string, options?: { preferCache?: boolean }) => Promise<Note[]>;
   applyCreatedNoteToCaches: (note: Note) => void;
   setNotesForScope: (groupId: string | null, nextNotes: Note[]) => void;
@@ -84,12 +84,12 @@ export function useNoteActions({
     if (selectedGroupId === TRASH_NOTES_SCOPE_KEY) return;
 
     const note = await api.notes.create({
-      title: "새 노트",
+      title: "제목 없음",
       group_id: selectedGroupId ?? undefined,
     });
     applyCreatedNoteToCaches(note);
     setNotesForScope(selectedGroupId, sortNotesByOrder([...notes, note]));
-    openNote(note);
+    openNote(note, { isNewlyCreated: true });
   }, [applyCreatedNoteToCaches, notes, openNote, selectedGroupId, setNotesForScope]);
 
   const createNote = useCallback(async () => {
@@ -123,12 +123,10 @@ export function useNoteActions({
       return;
     }
 
-    if (!window.confirm("노트를 휴지통으로 이동할까요?")) return;
     await trashNoteImmediately(id);
   }, [hasBlockingEdits, notes, openTransitionDialog, selectedNote, trashNoteImmediately]);
 
   const restoreNote = useCallback(async (id: string) => {
-    if (!window.confirm("노트를 복원할까요?")) return;
     const restoredNote = await api.notes.restore(id);
     restoreNoteFromTrashInCaches(restoredNote);
 
@@ -138,7 +136,6 @@ export function useNoteActions({
   }, [clearSelectedNoteView, restoreNoteFromTrashInCaches, selectedNote]);
 
   const permanentDeleteNote = useCallback(async (id: string) => {
-    if (!window.confirm("이 노트를 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
     await api.notes.permanentDelete(id);
     removeNoteFromCaches(id);
 
@@ -192,12 +189,9 @@ export function useNoteActions({
     }
   }, [newGroupName, setNewGroupName, upsertGroup]);
 
-  const handleRenameGroup = useCallback(async (id: string, currentName: string) => {
-    const nextName = window.prompt("새 그룹 이름을 입력하세요.", currentName);
-    if (nextName === null) return;
-
+  const handleRenameGroup = useCallback(async (id: string, nextName: string) => {
     const normalizedName = nextName.trim();
-    if (!normalizedName || normalizedName === currentName) return;
+    if (!normalizedName) return;
 
     try {
       const updatedGroup = await api.groups.update(id, normalizedName);
@@ -207,8 +201,7 @@ export function useNoteActions({
     }
   }, [upsertGroup]);
 
-  const handleDeleteGroup = useCallback(async (id: string, name: string) => {
-    if (!window.confirm(`"${name}" 그룹을 삭제할까요? 해당 노트는 미분류로 이동합니다.`)) return;
+  const handleDeleteGroup = useCallback(async (id: string) => {
     const wasSelectedGroup = selectedGroupId === id;
     const selectedNoteWasInGroup = selectedNote?.group_id === id;
 

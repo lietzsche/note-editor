@@ -10,11 +10,13 @@ type Props = {
   guidanceStyle?: CSSProperties;
   containerStyle?: CSSProperties;
   compact?: boolean;
+  hideGuidance?: boolean;
 };
 
 const linkStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
+  gap: "5px",
   minHeight: "36px",
   padding: "4px 10px",
   borderRadius: "var(--radius)",
@@ -49,20 +51,26 @@ export function SpellCheckLink({
   guidanceStyle,
   containerStyle,
   compact = false,
+  hideGuidance = false,
 }: Props) {
+  const tooltipText = hideGuidance
+    ? `${SPELL_CHECK_TOOLTIP} (${SPELL_CHECK_GUIDANCE})`
+    : SPELL_CHECK_TOOLTIP;
+
   return (
     <div style={{ ...containerBaseStyle, ...containerStyle }}>
       <a
         href={SPELL_CHECK_URL}
         target="_blank"
         rel="noopener noreferrer"
-        title={SPELL_CHECK_TOOLTIP}
+        title={tooltipText}
         aria-label="맞춤법 검사 새 탭에서 열기"
         style={{ ...linkStyle, ...(compact ? compactLinkStyle : {}), ...style }}
       >
-        {compact ? <SpellCheckIcon /> : "맞춤법 검사"}
+        <SpellCheckIcon />
+        {!compact && <span>맞춤법 검사</span>}
       </a>
-      {!compact && (
+      {!compact && !hideGuidance && (
         <span style={{ ...defaultGuidanceStyle, ...guidanceStyle }}>
           {SPELL_CHECK_GUIDANCE}
         </span>

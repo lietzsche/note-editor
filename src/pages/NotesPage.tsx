@@ -83,8 +83,9 @@ export default function NotesPage({
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
-  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("groups");
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
   const [zenMode, setZenMode] = useState(false);
+  const [titleInputFocusKey, setTitleInputFocusKey] = useState(0);
 
   useEffect(() => {
     if (!selectedNote) {
@@ -632,14 +633,15 @@ export default function NotesPage({
     }
   }
 
-  function openNote(note: Note) {
+  function openNote(note: Note, options?: { isNewlyCreated?: boolean }) {
     const noteOpenStart = PERF_DEBUG_ENABLED ? performance.now() : 0;
     const nextEditorState = getOpenedNoteEditorState({ note, isMobile });
+    const initialDraftTitle = options?.isNewlyCreated ? "" : nextEditorState.title;
 
     resetPersistenceSession();
     selectedNoteIdRef.current = note.id;
     selectedNoteUpdatedAtRef.current = note.updated_at;
-    titleRef.current = note.title;
+    titleRef.current = initialDraftTitle;
     contentRef.current = note.content;
     conflictNoteRef.current = null;
     if (note.deleted_at == null) {
@@ -647,7 +649,7 @@ export default function NotesPage({
     }
     startTransition(() => {
       setSelectedNote(nextEditorState.selectedNote);
-      setTitle(nextEditorState.title);
+      setTitle(initialDraftTitle);
       setContent(nextEditorState.content);
       setSaveStatus(nextEditorState.saveStatus);
       setCopyStatus(nextEditorState.copyStatus);
@@ -657,6 +659,9 @@ export default function NotesPage({
       setDialogMode(nextEditorState.dialogMode);
       if (nextEditorState.mobilePanel) {
         setMobilePanel(nextEditorState.mobilePanel);
+      }
+      if (options?.isNewlyCreated) {
+        setTitleInputFocusKey((prev) => prev + 1);
       }
     });
 
@@ -881,8 +886,8 @@ export default function NotesPage({
         onRenameGroup={(groupId, groupName) => {
           void handleRenameGroup(groupId, groupName);
         }}
-        onDeleteGroup={(groupId, groupName) => {
-          void handleDeleteGroup(groupId, groupName);
+        onDeleteGroup={(groupId) => {
+          void handleDeleteGroup(groupId);
         }}
         onReorderGroups={(nextGroups) => {
           void handleGroupReorder(nextGroups);
@@ -940,6 +945,7 @@ export default function NotesPage({
         onShareToggle={handleShareToggle}
         zenMode={zenMode}
         onToggleZenMode={() => setZenMode((prev) => !prev)}
+        titleInputFocusKey={titleInputFocusKey}
       />
       <AccountSecurityPanel
         isOpen={isAccountSecurityOpen}

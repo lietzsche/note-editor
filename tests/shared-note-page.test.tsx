@@ -35,6 +35,7 @@ describe("SharedNoteView", () => {
     expect(markup).toContain("읽기 전용 공유 노트");
     expect(markup).toContain("공유된 노트");
     expect(markup).toContain("첫 줄");
+    expect(markup).toContain("전체 복사");
     expect(markup).toContain("이 화면에서는 노트를 수정할 수 없습니다.");
   });
 });

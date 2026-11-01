@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type ChangeEventHandler,
   type CSSProperties,
@@ -115,6 +116,7 @@ type Props = {
   onShareToggle: () => void;
   zenMode: boolean;
   onToggleZenMode: () => void;
+  titleInputFocusKey?: number;
 };
 
 export function NotesPageLayout({
@@ -198,8 +200,11 @@ export function NotesPageLayout({
   onShareToggle,
   zenMode,
   onToggleZenMode,
+  titleInputFocusKey = 0,
 }: Props) {
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
+  const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
   const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());
   const titleMatch = isEditorSearchActive ? findMatchRange(title, searchQuery) : null;
@@ -216,7 +221,15 @@ export function NotesPageLayout({
 
   useEffect(() => {
     setContentMatchIndex(0);
+    setConfirmingEditorPermanentDelete(false);
   }, [content, searchQuery, selectedNote?.id]);
+
+  useEffect(() => {
+    if (titleInputFocusKey > 0 && titleInputRef.current && !isSelectedNoteReadOnly) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [titleInputFocusKey, isSelectedNoteReadOnly]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -263,7 +276,7 @@ export function NotesPageLayout({
             title="그룹"
           >
             <GroupsIcon />
-            <span style={styles.visuallyHidden}>그룹</span>
+            <span>그룹</span>
           </button>
           <button
             type="button"
@@ -277,7 +290,7 @@ export function NotesPageLayout({
             title="노트"
           >
             <NotesIcon />
-            <span style={styles.visuallyHidden}>노트</span>
+            <span>노트</span>
           </button>
           <button
             type="button"
@@ -294,7 +307,7 @@ export function NotesPageLayout({
             title="편집"
           >
             <EditIcon />
-            <span style={styles.visuallyHidden}>편집</span>
+            <span>편집</span>
           </button>
         </nav>
       )}
@@ -312,59 +325,26 @@ export function NotesPageLayout({
         >
           <div style={styles.sidebarHeader}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-              <span style={{ fontWeight: 700, fontSize: "var(--font-size-lg)", whiteSpace: "nowrap" }}>노트 그룹</span>
-              <div style={isMobile ? styles.mobileHeaderActions : { display: "flex", gap: "8px", alignItems: "center" }}>
-                <ThemeToggle compact />
-                {showAdminConsoleButton && onOpenAdminConsole && (
-                  <button
-                    type="button"
-                    style={isMobile ? styles.mobileHeaderIconButton : styles.adminBtn}
-                    onClick={onOpenAdminConsole}
-                    aria-label="운영 패널 열기"
-                    title="운영 패널 열기"
-                  >
-                    {isMobile ? <AdminIcon /> : "운영"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  style={isMobile ? styles.mobileHeaderIconButton : styles.logoutBtn}
-                  onClick={onLogout}
-                  title="로그아웃"
-                  aria-label="로그아웃"
-                >
-                  {isMobile ? <LogoutIcon /> : "로그아웃"}
-                </button>
-              </div>
+              <span style={{ fontWeight: 700, fontSize: "var(--font-size-md)", whiteSpace: "nowrap" }}>노트 그룹</span>
+              <ThemeToggle compact />
             </div>
           </div>
-          <div style={styles.userInfo}>
-            <div style={styles.userInfoHeader}>
-              <div style={styles.userIdentity}>
-                <span style={styles.userInfoLabel}>로그인 계정</span>
-                <strong style={styles.userInfoName}>@{username}</strong>
-              </div>
+
+          {passwordChangeRequired && (
+            <div style={styles.userInfoAlertBanner}>
+              <p style={styles.userInfoAlert}>
+                임시 비밀번호로 로그인했습니다. 계속 사용하려면 새 비밀번호를 설정하세요.
+              </p>
               <button
                 type="button"
-                style={{
-                  ...(isMobile ? styles.accountIconButton : styles.accountBtn),
-                  ...(passwordChangeRequired ? styles.accountBtnAlert : {}),
-                }}
+                style={{ ...styles.accountBtn, ...styles.accountBtnAlert }}
                 onClick={onOpenAccountSecurity}
-                aria-label={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
-                title={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
               >
-                {isMobile ? <SecurityIcon alert={passwordChangeRequired} /> : passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+                새 비밀번호 설정
               </button>
             </div>
-            <p
-              style={passwordChangeRequired ? styles.userInfoAlert : styles.userInfoHint}
-            >
-              {passwordChangeRequired
-                ? "임시 비밀번호로 로그인했습니다. 계속 사용하려면 새 비밀번호를 설정하세요."
-                : "비밀번호 변경과 계정 복구 안내는 계정 보안 패널에서 확인합니다."}
-            </p>
-          </div>
+          )}
+
           <div style={styles.groupSectionHeader}>
             <span style={styles.reorderHint}>{groupListStatusLabel}</span>
           </div>
@@ -425,6 +405,46 @@ export function NotesPageLayout({
             />
             <button style={styles.addBtn} type="submit" aria-label="그룹 추가">+</button>
           </form>
+
+          <div style={styles.sidebarFooter}>
+            <div style={styles.userIdentity}>
+              <strong style={styles.userInfoName} title={`@${username}`}>@{username}</strong>
+            </div>
+            <div style={styles.sidebarFooterActions}>
+              <button
+                type="button"
+                style={{
+                  ...(isMobile ? styles.accountIconButton : styles.footerActionBtn),
+                  ...(passwordChangeRequired ? styles.accountBtnAlert : {}),
+                }}
+                onClick={onOpenAccountSecurity}
+                aria-label={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+                title={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+              >
+                {isMobile ? <SecurityIcon alert={passwordChangeRequired} /> : "보안"}
+              </button>
+              {showAdminConsoleButton && onOpenAdminConsole && (
+                <button
+                  type="button"
+                  style={isMobile ? styles.mobileHeaderIconButton : styles.adminBtn}
+                  onClick={onOpenAdminConsole}
+                  aria-label="운영 패널 열기"
+                  title="운영 패널 열기"
+                >
+                  {isMobile ? <AdminIcon /> : "운영"}
+                </button>
+              )}
+              <button
+                type="button"
+                style={isMobile ? styles.mobileHeaderIconButton : styles.footerActionBtn}
+                onClick={onLogout}
+                title="로그아웃"
+                aria-label="로그아웃"
+              >
+                {isMobile ? <LogoutIcon /> : "로그아웃"}
+              </button>
+            </div>
+          </div>
         </aside>
       )}
 
@@ -441,7 +461,7 @@ export function NotesPageLayout({
         >
           <div style={styles.noteListHeader}>
             <div style={styles.noteListMeta}>
-              <span style={{ fontWeight: 600 }}>
+              <span style={{ fontWeight: 700, fontSize: "15px" }}>
                 {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
               </span>
               <span style={styles.reorderHint}>{noteListStatusLabel}</span>
@@ -491,9 +511,18 @@ export function NotesPageLayout({
             {!isTrashView && notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && searchQuery.trim() && (
               <div style={styles.empty}>검색 결과가 없습니다.</div>
             )}
-            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && (
+            {notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && !searchQuery.trim() && (
               <div style={styles.empty}>
-                {isTrashView ? "휴지통이 비어 있습니다." : "노트가 없습니다."}
+                <div>{isTrashView ? "휴지통이 비어 있습니다." : "노트가 없습니다."}</div>
+                {!isTrashView && (
+                  <button
+                    type="button"
+                    style={styles.emptyActionBtn}
+                    onClick={onCreateNote}
+                  >
+                    + 첫 노트 만들기
+                  </button>
+                )}
               </div>
             )}
             {notes.length > 0 && (
@@ -530,9 +559,22 @@ export function NotesPageLayout({
             <>
               <div style={{ ...styles.editorToolbar, ...(isMobile ? styles.editorToolbarMobile : {}) }}>
                 <div style={{ ...styles.editorTitleRow, ...(isMobile ? styles.editorTitleRowMobile : {}) }}>
+                  {isMobile && (
+                    <button
+                      type="button"
+                      style={styles.mobileBackBtn}
+                      onClick={() => setMobilePanel("notes")}
+                      aria-label="노트 목록으로 돌아가기"
+                      title="노트 목록"
+                    >
+                      <ChevronLeftIcon />
+                      <span>목록</span>
+                    </button>
+                  )}
                   <input
+                    ref={titleInputRef}
                     style={{ ...styles.titleInput, ...(isMobile ? styles.titleInputMobile : {}) }}
-                    placeholder="제목"
+                    placeholder="제목을 입력하세요..."
                     value={title}
                     onChange={onTitleChange}
                     maxLength={120}
@@ -602,14 +644,6 @@ export function NotesPageLayout({
                         {isMobile ? <ConflictIcon /> : "충돌 해결"}
                       </button>
                     )}
-                    {!isSelectedNoteReadOnly && (
-                      <SpellCheckLink
-                        compact={isMobile}
-                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
-                        containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
-                        guidanceStyle={isMobile ? styles.mobileHidden : undefined}
-                      />
-                    )}
                     {hasHiddenSearchContext && onShowSearchContext && (
                       <button
                         type="button"
@@ -637,14 +671,35 @@ export function NotesPageLayout({
                       {!isMobile && (zenMode ? "몰입 해제" : "몰입 모드")}
                     </button>
                     {!isSelectedNoteReadOnly && (
+                      <SpellCheckLink
+                        compact={isMobile}
+                        hideGuidance
+                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                        containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
+                      />
+                    )}
+                    {!isSelectedNoteReadOnly && (
                       <ShareStatusPanel
                         styles={styles}
                         shareInfo={shareInfo}
                         shareLoading={shareLoading}
                         shareError={shareError}
                         onShareToggle={onShareToggle}
-                        size="xs"
+                        size="popover"
+                        compactTrigger={isMobile}
                       />
+                    )}
+                    {!isSelectedNoteReadOnly && (
+                      <button
+                        type="button"
+                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                        onClick={() => onDeleteNote(selectedNote.id)}
+                        aria-label="현재 노트 휴지통으로 이동"
+                        title="휴지통으로 이동"
+                      >
+                        <EditorTrashIcon />
+                        {!isMobile && <span>삭제</span>}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -730,7 +785,45 @@ export function NotesPageLayout({
               )}
               {isSelectedNoteReadOnly && selectedNoteDeletedAtLabel && (
                 <div style={styles.readOnlyBanner}>
-                  휴지통에 보관된 노트입니다. {selectedNoteDeletedAtLabel}에 삭제되었습니다.
+                  <span>휴지통에 보관된 노트입니다. ({selectedNoteDeletedAtLabel} 삭제됨)</span>
+                  <div style={styles.readOnlyBannerActions}>
+                    <button
+                      type="button"
+                      style={styles.bannerRestoreBtn}
+                      onClick={() => onRestoreNote(selectedNote.id)}
+                    >
+                      노트 복원
+                    </button>
+                    {confirmingEditorPermanentDelete ? (
+                      <>
+                        <button
+                          type="button"
+                          style={styles.bannerDangerConfirmBtn}
+                          onClick={() => {
+                            setConfirmingEditorPermanentDelete(false);
+                            onPermanentDeleteNote(selectedNote.id);
+                          }}
+                        >
+                          영구 삭제 확인
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.bannerCancelBtn}
+                          onClick={() => setConfirmingEditorPermanentDelete(false)}
+                        >
+                          취소
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        style={styles.bannerDangerBtn}
+                        onClick={() => setConfirmingEditorPermanentDelete(true)}
+                      >
+                        영구 삭제
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
               <textarea
@@ -745,7 +838,25 @@ export function NotesPageLayout({
             </>
           ) : (
             <div style={styles.noNote}>
-              {isTrashView ? "휴지통 노트를 선택해 내용을 확인하세요." : "노트를 선택하거나 새 노트를 만드세요."}
+              <div style={styles.noNoteInner}>
+                <strong style={styles.noNoteTitle}>
+                  {isTrashView ? "선택된 휴지통 노트가 없습니다" : "작성할 노트를 선택해 보세요"}
+                </strong>
+                <p style={styles.noNoteBody}>
+                  {isTrashView
+                    ? "왼쪽 목록에서 휴지통에 보관된 노트를 선택해 내용을 확인하거나 복원할 수 있습니다."
+                    : "목록에서 기존 노트를 열거나 지금 바로 새 노트를 만들어 기록을 시작하세요."}
+                </p>
+                {!isTrashView && (
+                  <button
+                    type="button"
+                    style={styles.emptyActionBtn}
+                    onClick={onCreateNote}
+                  >
+                    + 새 노트 만들기
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1155,6 +1266,29 @@ function ZenIcon({ active }: { active: boolean }) {
     >
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EditorTrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
     </svg>
   );
 }

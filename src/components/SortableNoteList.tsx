@@ -15,16 +15,12 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { Group, Note } from "../lib/api";
 import {
   buildSearchPreview,
   splitHighlightSegments,
 } from "../lib/noteSearchHighlight";
-import {
-  getNoteGroupIdFromSelectValue,
-  getNoteGroupSelectValue,
-} from "../lib/noteGroupSelect";
 import { moveItem } from "../lib/noteOrder";
 
 type Mode = "active" | "trash";
@@ -42,7 +38,7 @@ type Props = {
   onDeleteNote: (noteId: string) => void;
   onRestoreNote: (noteId: string) => void;
   onPermanentDeleteNote: (noteId: string) => void;
-  onMoveNoteGroup: (note: Note, groupId: string | null) => void;
+  onMoveNoteGroup?: (note: Note, groupId: string | null) => void;
   onReorder: (nextNotes: Note[]) => void;
 };
 
@@ -59,7 +55,6 @@ type RowProps = {
   onDeleteNote: (noteId: string) => void;
   onRestoreNote: (noteId: string) => void;
   onPermanentDeleteNote: (noteId: string) => void;
-  onMoveNoteGroup: (note: Note, groupId: string | null) => void;
 };
 
 function formatNoteTimestamp(note: Note, mode: Mode) {
@@ -85,8 +80,10 @@ function SortableNoteRow({
   onDeleteNote,
   onRestoreNote,
   onPermanentDeleteNote,
-  onMoveNoteGroup,
 }: RowProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocusedWithin, setIsFocusedWithin] = useState(false);
+  const [confirmingPermanentDelete, setConfirmingPermanentDelete] = useState(false);
   const {
     attributes,
     listeners,
@@ -100,13 +97,14 @@ function SortableNoteRow({
     disabled: isSortingDisabled,
   });
 
-  const noteGroupValue = getNoteGroupSelectValue(note.group_id, defaultGroupId);
   const noteGroupName = getNoteGroupName(note.group_id, groups, defaultGroupId);
   const isSearchActive = searchQuery.trim().length > 0;
   const contentPreview = isSearchActive ? buildSearchPreview(note.content, searchQuery) : null;
+  const showControls = isMobile || isActive || isHovered || isFocusedWithin || isDragging;
   const itemStyle: CSSProperties = {
     ...styles.noteItem,
     ...(mode === "trash" ? styles.noteItemTrash : {}),
+    ...(isHovered && !isActive ? styles.noteItemHover : {}),
     ...(isActive ? styles.activeNote : {}),
     transform: CSS.Transform.toString(transform),
     transition,
@@ -117,7 +115,22 @@ function SortableNoteRow({
   };
 
   return (
-    <div ref={setNodeRef} style={itemStyle}>
+    <div
+      ref={setNodeRef}
+      style={itemStyle}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setConfirmingPermanentDelete(false);
+      }}
+      onFocus={() => setIsFocusedWithin(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsFocusedWithin(false);
+          setConfirmingPermanentDelete(false);
+        }
+      }}
+    >
       <div style={styles.noteRow}>
         {mode === "active" && (
           <button
@@ -125,6 +138,7 @@ function SortableNoteRow({
             type="button"
             style={{
               ...styles.dragHandle,
+              ...(!showControls ? styles.subtleControlHidden : {}),
               ...(isSortingDisabled ? styles.disabledHandle : {}),
             }}
             aria-label={`${note.title || "제목 없음"} 노트 순서 변경`}
@@ -153,45 +167,80 @@ function SortableNoteRow({
               {contentPreview.hasTrailingEllipsis ? "..." : ""}
             </div>
           )}
-          <div style={styles.noteDate}>
-            {mode === "trash" ? "삭제됨 " : ""}
-            {formatNoteTimestamp(note, mode)}
-            {mode === "active" && ` · ${noteGroupName}`}
+          <div style={styles.noteMetaRow}>
+            <span style={styles.noteDate}>
+              {mode === "trash" ? "삭제됨 " : ""}
+              {formatNoteTimestamp(note, mode)}
+            </span>
+            {mode === "active" && (
+              <span style={styles.noteGroupBadge}>{noteGroupName}</span>
+            )}
           </div>
         </button>
         <div
           style={{
             ...styles.noteActions,
             ...(isMobile ? styles.noteActionsMobile : styles.noteActionsCompact),
+            ...(!showControls && mode === "active" ? styles.subtleControlHidden : {}),
           }}
         >
           {mode === "trash" ? (
-            <>
-              <button
-                type="button"
-                style={{
-                  ...(isMobile ? styles.noteIconButton : styles.restoreButton),
-                  ...(!isMobile ? styles.restoreButtonCompact : {}),
-                }}
-                onClick={() => onRestoreNote(note.id)}
-                title="노트 복원"
-                aria-label={`${note.title || "제목 없음"} 노트 복원`}
-              >
-                {isMobile ? <RestoreIcon /> : "복원"}
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...(isMobile ? styles.noteDangerIconButton : styles.permanentDeleteButton),
-                  ...(!isMobile ? styles.permanentDeleteButtonCompact : {}),
-                }}
-                onClick={() => onPermanentDeleteNote(note.id)}
-                title="영구 삭제"
-                aria-label={`${note.title || "제목 없음"} 노트 영구 삭제`}
-              >
-                {isMobile ? <TrashIcon /> : "삭제"}
-              </button>
-            </>
+            confirmingPermanentDelete ? (
+              <>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.permanentDeleteConfirmButton,
+                    ...(!isMobile ? styles.permanentDeleteButtonCompact : {}),
+                  }}
+                  onClick={() => {
+                    setConfirmingPermanentDelete(false);
+                    onPermanentDeleteNote(note.id);
+                  }}
+                  aria-label={`${note.title || "제목 없음"} 노트 영구 삭제 확인`}
+                >
+                  영구 삭제
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.deleteButton,
+                    ...(!isMobile ? styles.deleteButtonCompact : {}),
+                  }}
+                  onClick={() => setConfirmingPermanentDelete(false)}
+                  aria-label="영구 삭제 취소"
+                >
+                  취소
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  style={{
+                    ...(isMobile ? styles.noteIconButton : styles.restoreButton),
+                    ...(!isMobile ? styles.restoreButtonCompact : {}),
+                  }}
+                  onClick={() => onRestoreNote(note.id)}
+                  title="노트 복원"
+                  aria-label={`${note.title || "제목 없음"} 노트 복원`}
+                >
+                  {isMobile ? <RestoreIcon /> : "복원"}
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...(isMobile ? styles.noteDangerIconButton : styles.permanentDeleteButton),
+                    ...(!isMobile ? styles.permanentDeleteButtonCompact : {}),
+                  }}
+                  onClick={() => setConfirmingPermanentDelete(true)}
+                  title="영구 삭제"
+                  aria-label={`${note.title || "제목 없음"} 노트 영구 삭제`}
+                >
+                  {isMobile ? <TrashIcon /> : "삭제"}
+                </button>
+              </>
+            )
           ) : (
             <button
               type="button"
@@ -200,7 +249,7 @@ function SortableNoteRow({
                 ...(!isMobile ? styles.deleteButtonCompact : {}),
               }}
               onClick={() => onDeleteNote(note.id)}
-              title="노트 삭제"
+              title="휴지통으로 이동"
               aria-label={`${note.title || "제목 없음"} 노트 삭제`}
             >
               {isMobile ? <TrashIcon /> : "삭제"}
@@ -208,31 +257,6 @@ function SortableNoteRow({
           )}
         </div>
       </div>
-      {mode === "active" && groups.length > 1 && (
-        <div style={styles.noteGroupMoveRow}>
-          <span style={styles.noteGroupMoveLabel}>그룹</span>
-          <select
-            style={{
-              ...styles.noteGroupMoveSelect,
-              ...(isMobile ? styles.noteGroupMoveSelectMobile : {}),
-            }}
-            value={noteGroupValue}
-            onChange={(event) => {
-              onMoveNoteGroup(
-                note,
-                getNoteGroupIdFromSelectValue(event.target.value, defaultGroupId)
-              );
-            }}
-            aria-label={`${note.title || "제목 없음"} 노트 그룹 이동`}
-          >
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
     </div>
   );
 }
@@ -260,7 +284,6 @@ export function SortableNoteList({
   onDeleteNote,
   onRestoreNote,
   onPermanentDeleteNote,
-  onMoveNoteGroup,
   onReorder,
 }: Props) {
   const sensors = useSensors(
@@ -306,7 +329,6 @@ export function SortableNoteList({
             onDeleteNote={onDeleteNote}
             onRestoreNote={onRestoreNote}
             onPermanentDeleteNote={onPermanentDeleteNote}
-            onMoveNoteGroup={onMoveNoteGroup}
           />
         ))}
       </>
@@ -331,7 +353,6 @@ export function SortableNoteList({
             onDeleteNote={onDeleteNote}
             onRestoreNote={onRestoreNote}
             onPermanentDeleteNote={onPermanentDeleteNote}
-            onMoveNoteGroup={onMoveNoteGroup}
           />
         ))}
       </SortableContext>
@@ -413,11 +434,15 @@ function RestoreIcon() {
 
 const styles = {
   noteItem: {
-    margin: "8px",
-    padding: "12px",
+    margin: "6px 8px",
+    padding: "10px 12px",
     border: "1px solid transparent",
     borderRadius: "var(--radius-md)",
     background: "transparent",
+    transition: "background-color var(--motion-fast) var(--easing-standard), border-color var(--motion-fast) var(--easing-standard)",
+  } satisfies CSSProperties,
+  noteItemHover: {
+    background: "var(--app-hover-bg)",
   } satisfies CSSProperties,
   noteItemTrash: {
     background: "color-mix(in srgb, var(--color-bg-accent-soft) 28%, transparent)",
@@ -430,7 +455,7 @@ const styles = {
   } satisfies CSSProperties,
   noteRow: {
     display: "flex",
-    alignItems: "stretch",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: "8px",
   } satisfies CSSProperties,
@@ -443,6 +468,9 @@ const styles = {
     background: "none",
     border: "none",
     color: "inherit",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
   } satisfies CSSProperties,
   noteTitle: {
     fontWeight: 700,
@@ -454,7 +482,7 @@ const styles = {
     color: "var(--color-text-primary)",
   } satisfies CSSProperties,
   notePreview: {
-    marginTop: "5px",
+    marginTop: "4px",
     fontSize: "12px",
     lineHeight: 1.45,
     color: "var(--color-text-secondary)",
@@ -462,10 +490,32 @@ const styles = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
+  noteMetaRow: {
+    marginTop: "6px",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    flexWrap: "wrap",
+  } satisfies CSSProperties,
   noteDate: {
-    fontSize: "12px",
+    fontSize: "11px",
     color: "var(--color-text-muted)",
-    marginTop: "4px",
+  } satisfies CSSProperties,
+  noteGroupBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "1px 7px",
+    borderRadius: "999px",
+    background: "color-mix(in srgb, var(--color-bg-accent-soft) 72%, var(--app-control-bg))",
+    border: "1px solid var(--color-border-subtle)",
+    color: "var(--color-text-secondary)",
+    fontSize: "11px",
+    fontWeight: 600,
+    lineHeight: 1.4,
+    maxWidth: "120px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   } satisfies CSSProperties,
   searchHighlight: {
     background: "color-mix(in srgb, var(--color-warning, #f4c542) 38%, transparent)",
@@ -480,71 +530,53 @@ const styles = {
     alignItems: "center",
     gap: "4px",
     flexShrink: 0,
+    transition: "opacity var(--motion-fast) var(--easing-standard)",
   } satisfies CSSProperties,
   noteActionsCompact: {
-    gap: "2px",
+    gap: "4px",
   } satisfies CSSProperties,
   noteActionsMobile: {
     gap: "6px",
   } satisfies CSSProperties,
-  noteGroupMoveRow: {
-    marginTop: "6px",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  } satisfies CSSProperties,
-  noteGroupMoveLabel: {
-    flexShrink: 0,
-    color: "var(--color-text-muted)",
-    fontSize: "11px",
-    fontWeight: 700,
-  } satisfies CSSProperties,
-  noteGroupMoveSelect: {
-    minWidth: 0,
-    flex: 1,
-    minHeight: "32px",
-    padding: "4px 28px 4px 8px",
-    border: "1px solid transparent",
-    borderRadius: "999px",
-    background: "color-mix(in srgb, var(--app-control-bg) 68%, transparent)",
-    color: "var(--color-text-secondary)",
-    fontSize: "12px",
-  } satisfies CSSProperties,
-  noteGroupMoveSelectMobile: {
-    minHeight: "44px",
+  subtleControlHidden: {
+    opacity: 0,
   } satisfies CSSProperties,
   dragHandle: {
-    minWidth: "44px",
-    minHeight: "44px",
+    minWidth: "28px",
+    width: "28px",
+    minHeight: "36px",
     padding: "0",
-    border: "1px solid var(--color-border)",
+    border: "1px solid transparent",
     borderRadius: "var(--radius)",
-    background: "var(--color-bg)",
-    color: "var(--color-text-secondary)",
+    background: "transparent",
+    color: "var(--color-text-muted)",
     cursor: "grab",
     touchAction: "none",
-    fontSize: "18px",
+    fontSize: "16px",
     lineHeight: 1,
     flexShrink: 0,
+    transition: "opacity var(--motion-fast) var(--easing-standard)",
   } satisfies CSSProperties,
   disabledHandle: {
     cursor: "default",
-    opacity: 0.45,
+    opacity: 0.25,
   } satisfies CSSProperties,
   deleteButton: {
-    background: "color-mix(in srgb, var(--app-control-bg) 58%, transparent)",
+    background: "color-mix(in srgb, var(--app-control-bg) 75%, transparent)",
     border: "1px solid var(--color-border-subtle)",
     borderRadius: "999px",
-    color: "var(--color-text-muted)",
+    color: "var(--color-text-secondary)",
     fontSize: "12px",
     lineHeight: 1,
     minWidth: "44px",
     minHeight: "44px",
+    padding: "0 10px",
   } satisfies CSSProperties,
   deleteButtonCompact: {
-    minWidth: "42px",
-    minHeight: "34px",
+    minWidth: "40px",
+    minHeight: "30px",
     fontSize: "11px",
+    padding: "0 8px",
   } satisfies CSSProperties,
   noteIconButton: {
     display: "inline-flex",
@@ -588,7 +620,7 @@ const styles = {
   } satisfies CSSProperties,
   restoreButtonCompact: {
     minWidth: "46px",
-    minHeight: "32px",
+    minHeight: "30px",
     fontSize: "11px",
     padding: "0 10px",
   } satisfies CSSProperties,
@@ -604,9 +636,21 @@ const styles = {
     padding: "0 12px",
     fontWeight: 700,
   } satisfies CSSProperties,
+  permanentDeleteConfirmButton: {
+    background: "var(--color-danger)",
+    border: "1px solid var(--color-danger)",
+    borderRadius: "999px",
+    color: "var(--color-text-inverse)",
+    fontSize: "12px",
+    lineHeight: 1,
+    minWidth: "60px",
+    minHeight: "44px",
+    padding: "0 10px",
+    fontWeight: 700,
+  } satisfies CSSProperties,
   permanentDeleteButtonCompact: {
     minWidth: "46px",
-    minHeight: "32px",
+    minHeight: "30px",
     fontSize: "11px",
     padding: "0 10px",
   } satisfies CSSProperties,

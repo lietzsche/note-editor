@@ -75,6 +75,31 @@ describe("ShareStatusPanel", () => {
     expect(markup).toContain("공개 링크가 꺼져 있습니다");
     expect(markup).not.toContain("필요할 때만 공개 링크를 만들고");
   });
+
+  it("renders a compact popover trigger with active status in popover mode", () => {
+    const shareInfo: ShareInfo = {
+      share_token: "token",
+      is_active: true,
+      expires_at: null,
+      access_count: 5,
+      share_url: "/shared/token",
+    };
+
+    const markup = renderToStaticMarkup(
+      <ShareStatusPanel
+        styles={buildStyles()}
+        shareInfo={shareInfo}
+        shareLoading={false}
+        shareError={null}
+        onShareToggle={() => {}}
+        size="popover"
+      />
+    );
+
+    expect(markup).toContain('aria-haspopup="dialog"');
+    expect(markup).toContain("노트 공유 설정 (공유 중)");
+    expect(markup).toContain("공유");
+  });
 });
 
 function buildStyles() {

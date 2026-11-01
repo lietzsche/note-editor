@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { CopyAllButton } from "../components/CopyAllButton";
+import ThemeToggle from "../components/ThemeToggle";
 import { api, type SharedNote } from "../lib/api";
+import { copyText } from "../lib/editorProductivity";
+import type { CopyStatus } from "../lib/noteEditorSession";
 
 type SharedNoteViewState =
   | { kind: "loading" }
@@ -34,6 +38,8 @@ export default function SharedNotePage() {
 }
 
 export function SharedNoteView({ state }: { state: SharedNoteViewState }) {
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("ready");
+
   if (state.kind === "loading") {
     return (
       <main className="shared-shell">
@@ -63,11 +69,31 @@ export function SharedNoteView({ state }: { state: SharedNoteViewState }) {
 
   const { note } = state;
 
+  async function handleCopyContent() {
+    const result = await copyText(
+      typeof navigator !== "undefined" ? navigator.clipboard : null,
+      note.content
+    );
+    setCopyStatus(result === "success" ? "copy-success" : "copy-error");
+    setTimeout(() => setCopyStatus("ready"), 2000);
+  }
+
   return (
     <main className="shared-shell">
       <article className="shared-note-card" aria-labelledby="shared-note-title">
         <header className="shared-note-card__header">
-          <span className="shared-note-card__eyebrow">읽기 전용 공유 노트</span>
+          <div className="shared-note-card__toolbar">
+            <span className="shared-note-card__eyebrow">읽기 전용 공유 노트</span>
+            <div className="shared-note-card__actions">
+              <CopyAllButton
+                onCopy={() => {
+                  void handleCopyContent();
+                }}
+                state={copyStatus}
+              />
+              <ThemeToggle compact />
+            </div>
+          </div>
           <h1 id="shared-note-title" className="shared-note-card__title">
             {note.title || "제목 없음"}
           </h1>

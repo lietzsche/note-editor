@@ -128,8 +128,9 @@ export function useNotePersistence({
     setSaveStatus("saving");
 
     try {
+      const normalizedDraftTitle = draftTitle.trim() || "제목 없음";
       const updated = await api.notes.update(noteId, {
-        title: draftTitle,
+        title: normalizedDraftTitle,
         content: draftContent,
         updated_at: expectedUpdatedAt ?? undefined,
         force,
