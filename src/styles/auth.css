@@ -777,5 +777,9 @@
     top: 16px;
     right: 16px;
   }
+
+  .auth-panel__header {
+    padding-right: 108px;
+  }
 }
 
