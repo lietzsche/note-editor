@@ -140,26 +140,32 @@ export const styles: Record<string, CSSProperties> = {
   },
   userInfoAlertBanner: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "8px",
     padding: "10px 12px",
     borderBottom: "1px solid color-mix(in srgb, var(--color-danger) 24%, var(--color-border-subtle))",
     background: "color-mix(in srgb, var(--color-danger) 8%, var(--app-panel-bg-strong))",
+    minWidth: 0,
   },
   userInfo: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "8px",
     padding: "12px 14px",
     borderBottom: "1px solid var(--color-border-subtle)",
     background: "var(--app-panel-bg-strong)",
+    minWidth: 0,
   },
   userInfoHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "12px",
+    minWidth: 0,
   },
   userIdentity: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "2px",
     minWidth: 0,
     flex: 1,
@@ -522,6 +528,8 @@ export const styles: Record<string, CSSProperties> = {
   },
   editor: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 0,
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
@@ -535,6 +543,8 @@ export const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-md)",
   },
   editorToolbar: {
+    position: "relative",
+    zIndex: 20,
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
@@ -692,6 +702,12 @@ export const styles: Record<string, CSSProperties> = {
     justifyContent: "space-between",
     gap: "12px",
     flexWrap: "wrap",
+    minWidth: 0,
+  },
+  readOnlyBannerMobile: {
+    margin: "6px 8px 0",
+    padding: "8px 10px",
+    gap: "8px",
   },
   readOnlyBannerActions: {
     display: "flex",
@@ -746,7 +762,13 @@ export const styles: Record<string, CSSProperties> = {
     background:
       "linear-gradient(135deg, color-mix(in srgb, var(--color-warning, #f4c542) 10%, transparent), transparent 62%), var(--app-control-bg)",
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "10px",
+    minWidth: 0,
+  },
+  searchContextPanelMobile: {
+    margin: "6px 8px 0",
+    padding: "10px 12px",
   },
   searchContextHeader: {
     display: "flex",
@@ -754,6 +776,7 @@ export const styles: Record<string, CSSProperties> = {
     justifyContent: "space-between",
     gap: "8px",
     flexWrap: "wrap",
+    minWidth: 0,
   },
   searchContextHeaderActions: {
     display: "flex",
@@ -781,7 +804,9 @@ export const styles: Record<string, CSSProperties> = {
   },
   searchContextRow: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "4px",
+    minWidth: 0,
   },
   searchContextRowHeader: {
     display: "flex",
@@ -789,6 +814,7 @@ export const styles: Record<string, CSSProperties> = {
     justifyContent: "space-between",
     gap: "8px",
     flexWrap: "wrap",
+    minWidth: 0,
   },
   searchContextLabel: {
     fontSize: "11px",
@@ -805,6 +831,8 @@ export const styles: Record<string, CSSProperties> = {
     lineHeight: 1.5,
     color: "var(--color-text-primary)",
     wordBreak: "break-word",
+    overflowWrap: "anywhere",
+    minWidth: 0,
   },
   searchContextNavigator: {
     display: "flex",
@@ -907,12 +935,14 @@ export const styles: Record<string, CSSProperties> = {
   shareStatusPanel: {
     width: "100%",
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "10px",
     padding: "12px",
     border: "1px solid var(--color-border-subtle)",
     borderRadius: "var(--radius-lg)",
     background:
       "linear-gradient(135deg, var(--color-bg-accent-soft), transparent 62%), var(--app-control-bg)",
+    minWidth: 0,
   },
   shareStatusPanelCompact: {
     gap: "6px",
@@ -924,6 +954,7 @@ export const styles: Record<string, CSSProperties> = {
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "12px",
+    minWidth: 0,
   },
   shareStatusHeaderCompact: {
     alignItems: "center",
@@ -931,8 +962,10 @@ export const styles: Record<string, CSSProperties> = {
   },
   shareStatusCopy: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "2px",
     minWidth: 0,
+    flex: 1,
   },
   shareStatusEyebrow: {
     color: "var(--color-text-muted)",
@@ -1106,22 +1139,26 @@ export const styles: Record<string, CSSProperties> = {
     inset: 0,
     background: "rgba(24, 33, 29, 0.52)",
     backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "24px",
+    padding: "16px",
     zIndex: 1000,
   },
   modalCard: {
     width: "min(720px, 100%)",
+    maxHeight: "calc(100dvh - 32px)",
+    overflowY: "auto",
     background: "var(--color-bg-surface)",
     borderRadius: "var(--radius-xl)",
-    padding: "24px",
+    padding: "clamp(18px, 3vw, 24px)",
     boxShadow: "var(--shadow-lg)",
     border: "1px solid var(--color-border-subtle)",
     display: "flex",
     flexDirection: "column",
     gap: "16px",
+    minWidth: 0,
   },
   modalTitle: {
     margin: 0,
@@ -1140,6 +1177,10 @@ export const styles: Record<string, CSSProperties> = {
     justifyContent: "flex-end",
     gap: "8px",
     flexWrap: "wrap",
+  },
+  modalActionsMobile: {
+    flexDirection: "column",
+    alignItems: "stretch",
   },
   modalPrimaryButton: {
     minHeight: "44px",
@@ -1170,8 +1211,9 @@ export const styles: Record<string, CSSProperties> = {
   },
   conflictGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
     gap: "12px",
+    minWidth: 0,
   },
   conflictPanel: {
     display: "flex",
@@ -1181,6 +1223,7 @@ export const styles: Record<string, CSSProperties> = {
     borderRadius: "12px",
     background: "var(--app-control-bg)",
     border: "1px solid var(--color-border)",
+    minWidth: 0,
   },
   conflictPanelTitle: {
     fontSize: "13px",
@@ -1193,7 +1236,8 @@ export const styles: Record<string, CSSProperties> = {
   conflictPanelBody: {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    maxHeight: "220px",
+    overflowWrap: "anywhere",
+    maxHeight: "180px",
     overflowY: "auto",
     fontSize: "13px",
     lineHeight: 1.6,

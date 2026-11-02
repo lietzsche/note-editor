@@ -691,7 +691,13 @@ export function NotesPageLayout({
                 )}
               </div>
               {showSearchContextPanel && (
-                <div style={styles.searchContextPanel} aria-live="polite">
+                <div
+                  style={{
+                    ...styles.searchContextPanel,
+                    ...(isMobile ? styles.searchContextPanelMobile : {}),
+                  }}
+                  aria-live="polite"
+                >
                   <div style={styles.searchContextHeader}>
                     <span style={styles.searchContextEyebrow}>SEARCH MATCH</span>
                     <div style={styles.searchContextHeaderActions}>
@@ -770,7 +776,12 @@ export function NotesPageLayout({
                 </div>
               )}
               {isSelectedNoteReadOnly && selectedNoteDeletedAtLabel && (
-                <div style={styles.readOnlyBanner}>
+                <div
+                  style={{
+                    ...styles.readOnlyBanner,
+                    ...(isMobile ? styles.readOnlyBannerMobile : {}),
+                  }}
+                >
                   <span>휴지통에 보관된 노트입니다. ({selectedNoteDeletedAtLabel} 삭제됨)</span>
                   <div style={styles.readOnlyBannerActions}>
                     <button
@@ -922,7 +933,12 @@ export function NotesPageLayout({
                 </section>
               </div>
             )}
-            <div style={styles.modalActions}>
+            <div
+              style={{
+                ...styles.modalActions,
+                ...(isMobile ? styles.modalActionsMobile : {}),
+              }}
+            >
               <button
                 type="button"
                 style={styles.modalPrimaryButton}

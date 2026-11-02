@@ -85,6 +85,113 @@ export function ShareStatusPanel({
   }
 
   if (isPopover) {
+    const dialogCard = (
+      <section
+        style={{
+          ...popoverStyles.card,
+          ...(compactTrigger ? popoverStyles.cardMobile : {}),
+        }}
+        role="dialog"
+        aria-modal={compactTrigger ? "true" : undefined}
+        aria-label="노트 공유 설정"
+        aria-live="polite"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={popoverStyles.header}>
+          <div style={popoverStyles.headerCopy}>
+            <span style={styles.shareStatusEyebrow}>PUBLIC SHARE</span>
+            <strong style={styles.shareStatusTitle}>
+              {isActive ? "공개 링크가 켜져 있습니다" : "비공개 노트입니다"}
+            </strong>
+          </div>
+          <div style={popoverStyles.headerRight}>
+            <span
+              style={{
+                ...styles.shareStatusBadge,
+                ...(isActive ? styles.shareStatusBadgeActive : {}),
+              }}
+            >
+              {statusLabel}
+            </span>
+            {compactTrigger && (
+              <button
+                type="button"
+                style={popoverStyles.closeBtn}
+                onClick={() => setIsOpen(false)}
+                aria-label="공유 설정 닫기"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
+        <p style={{ ...styles.shareStatusDescription, margin: 0 }}>
+          {isActive
+            ? "링크를 가진 사람은 누구나 읽기 전용으로 열람할 수 있습니다."
+            : "공개 링크를 생성하면 로그인 없이 노트를 읽을 수 있습니다."}
+        </p>
+
+        {shareError && (
+          <div style={styles.shareStatusError} role="alert">
+            {shareError}
+          </div>
+        )}
+
+        {isActive && (
+          <div style={popoverStyles.linkSection}>
+            <div style={popoverStyles.urlRow}>
+              <code style={popoverStyles.urlCode} title={shareUrl}>
+                {shareUrl}
+              </code>
+              <button
+                type="button"
+                style={popoverStyles.copyBtn}
+                onClick={() => {
+                  void handleCopyShareLink();
+                }}
+              >
+                {copyState === "success"
+                  ? "복사됨!"
+                  : copyState === "error"
+                    ? "실패"
+                    : "링크 복사"}
+              </button>
+            </div>
+            <div style={popoverStyles.metaRow}>
+              <span style={styles.shareMeta}>
+                조회 {shareInfo?.access_count ?? 0}회 · {formatExpiry(shareInfo?.expires_at ?? null)}
+              </span>
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.shareLink}
+              >
+                새 탭에서 열기 ↗
+              </a>
+            </div>
+          </div>
+        )}
+
+        <div style={popoverStyles.footer}>
+          <button
+            type="button"
+            style={{
+              ...styles.secondaryActionBtn,
+              ...(isActive ? styles.shareStopButton : styles.shareStartButton),
+              width: "100%",
+              justifyContent: "center",
+            }}
+            onClick={onShareToggle}
+            disabled={shareLoading}
+          >
+            {shareLoading ? "처리 중..." : isActive ? "공유 끄기" : "공유 링크 만들기"}
+          </button>
+        </div>
+      </section>
+    );
+
     return (
       <div ref={containerRef} style={popoverStyles.wrapper}>
         <button
@@ -111,93 +218,18 @@ export function ShareStatusPanel({
           )}
         </button>
 
-        {isOpen && (
-          <section
-            style={popoverStyles.card}
-            role="dialog"
-            aria-label="노트 공유 설정"
-            aria-live="polite"
-          >
-            <div style={popoverStyles.header}>
-              <div style={popoverStyles.headerCopy}>
-                <span style={styles.shareStatusEyebrow}>PUBLIC SHARE</span>
-                <strong style={styles.shareStatusTitle}>
-                  {isActive ? "공개 링크가 켜져 있습니다" : "비공개 노트입니다"}
-                </strong>
-              </div>
-              <span
-                style={{
-                  ...styles.shareStatusBadge,
-                  ...(isActive ? styles.shareStatusBadgeActive : {}),
-                }}
-              >
-                {statusLabel}
-              </span>
+        {isOpen &&
+          (compactTrigger ? (
+            <div
+              style={popoverStyles.mobileBackdrop}
+              onClick={() => setIsOpen(false)}
+               role="presentation"
+            >
+              {dialogCard}
             </div>
-
-            <p style={styles.shareStatusDescription}>
-              {isActive
-                ? "링크를 가진 사람은 누구나 읽기 전용으로 열람할 수 있습니다."
-                : "공개 링크를 생성하면 로그인 없이 노트를 읽을 수 있습니다."}
-            </p>
-
-            {shareError && (
-              <div style={styles.shareStatusError} role="alert">
-                {shareError}
-              </div>
-            )}
-
-            {isActive && (
-              <div style={popoverStyles.linkSection}>
-                <div style={popoverStyles.urlRow}>
-                  <code style={popoverStyles.urlCode}>{shareUrl}</code>
-                  <button
-                    type="button"
-                    style={popoverStyles.copyBtn}
-                    onClick={() => {
-                      void handleCopyShareLink();
-                    }}
-                  >
-                    {copyState === "success"
-                      ? "복사됨!"
-                      : copyState === "error"
-                        ? "실패"
-                        : "링크 복사"}
-                  </button>
-                </div>
-                <div style={popoverStyles.metaRow}>
-                  <span style={styles.shareMeta}>
-                    조회 {shareInfo?.access_count ?? 0}회 · {formatExpiry(shareInfo?.expires_at ?? null)}
-                  </span>
-                  <a
-                    href={shareUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={styles.shareLink}
-                  >
-                    새 탭에서 열기 ↗
-                  </a>
-                </div>
-              </div>
-            )}
-
-            <div style={popoverStyles.footer}>
-              <button
-                type="button"
-                style={{
-                  ...styles.secondaryActionBtn,
-                  ...(isActive ? styles.shareStopButton : styles.shareStartButton),
-                  width: "100%",
-                  justifyContent: "center",
-                }}
-                onClick={onShareToggle}
-                disabled={shareLoading}
-              >
-                {shareLoading ? "처리 중..." : isActive ? "공유 끄기" : "공유 링크 만들기"}
-              </button>
-            </div>
-          </section>
-        )}
+          ) : (
+            dialogCard
+          ))}
       </div>
     );
   }
@@ -439,46 +471,98 @@ const popoverStyles: Record<string, CSSProperties> = {
     borderRadius: "999px",
     background: "var(--color-success)",
   },
+  mobileBackdrop: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1050,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "16px",
+    background: "rgba(24, 33, 29, 0.48)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+  },
   card: {
     position: "absolute",
     top: "calc(100% + 8px)",
     right: 0,
-    width: "min(300px, calc(100vw - 24px))",
-    padding: "14px",
+    width: "320px",
+    maxWidth: "calc(100vw - 32px)",
+    padding: "16px",
     borderRadius: "var(--radius-lg)",
     border: "1px solid var(--color-border-default)",
     background: "var(--color-bg-surface)",
     boxShadow: "var(--shadow-lg)",
     display: "grid",
-    gap: "10px",
-    zIndex: 80,
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: "12px",
+    zIndex: 120,
+    boxSizing: "border-box",
+  },
+  cardMobile: {
+    position: "relative",
+    top: "auto",
+    right: "auto",
+    width: "min(360px, 100%)",
+    maxWidth: "100%",
+    padding: "18px",
+    borderRadius: "var(--radius-xl)",
   },
   header: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: "8px",
+    minWidth: 0,
   },
   headerCopy: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "2px",
     minWidth: 0,
+    flex: 1,
+  },
+  headerRight: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    flexShrink: 0,
+  },
+  closeBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "28px",
+    height: "28px",
+    borderRadius: "999px",
+    border: "1px solid var(--color-border-subtle)",
+    background: "var(--app-control-bg)",
+    color: "var(--color-text-secondary)",
+    fontSize: "12px",
+    fontWeight: 700,
+    flexShrink: 0,
   },
   linkSection: {
     display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "8px",
     padding: "10px",
     borderRadius: "var(--radius-md)",
     border: "1px solid var(--color-border-subtle)",
     background: "var(--app-control-bg)",
+    minWidth: 0,
   },
   urlRow: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
     alignItems: "center",
     gap: "6px",
+    minWidth: 0,
   },
   urlCode: {
-    flex: 1,
+    display: "block",
+    width: "100%",
     minWidth: 0,
     padding: "6px 8px",
     borderRadius: "var(--radius-sm)",
@@ -491,7 +575,7 @@ const popoverStyles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
   },
   copyBtn: {
-    minHeight: "30px",
+    minHeight: "32px",
     padding: "0 10px",
     borderRadius: "var(--radius-sm)",
     background: "var(--color-bg-emphasis)",
@@ -499,6 +583,7 @@ const popoverStyles: Record<string, CSSProperties> = {
     fontSize: "11px",
     fontWeight: 700,
     flexShrink: 0,
+    whiteSpace: "nowrap",
   },
   metaRow: {
     display: "flex",
@@ -506,9 +591,11 @@ const popoverStyles: Record<string, CSSProperties> = {
     justifyContent: "space-between",
     gap: "8px",
     flexWrap: "wrap",
+    minWidth: 0,
   },
   footer: {
     display: "flex",
-    paddingTop: "4px",
+    paddingTop: "2px",
+    minWidth: 0,
   },
 };
