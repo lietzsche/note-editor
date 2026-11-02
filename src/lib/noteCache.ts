@@ -25,6 +25,18 @@ export function readCachedNotes(
   cache: Map<string, Note[]>,
   groupId?: string | null
 ) {
-  const cached = cache.get(getNotesScopeKey(groupId));
-  return cached ? cloneNotes(cached) : null;
+  const scopeKey = getNotesScopeKey(groupId);
+  const cached = cache.get(scopeKey);
+  if (cached) {
+    return cloneNotes(cached);
+  }
+
+  if (isGroupNotesScopeKey(scopeKey)) {
+    const allNotes = cache.get(ALL_NOTES_SCOPE_KEY);
+    if (allNotes) {
+      return cloneNotes(allNotes.filter((note) => note.group_id === scopeKey));
+    }
+  }
+
+  return null;
 }

@@ -32,4 +32,20 @@ describe("BACKLOG-002 노트 목록 캐시 유틸", () => {
     expect(cloned[0]).not.toBe(original[0]);
     expect(cloned).toEqual(original);
   });
+
+  it("개별 그룹 캐시가 없어도 전체 노트(__all__) 캐시가 있으면 즉시 그룹 노트를 필터링해 반환한다", () => {
+    const cache = new Map([
+      [
+        "__all__",
+        [
+          { id: "n1", title: "업무 노트", content: "c1", group_id: "g1", sort_order: 0, updated_at: "x" },
+          { id: "n2", title: "개인 노트", content: "c2", group_id: "g2", sort_order: 1, updated_at: "y" },
+        ],
+      ],
+    ]);
+
+    const groupG1Notes = readCachedNotes(cache, "g1");
+
+    expect(groupG1Notes?.map((note) => note.id)).toEqual(["n1"]);
+  });
 });

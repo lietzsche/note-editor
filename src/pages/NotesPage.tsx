@@ -1,4 +1,4 @@
-import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import {
   api,
   ApiError,
@@ -212,6 +212,7 @@ export default function NotesPage({
     handleMoveNoteGroup,
     handleMoveSelectedNoteGroup,
   } = useNoteActions({
+    groups,
     notes,
     selectedNote,
     selectedGroupId,
@@ -226,6 +227,7 @@ export default function NotesPage({
     loadNotes,
     applyCreatedNoteToCaches,
     setNotesForScope,
+    updateNoteAcrossCaches,
     removeNoteFromCaches,
     moveNoteToTrashInCaches,
     restoreNoteFromTrashInCaches,
@@ -584,6 +586,7 @@ export default function NotesPage({
     }
 
     setSelectedGroupId(groupId);
+    void loadNotes(groupId ?? undefined, { preferCache: true }).catch(() => {});
     if (shouldClearSelectedNoteOnGroupSelection(groupId, selectedNote)) {
       clearSelectedNoteView();
       return;
@@ -653,23 +656,21 @@ export default function NotesPage({
     if (note.deleted_at == null) {
       activateAutoSaveRunner(note.id);
     }
-    startTransition(() => {
-      setSelectedNote(nextEditorState.selectedNote);
-      setTitle(initialDraftTitle);
-      setContent(nextEditorState.content);
-      setSaveStatus(nextEditorState.saveStatus);
-      setCopyStatus(nextEditorState.copyStatus);
-      setCountStatus(nextEditorState.countStatus);
-      setConflictNote(nextEditorState.conflictNote);
-      setPendingAction(nextEditorState.pendingAction);
-      setDialogMode(nextEditorState.dialogMode);
-      if (nextEditorState.mobilePanel) {
-        setMobilePanel(nextEditorState.mobilePanel);
-      }
-      if (options?.isNewlyCreated) {
-        setTitleInputFocusKey((prev) => prev + 1);
-      }
-    });
+    setSelectedNote(nextEditorState.selectedNote);
+    setTitle(initialDraftTitle);
+    setContent(nextEditorState.content);
+    setSaveStatus(nextEditorState.saveStatus);
+    setCopyStatus(nextEditorState.copyStatus);
+    setCountStatus(nextEditorState.countStatus);
+    setConflictNote(nextEditorState.conflictNote);
+    setPendingAction(nextEditorState.pendingAction);
+    setDialogMode(nextEditorState.dialogMode);
+    if (nextEditorState.mobilePanel) {
+      setMobilePanel(nextEditorState.mobilePanel);
+    }
+    if (options?.isNewlyCreated) {
+      setTitleInputFocusKey((prev) => prev + 1);
+    }
 
     if (PERF_DEBUG_ENABLED) {
       const noteId = note.id;

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { api, type Note } from "../lib/api";
+import { api, type Group, type Note } from "../lib/api";
 import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import { sortNotesByOrder } from "../lib/noteCollections";
 import type { PendingAction } from "../lib/notesPageTransitions";
@@ -13,6 +13,7 @@ type ShareInfo = {
 } | null;
 
 type UseNoteActionsArgs = {
+  groups: Group[];
   notes: Note[];
   selectedNote: Note | null;
   selectedGroupId: string | null;
@@ -27,6 +28,7 @@ type UseNoteActionsArgs = {
   loadNotes: (groupId?: string, options?: { preferCache?: boolean }) => Promise<Note[]>;
   applyCreatedNoteToCaches: (note: Note) => void;
   setNotesForScope: (groupId: string | null, nextNotes: Note[]) => void;
+  updateNoteAcrossCaches: (note: Note) => void;
   removeNoteFromCaches: (noteId: string) => void;
   moveNoteToTrashInCaches: (note: Note) => void;
   restoreNoteFromTrashInCaches: (note: Note) => void;
@@ -53,6 +55,7 @@ export function getNextNotesAfterMove(args: {
 }
 
 export function useNoteActions({
+  groups,
   notes,
   selectedNote,
   selectedGroupId,
@@ -67,6 +70,7 @@ export function useNoteActions({
   loadNotes,
   applyCreatedNoteToCaches,
   setNotesForScope,
+  updateNoteAcrossCaches,
   removeNoteFromCaches,
   moveNoteToTrashInCaches,
   restoreNoteFromTrashInCaches,
@@ -102,14 +106,40 @@ export function useNoteActions({
   }, [createNoteImmediately, hasBlockingEdits, openTransitionDialog, selectedGroupId]);
 
   const trashNoteImmediately = useCallback(async (noteId: string) => {
-    await api.notes.delete(noteId);
-    const trashedNote = await api.notes.get(noteId);
-    moveNoteToTrashInCaches(trashedNote);
+    const targetNote = selectedNote?.id === noteId
+      ? selectedNote
+      : notes.find((note) => note.id === noteId);
+
+    const optimisticTrashedNote: Note | null = targetNote
+      ? { ...targetNote, deleted_at: new Date().toISOString() }
+      : null;
+
+    if (optimisticTrashedNote) {
+      moveNoteToTrashInCaches(optimisticTrashedNote);
+    } else {
+      removeNoteFromCaches(noteId);
+    }
 
     if (selectedNote?.id === noteId) {
       clearSelectedNoteView();
     }
-  }, [clearSelectedNoteView, moveNoteToTrashInCaches, selectedNote]);
+
+    try {
+      await api.notes.delete(noteId);
+    } catch (error) {
+      if (targetNote) {
+        restoreNoteFromTrashInCaches(targetNote);
+      }
+      window.alert(error instanceof Error ? error.message : "노트를 휴지통으로 이동하지 못했습니다.");
+    }
+  }, [
+    clearSelectedNoteView,
+    moveNoteToTrashInCaches,
+    notes,
+    removeNoteFromCaches,
+    restoreNoteFromTrashInCaches,
+    selectedNote,
+  ]);
 
   const deleteNote = useCallback(async (id: string) => {
     const targetNote = selectedNote?.id === id
@@ -127,22 +157,58 @@ export function useNoteActions({
   }, [hasBlockingEdits, notes, openTransitionDialog, selectedNote, trashNoteImmediately]);
 
   const restoreNote = useCallback(async (id: string) => {
-    const restoredNote = await api.notes.restore(id);
-    restoreNoteFromTrashInCaches(restoredNote);
+    const targetNote = selectedNote?.id === id
+      ? selectedNote
+      : notes.find((note) => note.id === id);
 
+    if (targetNote) {
+      restoreNoteFromTrashInCaches({ ...targetNote, deleted_at: null });
+    }
     if (selectedNote?.id === id) {
       clearSelectedNoteView();
     }
-  }, [clearSelectedNoteView, restoreNoteFromTrashInCaches, selectedNote]);
+
+    try {
+      const restoredNote = await api.notes.restore(id);
+      if (targetNote) {
+        updateNoteAcrossCaches(restoredNote);
+      } else {
+        restoreNoteFromTrashInCaches(restoredNote);
+      }
+    } catch (error) {
+      if (targetNote) {
+        moveNoteToTrashInCaches(targetNote);
+      }
+      window.alert(error instanceof Error ? error.message : "노트를 복원하지 못했습니다.");
+    }
+  }, [
+    clearSelectedNoteView,
+    moveNoteToTrashInCaches,
+    notes,
+    restoreNoteFromTrashInCaches,
+    selectedNote,
+    updateNoteAcrossCaches,
+  ]);
 
   const permanentDeleteNote = useCallback(async (id: string) => {
-    await api.notes.permanentDelete(id);
-    removeNoteFromCaches(id);
+    const targetNote = selectedNote?.id === id
+      ? selectedNote
+      : notes.find((note) => note.id === id);
 
+    removeNoteFromCaches(id);
     if (selectedNote?.id === id) {
       clearSelectedNoteView();
     }
-  }, [clearSelectedNoteView, removeNoteFromCaches, selectedNote]);
+
+    try {
+      await api.notes.permanentDelete(id);
+    } catch (error) {
+      if (targetNote) {
+        moveNoteToTrashInCaches(targetNote);
+      }
+      window.alert(error instanceof Error ? error.message : "노트를 영구 삭제하지 못했습니다.");
+    }
+  }, [clearSelectedNoteView, moveNoteToTrashInCaches, notes, removeNoteFromCaches, selectedNote]);
 
   const handleShareToggle = useCallback(async () => {
     if (!selectedNote || selectedNote.deleted_at != null || shareLoading) return;
@@ -193,13 +259,21 @@ export function useNoteActions({
     const normalizedName = nextName.trim();
     if (!normalizedName) return;
 
+    const existingGroup = groups.find((group) => group.id === id);
+    if (existingGroup) {
+      upsertGroup({ ...existingGroup, name: normalizedName });
+    }
+
     try {
       const updatedGroup = await api.groups.update(id, normalizedName);
       upsertGroup(updatedGroup);
     } catch (error) {
+      if (existingGroup) {
+        upsertGroup(existingGroup);
+      }
       window.alert(error instanceof Error ? error.message : "그룹 이름을 변경하지 못했습니다.");
     }
-  }, [upsertGroup]);
+  }, [groups, upsertGroup]);
 
   const handleDeleteGroup = useCallback(async (id: string) => {
     const wasSelectedGroup = selectedGroupId === id;
@@ -240,29 +314,39 @@ export function useNoteActions({
     if (!targetNote || targetNote.deleted_at != null) return;
     if (groupId === targetNote.group_id) return;
 
-    try {
-      const previousGroupId = targetNote.group_id;
-      const updatedNote = await api.notes.moveGroup(noteId, groupId);
-      applyMovedNoteToCaches(updatedNote, previousGroupId);
+    const previousGroupId = targetNote.group_id;
+    const previousNotes = notes;
+    const optimisticNote: Note = { ...targetNote, group_id: groupId };
 
-      const nextNotes = getNextNotesAfterMove({
-        notes,
+    applyMovedNoteToCaches(optimisticNote, previousGroupId);
+    setNotesForScope(
+      selectedGroupId,
+      getNextNotesAfterMove({
+        notes: previousNotes,
         selectedGroupId,
-        updatedNote,
+        updatedNote: optimisticNote,
         noteId,
-      });
+      })
+    );
 
-      setNotesForScope(selectedGroupId, nextNotes);
-
-      if (selectedNote?.id !== noteId) return;
-
-      if (selectedGroupId !== null && updatedNote.group_id !== selectedGroupId) {
+    if (selectedNote?.id === noteId) {
+      if (selectedGroupId !== null && optimisticNote.group_id !== selectedGroupId) {
         clearSelectedNoteView();
-        return;
+      } else {
+        openNote(optimisticNote);
       }
+    }
 
-      openNote(updatedNote);
+    try {
+      const updatedNote = await api.notes.moveGroup(noteId, groupId);
+      applyMovedNoteToCaches(updatedNote, groupId);
+      updateNoteAcrossCaches(updatedNote);
     } catch (error) {
+      applyMovedNoteToCaches(targetNote, groupId);
+      setNotesForScope(selectedGroupId, previousNotes);
+      if (selectedNote?.id === noteId) {
+        openNote(targetNote);
+      }
       window.alert(error instanceof Error ? error.message : "노트 그룹을 이동하지 못했습니다.");
     }
   }, [
@@ -273,6 +357,7 @@ export function useNoteActions({
     selectedGroupId,
     selectedNote,
     setNotesForScope,
+    updateNoteAcrossCaches,
   ]);
 
   const handleMoveNoteGroup = useCallback(async (note: Note, groupId: string | null) => {

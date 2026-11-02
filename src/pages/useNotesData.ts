@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Group, type Note } from "../lib/api";
 import {
   ALL_NOTES_SCOPE_KEY,
@@ -58,15 +58,19 @@ export function useNotesData({
   const notesInFlightRef = useRef<Map<string, Promise<Note[]>>>(new Map());
   const notesRequestSequenceRef = useRef(0);
   const currentScopeKeyRef = useRef(ALL_NOTES_SCOPE_KEY);
+  const lastRequestedScopeKeyRef = useRef<string | null>(null);
 
   const syncVisibleNotesFromCurrentScope = useCallback(() => {
-    const currentNotes = notesCacheRef.current.get(currentScopeKeyRef.current);
+    const currentNotes = readCachedNotes(
+      notesCacheRef.current,
+      currentScopeKeyRef.current === ALL_NOTES_SCOPE_KEY
+        ? null
+        : currentScopeKeyRef.current
+    );
     if (!currentNotes) return;
 
-    startTransition(() => {
-      setNotes(cloneNotes(currentNotes));
-      setNotesLoadState("ready");
-    });
+    setNotes(currentNotes);
+    setNotesLoadState("ready");
   }, []);
 
   const loadGroups = useCallback(async (options?: { preferCache?: boolean }) => {
@@ -110,16 +114,14 @@ export function useNotesData({
     const { normalizedGroupId, scopeKey, cached } = startState;
 
     currentScopeKeyRef.current = scopeKey;
+    lastRequestedScopeKeyRef.current = scopeKey;
 
     if (cached) {
-      startTransition(() => {
-        setNotes(cached);
-        setNotesLoadState(startState.loadState);
-      });
+      setNotes(cached);
+      setNotesLoadState(startState.loadState);
     } else {
-      startTransition(() => {
-        setNotesLoadState(startState.loadState);
-      });
+      setNotes([]);
+      setNotesLoadState(startState.loadState);
     }
 
     if (
@@ -155,10 +157,8 @@ export function useNotesData({
         currentScopeKey: currentScopeKeyRef.current,
         scopeKey,
       })) {
-        startTransition(() => {
-          setNotes(snapshot);
-          setNotesLoadState("ready");
-        });
+        setNotes(snapshot);
+        setNotesLoadState("ready");
       }
 
       return snapshot;
@@ -173,9 +173,7 @@ export function useNotesData({
         hasCachedNotes: Boolean(cached),
       });
       if (nextErrorState) {
-        startTransition(() => {
-          setNotesLoadState(nextErrorState);
-        });
+        setNotesLoadState(nextErrorState);
       }
       throw error;
     }
@@ -186,6 +184,12 @@ export function useNotesData({
   }, [loadGroups]);
 
   useEffect(() => {
+    const targetScopeKey = selectedGroupId === TRASH_NOTES_SCOPE_KEY
+      ? TRASH_NOTES_SCOPE_KEY
+      : selectedGroupId ?? ALL_NOTES_SCOPE_KEY;
+    if (lastRequestedScopeKeyRef.current === targetScopeKey) {
+      return;
+    }
     void loadNotes(selectedGroupId ?? undefined, { preferCache: true }).catch(() => {});
   }, [selectedGroupId, loadNotes]);
 
@@ -194,10 +198,8 @@ export function useNotesData({
     notesCacheRef.current = nextState.cache;
 
     if (nextState.scopeKey === currentScopeKeyRef.current) {
-      startTransition(() => {
-        setNotes(nextState.snapshot);
-        setNotesLoadState("ready");
-      });
+      setNotes(nextState.snapshot);
+      setNotesLoadState("ready");
     }
   }, []);
 
@@ -206,6 +208,7 @@ export function useNotesData({
     notesCacheRef.current = nextState.cache;
     notesInFlightRef.current = nextState.inFlight;
     notesRequestSequenceRef.current = nextState.requestSequence;
+    lastRequestedScopeKeyRef.current = null;
   }, []);
 
   const setGroupsSnapshot = useCallback((nextGroups: Group[]) => {
