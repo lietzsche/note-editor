@@ -8,6 +8,7 @@ export type PendingAction =
   | { type: "create-note" }
   | { type: "delete-note"; noteId: string }
   | { type: "move-note-group"; noteId: string; groupId: string | null }
+  | { type: "open-guide" }
   | { type: "logout" };
 
 export function hasBlockingEdits(

@@ -1,5 +1,32 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { Link, useInRouterContext } from "react-router-dom";
 import { api, type AuthSession } from "../lib/api";
+
+function SpaLink({
+  to,
+  className,
+  ariaLabel,
+  children,
+}: {
+  to: string;
+  className?: string;
+  ariaLabel?: string;
+  children: ReactNode;
+}) {
+  const inRouter = useInRouterContext();
+  if (inRouter) {
+    return (
+      <Link to={to} className={className} aria-label={ariaLabel}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <a href={to} className={className} aria-label={ariaLabel}>
+      {children}
+    </a>
+  );
+}
 
 type Props = {
   onLogin: (authSession: AuthSession) => void;
@@ -99,30 +126,39 @@ export default function LoginPage({ onLogin }: Props) {
 
         {/* 로그인/가입 패널 영역 */}
         <div className="auth-panel">
-          {/* 정보 도움말 트리거 버튼 */}
-          <button
-            type="button"
-            className={`auth-info-trigger${showInfo ? " is-active" : ""}`}
-            onClick={() => setShowInfo(!showInfo)}
-            aria-label="보안 및 세션 정책 안내 보기"
-            aria-expanded={showInfo}
-          >
-            <svg
-              className="auth-info-icon"
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div className="auth-top-actions">
+            <SpaLink
+              to="/guide"
+              className="auth-guide-pill"
+              ariaLabel="사용 가이드 페이지 열기"
             >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </button>
+              가이드
+            </SpaLink>
+            {/* 정보 도움말 트리거 버튼 */}
+            <button
+              type="button"
+              className={`auth-info-trigger${showInfo ? " is-active" : ""}`}
+              onClick={() => setShowInfo(!showInfo)}
+              aria-label="보안 및 세션 정책 안내 보기"
+              aria-expanded={showInfo}
+            >
+              <svg
+                className="auth-info-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </button>
+          </div>
 
           <div className={`auth-panel__inner is-${mode}`}>
             <div className="auth-panel__header">
@@ -236,6 +272,13 @@ export default function LoginPage({ onLogin }: Props) {
                 )}
               </button>
             </form>
+
+            <div className="auth-guide-footer">
+              <span>처음 사용하시나요?</span>
+              <SpaLink to="/guide" className="auth-guide-link">
+                사용 가이드 및 주요 기능 살펴보기 →
+              </SpaLink>
+            </div>
           </div>
         </div>
       </section>

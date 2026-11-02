@@ -300,11 +300,50 @@
   line-height: 1.5;
 }
 
-/* 세련된 토글 버튼 (정보 보기) */
-.auth-info-trigger {
+/* 세련된 토글 버튼 (정보 보기) 및 가이드 진입 버튼 */
+.auth-top-actions {
   position: absolute;
   top: 24px;
   right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 20;
+}
+
+.auth-guide-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.auth-guide-pill:visited {
+  color: var(--color-text-secondary);
+}
+
+.auth-guide-pill:hover {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.auth-info-trigger {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -315,12 +354,37 @@
   background: var(--color-bg-surface);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  z-index: 20;
   transition: 
     transform 0.2s ease,
     color 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+}
+
+.auth-guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.auth-guide-link {
+  color: var(--color-brand-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-guide-link:visited {
+  color: var(--color-brand-primary);
+}
+
+.auth-guide-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .auth-info-trigger:hover {
@@ -709,7 +773,7 @@
     padding: 24px 18px;
   }
 
-  .auth-info-trigger {
+  .auth-top-actions {
     top: 16px;
     right: 16px;
   }

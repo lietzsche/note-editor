@@ -74,13 +74,15 @@ export const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "8px",
+    gap: "6px",
+    flexWrap: "wrap",
   },
   sidebarFooterActions: {
     display: "flex",
     alignItems: "center",
     gap: "4px",
     flexShrink: 0,
+    flexWrap: "wrap",
   },
   footerActionBtn: {
     fontSize: "11px",

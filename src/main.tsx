@@ -8,6 +8,7 @@ import "./styles/account-security.css";
 import "./styles/tokens.css";
 import "./styles/auth.css";
 import "./styles/shared.css";
+import "./styles/guide.css";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

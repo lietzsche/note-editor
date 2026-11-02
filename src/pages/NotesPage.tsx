@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   api,
   ApiError,
@@ -70,6 +71,7 @@ export default function NotesPage({
   onPasswordChangeRequiredChange,
   onLogout,
 }: Props) {
+  const navigate = useNavigate();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [title, setTitle] = useState("");
@@ -493,6 +495,14 @@ export default function NotesPage({
     setAccountSecuritySuccess(null);
   }
 
+  function handleOpenGuide() {
+    if (hasBlockingEdits()) {
+      openTransitionDialog({ type: "open-guide" });
+      return;
+    }
+    navigate("/guide");
+  }
+
   function closeAccountSecurity() {
     if (passwordChangeRequired) return;
     setIsAccountSecurityOpen(false);
@@ -742,6 +752,11 @@ export default function NotesPage({
       return;
     }
 
+    if (action.type === "open-guide") {
+      navigate("/guide");
+      return;
+    }
+
     await logoutImmediately();
   }
 
@@ -887,6 +902,7 @@ export default function NotesPage({
         showAdminConsoleButton={isAdminUser}
         passwordChangeRequired={passwordChangeRequired}
         onLogout={handleLogout}
+        onOpenGuide={handleOpenGuide}
         onOpenAccountSecurity={openAccountSecurity}
         onOpenAdminConsole={openAdminConsole}
         onSelectGroup={selectGroup}

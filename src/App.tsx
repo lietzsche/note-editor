@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import NotesPage from "./pages/NotesPage";
 import SharedNotePage from "./pages/SharedNotePage";
+import GuidePage from "./pages/GuidePage";
 import { api, type AuthSession } from "./lib/api";
 
 type AuthState = "loading" | "authenticated" | "unauthenticated";
@@ -56,6 +57,15 @@ export default function App() {
       <Route
         path="/shared/:shareToken"
         element={<SharedNotePage />}
+      />
+      <Route
+        path="/guide"
+        element={
+          <GuidePage
+            isAuthenticated={auth === "authenticated"}
+            username={currentUser?.username ?? null}
+          />
+        }
       />
       <Route
         path="/*"
