@@ -251,3 +251,7 @@
     justify-content: center;
   }
 }
+
+.account-security:focus {
+  outline: none;
+}

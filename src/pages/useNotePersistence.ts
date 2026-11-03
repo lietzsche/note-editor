@@ -8,6 +8,7 @@ import {
 } from "../lib/noteAutoSave";
 import { cloneNotes } from "../lib/noteCache";
 import type { SaveStatus } from "./notesPageDerivations";
+import { showToast } from "../lib/toastStore";
 
 type NoteSaveSnapshot = {
   noteId: string;
@@ -250,6 +251,11 @@ export function useNotePersistence({
 
     setCopyStatus(result === "success" ? "copy-success" : "copy-error");
     setTimeout(() => setCopyStatus("ready"), 2000);
+    showToast(
+      result === "success"
+        ? { tone: "success", message: "본문 전체를 클립보드에 복사했습니다." }
+        : { tone: "error", message: "클립보드에 복사하지 못했습니다. 브라우저 권한을 확인하세요." }
+    );
   }
 
   return {

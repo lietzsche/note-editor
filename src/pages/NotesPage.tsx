@@ -11,6 +11,8 @@ import {
 import { AccountSecurityPanel } from "../components/AccountSecurityPanel";
 import { AdminConsolePanel } from "../components/AdminConsolePanel";
 import { NotesPageLayout } from "../components/NotesPageLayout";
+import { ToastViewport } from "../components/ToastViewport";
+import { toastStore } from "../lib/toastStore";
 import { countGraphemes } from "../lib/editorProductivity";
 import {
   getClearedNoteEditorState,
@@ -77,7 +79,7 @@ export default function NotesPage({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
-  const [copyStatus, setCopyStatus] = useState<CopyStatus>("ready");
+  const [, setCopyStatus] = useState<CopyStatus>("ready");
   const [countStatus, setCountStatus] = useState<CountStatus>("count-ready");
   const [newGroupName, setNewGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,6 +89,9 @@ export default function NotesPage({
   );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
   const [zenMode, setZenMode] = useState(false);
+
+  // 로그아웃 등으로 페이지를 떠나면 이전 세션의 토스트(되돌리기 포함)를 남기지 않는다.
+  useEffect(() => () => toastStore.clear(), []);
   const [titleInputFocusKey, setTitleInputFocusKey] = useState(0);
 
   useEffect(() => {
@@ -885,7 +890,6 @@ export default function NotesPage({
         selectedNoteDeletedAtLabel={deletedAtLabel}
         charCount={charCount}
         countStatus={countStatus}
-        copyStatus={copyStatus}
         newGroupName={newGroupName}
         groupReorderBusy={groupReorderStatus === "saving"}
         noteReorderBusy={noteReorderStatus === "saving"}
@@ -962,6 +966,9 @@ export default function NotesPage({
           void handleDialogDiscardAction();
         }}
         onDialogCancelAction={handleDialogCancelAction}
+        onRetryLoadNotes={() => {
+          void loadNotes(selectedGroupId ?? undefined).catch(() => {});
+        }}
         shareInfo={shareInfo}
         shareLoading={shareLoading}
         shareError={shareError}
@@ -1012,6 +1019,7 @@ export default function NotesPage({
         }}
         onDismissResetResult={() => setAdminResetResult(null)}
       />
+      <ToastViewport zenMode={zenMode} isMobile={isMobile} />
     </>
   );
 

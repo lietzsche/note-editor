@@ -86,6 +86,11 @@ export interface NoteListItemProps {
 4. 오류 메시지는 스크린리더가 읽을 수 있도록 연결한다.
 5. 일반 텍스트 대비는 4.5:1 이상을 만족해야 한다.
 6. 터치 타깃은 모바일에서 44x44px 이상을 권장한다.
+7. 모달 다이얼로그는 `useModalFocus`(`src/lib/useModalFocus.ts`)를 사용한다.
+   - 열릴 때 `[data-autofocus]` 요소(없으면 첫 포커스 가능 요소)로 포커스를 옮긴다.
+   - Tab/Shift+Tab 포커스는 다이얼로그 안에서 순환하고, 닫히면 열기 전 위치로 복귀한다.
+   - Escape는 데이터 변경 없는 취소/닫기에만 연결한다. 강제 비밀번호 변경처럼 닫을 수 없는 다이얼로그는 `onEscape`를 생략한다.
+8. 사용자 알림에 `window.alert`를 사용하지 않는다. 대신 토스트(`showToast`)를 사용한다.
 
 ## 6. 분리 규칙
 
@@ -104,6 +109,21 @@ export interface NoteListItemProps {
 - Props: `onCopy`, `disabled?`, `className?`
 - 성공/실패 상태 피드백 훅(토스트/인라인 메시지)과 연결해야 한다.
 - 복사 액션은 명시적 사용자 트리거(클릭/키보드 활성화)로만 실행한다.
+- 노트 편집 화면에서는 `EditorMoreMenu` 안의 "본문 전체 복사" 항목으로 대체되었고, 결과는 토스트로 알린다.
+
+3. `ToastViewport` / `toastStore`
+- 호출: `showToast({ message, tone?: "info" | "success" | "error", action?: { label, onAction }, durationMs? })`
+- 기본 4초 후 자동으로 닫힌다. 액션이 있으면 5초 동안 보인다. 동시에 최대 3개까지 쌓인다.
+- 오류는 `role="alert"`, 그 외는 `role="status"`로 알린다.
+- 위치: 데스크톱은 우하단, 모바일은 하단 탭바 위.
+- 몰입 모드에서는 오류와 액션(되돌리기 등) 토스트만 노출한다.
+- 노트를 휴지통으로 옮기면 "되돌리기" 액션을 제공한다. 누르면 restore API로 즉시 복원한다.
+
+4. `EditorMoreMenu`
+- 에디터 툴바에는 저장 상태, 공유, 몰입 모드만 노출하고, 복사·맞춤법 검사·휴지통 이동은 `⋯` 메뉴로 모은다.
+- 저장 오류(다시 시도)와 충돌(충돌 해결) 버튼은 메뉴에 숨기지 않는다. 발생하면 경고 톤(`alertActionBtn`)으로 툴바에 노출한다.
+- 키보드: 트리거에서 ArrowDown으로 열기, 메뉴에서 ArrowUp/Down/Home/End로 이동, Escape로 닫고 트리거로 포커스 복귀, Tab으로 닫기.
+- 읽기 전용(휴지통) 노트에서는 맞춤법·삭제 항목을 숨긴다.
 
 ## 8. 파일 구조 규칙
 
@@ -131,3 +151,8 @@ export interface NoteListItemProps {
 2026-04-12 진행 메모:
 - `CharacterCountIndicator`, `CopyAllButton` 반영 완료
 - 화면 orchestration은 `NotesPage`, 렌더링/피드백은 편집 보조 컴포넌트로 분리
+
+2026-11-03 진행 메모:
+- `ToastViewport`/`toastStore`, `EditorMoreMenu`, `useModalFocus` 추가
+- 노트 목록 로딩 스켈레톤과 로드 실패 "다시 시도" 버튼 추가
+- 사이드바 하단에서 로그아웃을 구분선 뒤 저강조 스타일로 분리

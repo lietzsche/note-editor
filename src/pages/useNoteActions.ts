@@ -3,6 +3,7 @@ import { api, type Group, type Note } from "../lib/api";
 import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import { sortNotesByOrder } from "../lib/noteCollections";
 import type { PendingAction } from "../lib/notesPageTransitions";
+import { getErrorMessage, showToast } from "../lib/toastStore";
 
 type ShareInfo = {
   share_token: string | null;
@@ -52,6 +53,13 @@ export function getNextNotesAfterMove(args: {
   return args.selectedGroupId !== null && args.updatedNote.group_id !== args.selectedGroupId
     ? args.notes.filter((note) => note.id !== args.noteId)
     : args.notes.map((note) => (note.id === args.updatedNote.id ? args.updatedNote : note));
+}
+
+export function getTrashToastMessage(title: string | null | undefined) {
+  const normalizedTitle = (title ?? "").trim();
+  if (!normalizedTitle) return "노트를 휴지통으로 이동했습니다.";
+  const shortTitle = normalizedTitle.length > 20 ? `${normalizedTitle.slice(0, 20)}…` : normalizedTitle;
+  return `'${shortTitle}' 노트를 휴지통으로 이동했습니다.`;
 }
 
 export function useNoteActions({
@@ -130,7 +138,36 @@ export function useNoteActions({
       if (targetNote) {
         restoreNoteFromTrashInCaches(targetNote);
       }
-      window.alert(error instanceof Error ? error.message : "노트를 휴지통으로 이동하지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "노트를 휴지통으로 이동하지 못했습니다.") });
+      return;
+    }
+
+    if (!optimisticTrashedNote) {
+      showToast({ message: "노트를 휴지통으로 이동했습니다." });
+      return;
+    }
+
+    const trashedNote = optimisticTrashedNote;
+    showToast({
+      message: getTrashToastMessage(trashedNote.title),
+      action: {
+        label: "되돌리기",
+        onAction: () => {
+          void undoTrash(trashedNote);
+        },
+      },
+    });
+
+    async function undoTrash(note: Note) {
+      restoreNoteFromTrashInCaches({ ...note, deleted_at: null });
+      try {
+        const restoredNote = await api.notes.restore(note.id);
+        updateNoteAcrossCaches(restoredNote);
+        showToast({ tone: "success", message: "노트를 복원했습니다." });
+      } catch (error) {
+        moveNoteToTrashInCaches(note);
+        showToast({ tone: "error", message: getErrorMessage(error, "노트를 복원하지 못했습니다.") });
+      }
     }
   }, [
     clearSelectedNoteView,
@@ -139,6 +176,7 @@ export function useNoteActions({
     removeNoteFromCaches,
     restoreNoteFromTrashInCaches,
     selectedNote,
+    updateNoteAcrossCaches,
   ]);
 
   const deleteNote = useCallback(async (id: string) => {
@@ -179,7 +217,7 @@ export function useNoteActions({
       if (targetNote) {
         moveNoteToTrashInCaches(targetNote);
       }
-      window.alert(error instanceof Error ? error.message : "노트를 복원하지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "노트를 복원하지 못했습니다.") });
     }
   }, [
     clearSelectedNoteView,
@@ -206,7 +244,7 @@ export function useNoteActions({
       if (targetNote) {
         moveNoteToTrashInCaches(targetNote);
       }
-      window.alert(error instanceof Error ? error.message : "노트를 영구 삭제하지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "노트를 영구 삭제하지 못했습니다.") });
     }
   }, [clearSelectedNoteView, moveNoteToTrashInCaches, notes, removeNoteFromCaches, selectedNote]);
 
@@ -251,7 +289,7 @@ export function useNoteActions({
       setNewGroupName("");
       upsertGroup(createdGroup);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "그룹을 만들지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "그룹을 만들지 못했습니다.") });
     }
   }, [newGroupName, setNewGroupName, upsertGroup]);
 
@@ -271,7 +309,7 @@ export function useNoteActions({
       if (existingGroup) {
         upsertGroup(existingGroup);
       }
-      window.alert(error instanceof Error ? error.message : "그룹 이름을 변경하지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "그룹 이름을 변경하지 못했습니다.") });
     }
   }, [groups, upsertGroup]);
 
@@ -294,7 +332,7 @@ export function useNoteActions({
         openNote(refreshedNote);
       }
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "그룹을 삭제하지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "그룹을 삭제하지 못했습니다.") });
     }
   }, [
     invalidateAllNotesCache,
@@ -347,7 +385,7 @@ export function useNoteActions({
       if (selectedNote?.id === noteId) {
         openNote(targetNote);
       }
-      window.alert(error instanceof Error ? error.message : "노트 그룹을 이동하지 못했습니다.");
+      showToast({ tone: "error", message: getErrorMessage(error, "노트 그룹을 이동하지 못했습니다.") });
     }
   }, [
     applyMovedNoteToCaches,

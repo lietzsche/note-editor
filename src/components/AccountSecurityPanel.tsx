@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { useModalFocus } from "../lib/useModalFocus";
 
 type Props = {
   isOpen: boolean;
@@ -50,6 +51,11 @@ export function AccountSecurityPanel({
     setLocalError("");
   }, [successMessage]);
 
+  const dialogRef = useModalFocus<HTMLElement>({
+    active: isOpen,
+    onEscape: required ? undefined : onClose,
+  });
+
   if (!isOpen) return null;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -83,10 +89,12 @@ export function AccountSecurityPanel({
       }}
     >
       <section
+        ref={dialogRef}
         className="account-security"
         role="dialog"
         aria-modal="true"
         aria-labelledby="account-security-title"
+        tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="account-security__header">

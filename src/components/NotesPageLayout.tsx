@@ -15,19 +15,18 @@ import {
   splitHighlightSegments,
 } from "../lib/noteSearchHighlight";
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
-import { CopyAllButton } from "./CopyAllButton";
+import { EditorMoreMenu } from "./EditorMoreMenu";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { ShareStatusPanel } from "./ShareStatusPanel";
-import { SpellCheckLink } from "./SpellCheckLink";
 import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
 import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import ThemeToggle from "./ThemeToggle";
 import type { PerfSample } from "../lib/performanceDebug";
+import { useModalFocus } from "../lib/useModalFocus";
 
 type MobilePanel = "groups" | "notes" | "editor";
 type CountStatus = "count-ready" | "count-stale";
-type CopyStatus = "ready" | "copy-success" | "copy-error";
 
 type Props = {
   styles: Record<string, CSSProperties>;
@@ -59,7 +58,6 @@ type Props = {
   selectedNoteDeletedAtLabel: string | null;
   charCount: number;
   countStatus: CountStatus;
-  copyStatus: CopyStatus;
   newGroupName: string;
   groupReorderBusy: boolean;
   noteReorderBusy: boolean;
@@ -105,6 +103,7 @@ type Props = {
   onDialogPrimaryAction: () => void;
   onDialogDiscardAction: () => void;
   onDialogCancelAction: () => void;
+  onRetryLoadNotes?: () => void;
   shareInfo: {
     share_token: string | null;
     is_active: boolean;
@@ -150,7 +149,6 @@ export function NotesPageLayout({
   selectedNoteDeletedAtLabel,
   charCount,
   countStatus,
-  copyStatus,
   newGroupName,
   groupReorderBusy,
   noteReorderBusy,
@@ -196,6 +194,7 @@ export function NotesPageLayout({
   onDialogPrimaryAction,
   onDialogDiscardAction,
   onDialogCancelAction,
+  onRetryLoadNotes,
   shareInfo,
   shareLoading,
   shareError,
@@ -220,6 +219,10 @@ export function NotesPageLayout({
   const totalMatchCount = titleMatchCount + contentMatchCount;
   const showSearchContextPanel = searchContextVisible && totalMatchCount > 0;
   const hasHiddenSearchContext = !searchContextVisible && totalMatchCount > 0;
+  const editorDialogRef = useModalFocus<HTMLDivElement>({
+    active: Boolean(dialogMode),
+    onEscape: onDialogCancelAction,
+  });
 
   useEffect(() => {
     setContentMatchIndex(0);
@@ -276,8 +279,8 @@ export function NotesPageLayout({
           }}
         >
           <div style={styles.sidebarHeader}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-              <span style={{ fontWeight: 700, fontSize: "var(--font-size-md)", whiteSpace: "nowrap" }}>노트 그룹</span>
+            <div style={styles.sidebarHeaderRow}>
+              <span style={styles.panelHeading}>노트 그룹</span>
               <ThemeToggle compact />
             </div>
           </div>
@@ -398,9 +401,10 @@ export function NotesPageLayout({
                   {isMobile ? <AdminIcon /> : "운영"}
                 </button>
               )}
+              <span style={styles.footerDivider} aria-hidden="true" />
               <button
                 type="button"
-                style={isMobile ? styles.mobileHeaderIconButton : styles.footerActionBtn}
+                style={isMobile ? styles.mobileLogoutIconButton : styles.footerLogoutBtn}
                 onClick={onLogout}
                 title="로그아웃"
                 aria-label="로그아웃"
@@ -425,7 +429,7 @@ export function NotesPageLayout({
         >
           <div style={styles.noteListHeader}>
             <div style={styles.noteListMeta}>
-              <span style={{ fontWeight: 700, fontSize: "15px" }}>
+              <span style={styles.panelHeading}>
                 {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
               </span>
               <span style={styles.reorderHint}>{noteListStatusLabel}</span>
@@ -467,10 +471,29 @@ export function NotesPageLayout({
           )}
           <div style={styles.noteListBody}>
             {notesLoadState === "loading" && notes.length === 0 && (
-              <div style={styles.empty}>노트 목록을 불러오는 중입니다.</div>
+              <div style={styles.skeletonList} role="status" aria-live="polite">
+                <span style={styles.visuallyHidden}>노트 목록을 불러오는 중입니다.</span>
+                {[0, 1, 2, 3].map((index) => (
+                  <div key={index} style={styles.skeletonItem} aria-hidden="true">
+                    <div style={{ ...styles.skeletonLine, width: index % 2 === 0 ? "62%" : "48%" }} />
+                    <div style={{ ...styles.skeletonLine, ...styles.skeletonLineSub }} />
+                  </div>
+                ))}
+              </div>
             )}
             {notesLoadState === "error" && notes.length === 0 && (
-              <div style={styles.empty}>노트 목록을 불러오지 못했습니다.</div>
+              <div style={styles.empty} role="alert">
+                <div>노트 목록을 불러오지 못했습니다.</div>
+                {onRetryLoadNotes && (
+                  <button
+                    type="button"
+                    style={styles.emptySecondaryBtn}
+                    onClick={onRetryLoadNotes}
+                  >
+                    다시 시도
+                  </button>
+                )}
+              </div>
             )}
             {!isTrashView && notesLoadState !== "loading" && notesLoadState !== "error" && notes.length === 0 && searchQuery.trim() && (
               <div style={styles.empty}>검색 결과가 없습니다.</div>
@@ -610,7 +633,10 @@ export function NotesPageLayout({
                     {!isSelectedNoteReadOnly && saveStatus === "error" && (
                       <button
                         type="button"
-                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                        style={{
+                          ...(isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn),
+                          ...styles.alertActionBtn,
+                        }}
                         onClick={onRetrySave}
                         aria-label="저장 다시 시도"
                         title="저장 다시 시도"
@@ -621,7 +647,10 @@ export function NotesPageLayout({
                     {!isSelectedNoteReadOnly && saveStatus === "conflict" && (
                       <button
                         type="button"
-                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                        style={{
+                          ...(isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn),
+                          ...styles.alertActionBtn,
+                        }}
                         onClick={onOpenConflictDialog}
                         aria-label="저장 충돌 해결"
                         title="저장 충돌 해결"
@@ -640,7 +669,17 @@ export function NotesPageLayout({
                         {isMobile ? <SearchInfoIcon /> : "검색 정보"}
                       </button>
                     )}
-                    <CopyAllButton onCopy={onCopy} state={copyStatus} compact={isMobile} />
+                    {!isSelectedNoteReadOnly && (
+                      <ShareStatusPanel
+                        styles={styles}
+                        shareInfo={shareInfo}
+                        shareLoading={shareLoading}
+                        shareError={shareError}
+                        onShareToggle={onShareToggle}
+                        size="popover"
+                        compactTrigger={isMobile}
+                      />
+                    )}
                     <button
                       type="button"
                       style={{
@@ -655,37 +694,13 @@ export function NotesPageLayout({
                       <ZenIcon active={zenMode} />
                       {!isMobile && (zenMode ? "몰입 해제" : "몰입 모드")}
                     </button>
-                    {!isSelectedNoteReadOnly && (
-                      <SpellCheckLink
-                        compact={isMobile}
-                        hideGuidance
-                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
-                        containerStyle={isMobile ? styles.spellCheckMobileContainer : undefined}
-                      />
-                    )}
-                    {!isSelectedNoteReadOnly && (
-                      <ShareStatusPanel
-                        styles={styles}
-                        shareInfo={shareInfo}
-                        shareLoading={shareLoading}
-                        shareError={shareError}
-                        onShareToggle={onShareToggle}
-                        size="popover"
-                        compactTrigger={isMobile}
-                      />
-                    )}
-                    {!isSelectedNoteReadOnly && (
-                      <button
-                        type="button"
-                        style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
-                        onClick={() => onDeleteNote(selectedNote.id)}
-                        aria-label="현재 노트 휴지통으로 이동"
-                        title="휴지통으로 이동"
-                      >
-                        <EditorTrashIcon />
-                        {!isMobile && <span>삭제</span>}
-                      </button>
-                    )}
+                    <EditorMoreMenu
+                      compact={isMobile}
+                      triggerStyle={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
+                      onCopy={onCopy}
+                      showSpellCheck={!isSelectedNoteReadOnly}
+                      onDelete={isSelectedNoteReadOnly ? undefined : () => onDeleteNote(selectedNote.id)}
+                    />
                   </div>
                 </div>
                 )}
@@ -910,10 +925,18 @@ export function NotesPageLayout({
       )}
 
       {dialogMode && (
-        <div style={styles.modalOverlay} role="dialog" aria-modal="true" aria-labelledby="editor-dialog-title">
-          <div style={styles.modalCard}>
+        <div style={styles.modalOverlay}>
+          <div
+            ref={editorDialogRef}
+            style={styles.modalCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="editor-dialog-title"
+            aria-describedby="editor-dialog-description"
+            tabIndex={-1}
+          >
             <h2 id="editor-dialog-title" style={styles.modalTitle}>{dialogTitle}</h2>
-            <p style={styles.modalDescription}>{dialogDescription}</p>
+            <p id="editor-dialog-description" style={styles.modalDescription}>{dialogDescription}</p>
             {isConflictDialog && conflictNote && (
               <div style={styles.conflictGrid}>
                 <section style={styles.conflictPanel}>
@@ -943,6 +966,7 @@ export function NotesPageLayout({
                 type="button"
                 style={styles.modalPrimaryButton}
                 onClick={onDialogPrimaryAction}
+                data-autofocus
               >
                 {primaryDialogLabel}
               </button>
@@ -1339,29 +1363,6 @@ function ZenIcon({ active }: { active: boolean }) {
     >
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function EditorTrashIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6h18" />
-      <path d="M8 6V4h8v2" />
-      <path d="M19 6l-1 14H6L5 6" />
-      <path d="M10 11v5" />
-      <path d="M14 11v5" />
     </svg>
   );
 }

@@ -3,6 +3,7 @@ import type {
   AdminPasswordResetResult,
   AdminUser,
 } from "../lib/api";
+import { useModalFocus } from "../lib/useModalFocus";
 
 type PasswordCopyState = "idle" | "success" | "error";
 
@@ -53,15 +54,19 @@ export function AdminConsolePanel({
   onCopyPassword,
   onDismissResetResult,
 }: Props) {
+  const dialogRef = useModalFocus<HTMLElement>({ active: isOpen, onEscape: onClose });
+
   if (!isOpen) return null;
 
   return (
     <div className="admin-console__backdrop" onClick={onClose}>
       <aside
+        ref={dialogRef}
         className="admin-console"
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-console-title"
+        tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="admin-console__header">
@@ -222,7 +227,7 @@ export function AdminConsolePanel({
                         ) : (
                           <button
                             type="button"
-                            className="admin-console__action admin-console__action--primary"
+                            className="admin-console__action admin-console__action--warning"
                             onClick={() => onRequestReset(user.id)}
                             disabled={Boolean(resetBusyUserId)}
                           >

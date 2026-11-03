@@ -103,10 +103,9 @@ describe("FEATURE-010 editor toolbar integration", () => {
       />
     );
 
-    expect(markup).toContain("맞춤법 검사");
-    expect(markup).toContain(SPELL_CHECK_URL);
     expect(markup).toContain("노트 공유 설정");
-    expect(markup).toContain("현재 노트 휴지통으로 이동");
+    expect(markup).toContain("몰입 모드");
+    expect(markup).toContain("더보기");
   });
 });
 
@@ -538,7 +537,7 @@ describe("FEATURE-011 note search", () => {
 
     expect(markup).toContain("업무 그룹 이름 변경");
     expect(markup).toContain("업무 그룹 삭제");
-    expect(markup).not.toContain("opacity:0");
+    expect(markup).not.toMatch(/opacity:\s*0[;"]/);
   });
 });
 

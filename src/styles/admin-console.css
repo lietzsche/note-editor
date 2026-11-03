@@ -348,6 +348,16 @@
   color: var(--color-text-primary);
 }
 
+.admin-console__action--warning {
+  border-color: color-mix(in srgb, var(--color-feedback-warning) 32%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-feedback-warning) 10%, transparent);
+  color: var(--color-feedback-warning);
+}
+
+.admin-console:focus {
+  outline: none;
+}
+
 .admin-console__action--danger {
   border-color: color-mix(in srgb, var(--color-danger) 24%, var(--color-border-subtle));
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
