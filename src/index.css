@@ -46,8 +46,11 @@ body {
   box-shadow: 0 0 0 4px rgba(66, 153, 255, 0.3);
 }
 
-[data-theme="dark"] ::selection {
-  background: rgba(66, 153, 255, 0.3);
+[data-theme="dark"] ::selection,
+[data-theme="dark"] input::selection,
+[data-theme="dark"] textarea::selection {
+  background: rgba(119, 176, 145, 0.35);
+  color: inherit;
 }
 
 #root {
@@ -98,8 +101,11 @@ a:visited {
   color: var(--color-brand-primary-hover);
 }
 
-::selection {
-  background: var(--color-bg-accent-soft);
+::selection,
+input::selection,
+textarea::selection {
+  background: rgba(52, 102, 85, 0.28);
+  color: inherit;
 }
 
 ::placeholder {

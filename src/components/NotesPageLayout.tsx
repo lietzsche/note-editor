@@ -117,6 +117,10 @@ type Props = {
   zenMode: boolean;
   onToggleZenMode: () => void;
   titleInputFocusKey?: number;
+  isSidebarCollapsed?: boolean;
+  isNoteListCollapsed?: boolean;
+  onToggleSidebar?: () => void;
+  onToggleNoteList?: () => void;
 };
 
 export function NotesPageLayout({
@@ -202,6 +206,10 @@ export function NotesPageLayout({
   zenMode,
   onToggleZenMode,
   titleInputFocusKey = 0,
+  isSidebarCollapsed = false,
+  isNoteListCollapsed = false,
+  onToggleSidebar,
+  onToggleNoteList,
 }: Props) {
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
@@ -280,7 +288,20 @@ export function NotesPageLayout({
         >
           <div style={styles.sidebarHeader}>
             <div style={styles.sidebarHeaderRow}>
-              <span style={styles.panelHeading}>노트 그룹</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                {!isMobile && onToggleSidebar && (
+                  <button
+                    type="button"
+                    style={styles.panelHeaderIconButton}
+                    onClick={onToggleSidebar}
+                    aria-label="그룹 패널 접기"
+                    title="그룹 패널 접기"
+                  >
+                    <SidebarCollapseIcon />
+                  </button>
+                )}
+                <span style={styles.panelHeading}>노트 그룹</span>
+              </div>
               <ThemeToggle compact />
             </div>
           </div>
@@ -428,11 +449,24 @@ export function NotesPageLayout({
           }}
         >
           <div style={styles.noteListHeader}>
-            <div style={styles.noteListMeta}>
-              <span style={styles.panelHeading}>
-                {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
-              </span>
-              <span style={styles.reorderHint}>{noteListStatusLabel}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, flex: 1 }}>
+              {!isMobile && onToggleNoteList && (
+                <button
+                  type="button"
+                  style={styles.panelHeaderIconButton}
+                  onClick={onToggleNoteList}
+                  aria-label="노트 목록 패널 접기"
+                  title="노트 목록 패널 접기"
+                >
+                  <SidebarCollapseIcon />
+                </button>
+              )}
+              <div style={styles.noteListMeta}>
+                <span style={styles.panelHeading}>
+                  {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
+                </span>
+                <span style={styles.reorderHint}>{noteListStatusLabel}</span>
+              </div>
             </div>
             {!isTrashView && (
               <button
@@ -560,6 +594,30 @@ export function NotesPageLayout({
                       title="노트 목록"
                     >
                       <ChevronLeftIcon />
+                      <span>목록</span>
+                    </button>
+                  )}
+                  {!isMobile && !zenMode && isSidebarCollapsed && onToggleSidebar && (
+                    <button
+                      type="button"
+                      style={styles.panelRestoreBtn}
+                      onClick={onToggleSidebar}
+                      aria-label="그룹 패널 펼치기"
+                      title="그룹 패널 펼치기"
+                    >
+                      <SidebarExpandIcon />
+                      <span>그룹</span>
+                    </button>
+                  )}
+                  {!isMobile && !zenMode && isNoteListCollapsed && onToggleNoteList && (
+                    <button
+                      type="button"
+                      style={styles.panelRestoreBtn}
+                      onClick={onToggleNoteList}
+                      aria-label="노트 목록 펼치기"
+                      title="노트 목록 펼치기"
+                    >
+                      <SidebarExpandIcon />
                       <span>목록</span>
                     </button>
                   )}
@@ -851,6 +909,34 @@ export function NotesPageLayout({
           ) : (
             <div style={styles.noNote}>
               <div style={styles.noNoteInner}>
+                {!isMobile && !zenMode && (isSidebarCollapsed || isNoteListCollapsed) && (
+                  <div style={styles.noNoteRestoreRow}>
+                    {isSidebarCollapsed && onToggleSidebar && (
+                      <button
+                        type="button"
+                        style={styles.panelRestoreBtn}
+                        onClick={onToggleSidebar}
+                        aria-label="그룹 패널 펼치기"
+                        title="그룹 패널 펼치기"
+                      >
+                        <SidebarExpandIcon />
+                        <span>그룹 패널 열기</span>
+                      </button>
+                    )}
+                    {isNoteListCollapsed && onToggleNoteList && (
+                      <button
+                        type="button"
+                        style={styles.panelRestoreBtn}
+                        onClick={onToggleNoteList}
+                        aria-label="노트 목록 펼치기"
+                        title="노트 목록 펼치기"
+                      >
+                        <SidebarExpandIcon />
+                        <span>노트 목록 열기</span>
+                      </button>
+                    )}
+                  </div>
+                )}
                 <strong style={styles.noNoteTitle}>
                   {isTrashView ? "선택된 휴지통 노트가 없습니다" : "작성할 노트를 선택해 보세요"}
                 </strong>
@@ -1366,3 +1452,46 @@ function ZenIcon({ active }: { active: boolean }) {
     </svg>
   );
 }
+
+function SidebarCollapseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M9 3v18" />
+      <path d="m14 9-3 3 3 3" />
+    </svg>
+  );
+}
+
+function SidebarExpandIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M9 3v18" />
+      <path d="m13 15 3-3-3-3" />
+    </svg>
+  );
+}
+

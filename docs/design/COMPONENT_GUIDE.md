@@ -125,6 +125,12 @@ export interface NoteListItemProps {
 - 키보드: 트리거에서 ArrowDown으로 열기, 메뉴에서 ArrowUp/Down/Home/End로 이동, Escape로 닫고 트리거로 포커스 복귀, Tab으로 닫기.
 - 읽기 전용(휴지통) 노트에서는 맞춤법·삭제 항목을 숨긴다.
 
+5. PC 패널 접기/펼치기 (`panelCollapseState`)
+- PC 모드에서 그룹 사이드바와 노트 목록 패널을 각각 접고 펼칠 수 있다 (1열/2열/3열 자유 전환).
+- 접힌 패널은 에디터 툴바 좌측의 복원 버튼을 통해 언제든 다시 열 수 있다.
+- 상태는 `localStorage`(`note-editor:sidebar-collapsed`, `note-editor:notelist-collapsed`)에 보존된다.
+- 본문 텍스트 드래그(블록 선택)는 테마별 고대비 브랜드 그린 틴트(`::selection`)로 선명하게 표시된다.
+
 ## 8. 파일 구조 규칙
 
 1. 파일 크기
@@ -156,3 +162,8 @@ export interface NoteListItemProps {
 - `ToastViewport`/`toastStore`, `EditorMoreMenu`, `useModalFocus` 추가
 - 노트 목록 로딩 스켈레톤과 로드 실패 "다시 시도" 버튼 추가
 - 사이드바 하단에서 로그아웃을 구분선 뒤 저강조 스타일로 분리
+
+2026-11-04 진행 메모:
+- PC 모드 패널(그룹 사이드바, 노트 목록) 개별 접기/펼치기 및 `localStorage` 영속화 지원
+- 텍스트 드래그(선택 영역) 하이라이트(`::selection`) 가독성/대비 개선
+- 에디터 상단 및 빈 화면에서 접힌 패널 복원 버튼 제공

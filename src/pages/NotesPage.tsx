@@ -13,6 +13,12 @@ import { AdminConsolePanel } from "../components/AdminConsolePanel";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { ToastViewport } from "../components/ToastViewport";
 import { toastStore } from "../lib/toastStore";
+import {
+  readStorageBoolean,
+  writeStorageBoolean,
+  SIDEBAR_COLLAPSED_STORAGE_KEY,
+  NOTELIST_COLLAPSED_STORAGE_KEY,
+} from "../lib/panelCollapseState";
 import { countGraphemes } from "../lib/editorProductivity";
 import {
   getClearedNoteEditorState,
@@ -89,6 +95,28 @@ export default function NotesPage({
   );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
   const [zenMode, setZenMode] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
+    readStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false)
+  );
+  const [isNoteListCollapsed, setIsNoteListCollapsed] = useState(() =>
+    readStorageBoolean(NOTELIST_COLLAPSED_STORAGE_KEY, false)
+  );
+
+  function handleToggleSidebar() {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      writeStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, next);
+      return next;
+    });
+  }
+
+  function handleToggleNoteList() {
+    setIsNoteListCollapsed((prev) => {
+      const next = !prev;
+      writeStorageBoolean(NOTELIST_COLLAPSED_STORAGE_KEY, next);
+      return next;
+    });
+  }
 
   // 로그아웃 등으로 페이지를 떠나면 이전 세션의 토스트(되돌리기 포함)를 남기지 않는다.
   useEffect(() => () => toastStore.clear(), []);
@@ -836,6 +864,8 @@ export default function NotesPage({
     isMobile,
     mobilePanel,
     zenMode,
+    isSidebarCollapsed,
+    isNoteListCollapsed,
   });
   const selectedNoteGroupValue = selectedNote
     ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
@@ -976,6 +1006,10 @@ export default function NotesPage({
         zenMode={zenMode}
         onToggleZenMode={() => setZenMode((prev) => !prev)}
         titleInputFocusKey={titleInputFocusKey}
+        isSidebarCollapsed={isSidebarCollapsed}
+        isNoteListCollapsed={isNoteListCollapsed}
+        onToggleSidebar={handleToggleSidebar}
+        onToggleNoteList={handleToggleNoteList}
       />
       <AccountSecurityPanel
         isOpen={isAccountSecurityOpen}

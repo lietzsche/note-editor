@@ -18,6 +18,8 @@ type DeriveNotesPageStateArgs = {
   isMobile: boolean;
   mobilePanel: MobilePanel;
   zenMode: boolean;
+  isSidebarCollapsed?: boolean;
+  isNoteListCollapsed?: boolean;
 };
 
 export function deriveNotesPageState({
@@ -32,6 +34,8 @@ export function deriveNotesPageState({
   isMobile,
   mobilePanel,
   zenMode,
+  isSidebarCollapsed = false,
+  isNoteListCollapsed = false,
 }: DeriveNotesPageStateArgs) {
   const isTrashView = selectedGroupId === TRASH_NOTES_SCOPE_KEY;
   const normalizedSearchQuery = isTrashView ? "" : searchQuery.trim().toLocaleLowerCase();
@@ -58,7 +62,7 @@ export function deriveNotesPageState({
       ? `${filteredNotes.length}개 검색 결과`
       : noteListStatusLabel,
     currentGroupLabel: getCurrentGroupLabel(groups, selectedGroupId),
-    ...getPanelVisibility(isMobile, mobilePanel, zenMode),
+    ...getPanelVisibility(isMobile, mobilePanel, zenMode, isSidebarCollapsed, isNoteListCollapsed),
   };
 }
 
@@ -115,7 +119,13 @@ export function getCurrentGroupLabel(groups: Group[], selectedGroupId: string | 
     : "전체 노트";
 }
 
-export function getPanelVisibility(isMobile: boolean, mobilePanel: MobilePanel, zenMode?: boolean) {
+export function getPanelVisibility(
+  isMobile: boolean,
+  mobilePanel: MobilePanel,
+  zenMode?: boolean,
+  isSidebarCollapsed = false,
+  isNoteListCollapsed = false
+) {
   if (zenMode) {
     return {
       showGroupsPanel: false,
@@ -124,8 +134,8 @@ export function getPanelVisibility(isMobile: boolean, mobilePanel: MobilePanel, 
     };
   }
   return {
-    showGroupsPanel: !isMobile || mobilePanel === "groups",
-    showNotesPanel: !isMobile || mobilePanel === "notes",
-    showEditorPanel: !isMobile || mobilePanel === "editor",
+    showGroupsPanel: isMobile ? mobilePanel === "groups" : !isSidebarCollapsed,
+    showNotesPanel: isMobile ? mobilePanel === "notes" : !isNoteListCollapsed,
+    showEditorPanel: isMobile ? mobilePanel === "editor" : true,
   };
 }

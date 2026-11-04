@@ -143,4 +143,24 @@ describe("NOTES-PAGE derived state", () => {
     expect(derived.showNotesPanel).toBe(false);
     expect(derived.showEditorPanel).toBe(true);
   });
+
+  it("handles PC panel collapse states independently", () => {
+    expect(getPanelVisibility(false, "notes", false, true, false)).toEqual({
+      showGroupsPanel: false,
+      showNotesPanel: true,
+      showEditorPanel: true,
+    });
+
+    expect(getPanelVisibility(false, "notes", false, false, true)).toEqual({
+      showGroupsPanel: true,
+      showNotesPanel: false,
+      showEditorPanel: true,
+    });
+
+    expect(getPanelVisibility(false, "notes", false, true, true)).toEqual({
+      showGroupsPanel: false,
+      showNotesPanel: false,
+      showEditorPanel: true,
+    });
+  });
 });
