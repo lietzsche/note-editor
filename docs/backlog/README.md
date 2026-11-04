@@ -36,3 +36,7 @@ remains as a historical baseline record and should not be used for current reord
 3. `BACKLOG-003-group-and-note-dnd-reorder.md`
 - group sidebar reorder and note list reorder via DnD
 - Status: Done
+
+4. `BACKLOG-004-mobile-back-navigation.md`
+- 모바일 휴대폰 뒤로가기를 겹침 화면 닫기·패널 되돌리기로 연결하고 미저장 이탈 방지
+- 상태: Done (실기기 확인 대기)
