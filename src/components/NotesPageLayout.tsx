@@ -116,6 +116,9 @@ type Props = {
   shareError: string | null;
   onShareToggle: () => void;
   zenMode: boolean;
+  autoFocusMode?: boolean;
+  autoFocusEnabled?: boolean;
+  onAutoFocusEnabledChange?: (enabled: boolean) => void;
   onToggleZenMode: () => void;
   titleInputFocusKey?: number;
   isSidebarCollapsed?: boolean;
@@ -203,6 +206,9 @@ export function NotesPageLayout({
   shareError,
   onShareToggle,
   zenMode,
+  autoFocusMode = false,
+  autoFocusEnabled = true,
+  onAutoFocusEnabledChange,
   onToggleZenMode,
   titleInputFocusKey = 0,
   isSidebarCollapsed = false,
@@ -210,6 +216,7 @@ export function NotesPageLayout({
 }: Props) {
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
+  const [autoFocusNavigationOpen, setAutoFocusNavigationOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
   const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());
@@ -228,6 +235,10 @@ export function NotesPageLayout({
     active: Boolean(dialogMode),
     onEscape: onDialogCancelAction,
   });
+
+  useEffect(() => {
+    if (!autoFocusMode) setAutoFocusNavigationOpen(false);
+  }, [autoFocusMode]);
 
   useEffect(() => {
     setContentMatchIndex(0);
@@ -253,17 +264,23 @@ export function NotesPageLayout({
       }
 
       if (isMod && (event.key === "[" || event.key === "b" || event.key === "B")) {
-        if (!isMobile && onToggleSidebar) {
+        if (!isMobile && autoFocusMode) {
+          event.preventDefault();
+          setAutoFocusNavigationOpen((open) => !open);
+        } else if (!isMobile && onToggleSidebar) {
           event.preventDefault();
           onToggleSidebar();
         }
+      }
+      if (event.key === "Escape" && autoFocusNavigationOpen) {
+        setAutoFocusNavigationOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedNote, onToggleZenMode, isMobile, onToggleSidebar]);
+  }, [selectedNote, onToggleZenMode, isMobile, onToggleSidebar, autoFocusMode, autoFocusNavigationOpen]);
 
   function goToPreviousContentMatch() {
     setContentMatchIndex(Math.max(0, activeContentMatchIndex - 1));
@@ -360,6 +377,16 @@ export function NotesPageLayout({
         <strong style={styles.userInfoName} title={`@${username}`}>@{username}</strong>
       </div>
       <div style={styles.sidebarFooterActions}>
+        {!isMobile && onAutoFocusEnabledChange && (
+          <label className="auto-focus-setting" title="본문 입력 시 자동으로 집중 화면으로 전환">
+            <input
+              type="checkbox"
+              checked={autoFocusEnabled}
+              onChange={(event) => onAutoFocusEnabledChange(event.target.checked)}
+            />
+            자동 집중
+          </label>
+        )}
         {onOpenGuide && (
           <button
             type="button"
@@ -453,11 +480,25 @@ export function NotesPageLayout({
         </aside>
       )}
 
-      {showNotesPanel && (
+      {autoFocusMode && !isMobile && (
+        <button
+          type="button"
+          className="auto-focus-edge-trigger"
+          onMouseEnter={() => setAutoFocusNavigationOpen(true)}
+          onFocus={() => setAutoFocusNavigationOpen(true)}
+          aria-label="노트 탐색 열기 (Ctrl + [)"
+          title="노트 탐색 열기"
+        />
+      )}
+
+      {(showNotesPanel || (autoFocusMode && autoFocusNavigationOpen)) && (
         <div
-          className={!isMobile ? "slim-sidebar" : undefined}
+          className={!isMobile
+            ? `slim-sidebar${autoFocusMode ? " auto-focus-navigation" : ""}`
+            : undefined}
           role="navigation"
           aria-label="노트 탐색"
+          onMouseLeave={autoFocusMode ? () => setAutoFocusNavigationOpen(false) : undefined}
           style={{
             ...styles.noteList,
             flex: isMobile ? 1 : undefined,
@@ -588,7 +629,10 @@ export function NotesPageLayout({
                 searchQuery={searchQuery}
                 disabled={isTrashView || noteReorderBusy || Boolean(searchQuery.trim())}
                 mode={isTrashView ? "trash" : "active"}
-                onSelectNote={onSelectNote}
+                onSelectNote={(note) => {
+                  if (autoFocusMode) setAutoFocusNavigationOpen(false);
+                  onSelectNote(note);
+                }}
                 onDeleteNote={onDeleteNote}
                 onRestoreNote={onRestoreNote}
                 onPermanentDeleteNote={onPermanentDeleteNote}
@@ -668,7 +712,7 @@ export function NotesPageLayout({
                     aria-label="노트 제목"
                     readOnly={isSelectedNoteReadOnly}
                   />
-                  {groups.length > 0 && (!isMobile || !zenMode) && (
+                  {groups.length > 0 && !zenMode && (
                     <label style={{ ...styles.groupPicker, ...(isMobile ? styles.groupPickerMobile : {}) }}>
                       <span style={{ ...styles.groupPickerLabel, ...(isMobile ? styles.visuallyHidden : {}) }}>
                         그룹
@@ -722,7 +766,7 @@ export function NotesPageLayout({
                     >
                       {saveLabel}
                     </span>
-                    <CharacterCountIndicator count={charCount} state={countStatus} />
+                    {!autoFocusMode && <CharacterCountIndicator count={charCount} state={countStatus} />}
                   </div>
                   <div style={{ ...styles.editorActionCluster, ...(isMobile ? styles.editorActionClusterMobile : {}) }}>
                     {!isSelectedNoteReadOnly && saveStatus === "error" && (
@@ -753,7 +797,7 @@ export function NotesPageLayout({
                         {isMobile ? <ConflictIcon /> : "충돌 해결"}
                       </button>
                     )}
-                    {hasHiddenSearchContext && onShowSearchContext && (
+                    {!autoFocusMode && hasHiddenSearchContext && onShowSearchContext && (
                       <button
                         type="button"
                         style={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
@@ -764,7 +808,7 @@ export function NotesPageLayout({
                         {isMobile ? <SearchInfoIcon /> : "검색 정보"}
                       </button>
                     )}
-                    {!isSelectedNoteReadOnly && (
+                    {!autoFocusMode && !isSelectedNoteReadOnly && (
                       <ShareStatusPanel
                         styles={styles}
                         shareInfo={shareInfo}
@@ -775,7 +819,7 @@ export function NotesPageLayout({
                         compactTrigger={isMobile}
                       />
                     )}
-                    <button
+                    {!autoFocusMode && <button
                       type="button"
                       style={{
                         ...(isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn),
@@ -788,19 +832,19 @@ export function NotesPageLayout({
                     >
                       <ZenIcon active={zenMode} />
                       {!isMobile && (zenMode ? "몰입 해제" : "몰입 모드")}
-                    </button>
-                    <EditorMoreMenu
+                    </button>}
+                    {!autoFocusMode && <EditorMoreMenu
                       compact={isMobile}
                       triggerStyle={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
                       onCopy={onCopy}
                       showSpellCheck={!isSelectedNoteReadOnly}
                       onDelete={isSelectedNoteReadOnly ? undefined : () => onDeleteNote(selectedNote.id)}
-                    />
+                    />}
                   </div>
                 </div>
                 )}
               </div>
-              {showSearchContextPanel && (
+              {!autoFocusMode && showSearchContextPanel && (
                 <div
                   style={{
                     ...styles.searchContextPanel,

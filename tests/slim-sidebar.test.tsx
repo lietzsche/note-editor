@@ -29,6 +29,7 @@ const props: ComponentProps<typeof NotesPageLayout> = {
   onDialogPrimaryAction: noop, onDialogDiscardAction: noop, onDialogCancelAction: noop,
   shareInfo: null, shareLoading: false, shareError: null, onShareToggle: noop,
   zenMode: false, onToggleZenMode: noop, onToggleSidebar: noop,
+  autoFocusMode: false, autoFocusEnabled: true, onAutoFocusEnabledChange: noop,
 };
 
 describe("slim desktop sidebar", () => {
@@ -52,6 +53,26 @@ describe("slim desktop sidebar", () => {
     expect(html).not.toContain('aria-label="탐색할 그룹 선택"');
     expect(html).toContain("노트 그룹");
     expect(html).toContain('aria-label="새 그룹 이름"');
+  });
+
+  it("renders automatic focus navigation as an overlay with an accessible edge trigger", () => {
+    const html = renderToStaticMarkup(
+      <NotesPageLayout
+        {...props}
+        selectedNote={{ id: "n1", title: "기록", content: "본문", group_id: null,
+          sort_order: 0, updated_at: "2026-11-01T00:00:00Z" }}
+        title="기록"
+        content="본문"
+        zenMode
+        autoFocusMode
+        showGroupsPanel={false}
+        showNotesPanel={false}
+      />
+    );
+    expect(html).toContain('aria-label="노트 탐색 열기 (Ctrl + [)"');
+    expect(html).not.toContain("0자");
+    expect(html).not.toContain("몰입 해제");
+    expect(html).toContain("저장됨");
   });
 
   it("uses a compact menu on desktop while retaining mobile drag and delete controls", () => {

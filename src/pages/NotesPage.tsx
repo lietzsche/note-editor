@@ -20,6 +20,14 @@ import {
 } from "../lib/panelCollapseState";
 import { countGraphemes } from "../lib/editorProductivity";
 import {
+  AUTO_FOCUS_ENABLED_STORAGE_KEY,
+  recordAutoFocusInput,
+  shouldScheduleAutoFocus,
+  toggleManualFocusMode,
+  type FocusMode,
+  type AutoFocusInputBurst,
+} from "../lib/autoFocusMode";
+import {
   getClearedNoteEditorState,
   getOpenedNoteEditorState,
   type CopyStatus,
@@ -93,7 +101,13 @@ export default function NotesPage({
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
-  const [zenMode, setZenMode] = useState(false);
+  const [focusMode, setFocusMode] = useState<FocusMode>("off");
+  const zenMode = focusMode !== "off";
+  const [autoFocusEnabled, setAutoFocusEnabled] = useState(() =>
+    readStorageBoolean(AUTO_FOCUS_ENABLED_STORAGE_KEY, true)
+  );
+  const autoFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoFocusInputBurstRef = useRef<AutoFocusInputBurst | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false)
   );
@@ -106,25 +120,62 @@ export default function NotesPage({
     });
   }
 
+  function cancelAutoFocusTimer() {
+    if (autoFocusTimerRef.current) {
+      clearTimeout(autoFocusTimerRef.current);
+      autoFocusTimerRef.current = null;
+    }
+    autoFocusInputBurstRef.current = null;
+  }
+
+  function handleAutoFocusEnabledChange(enabled: boolean) {
+    setAutoFocusEnabled(enabled);
+    writeStorageBoolean(AUTO_FOCUS_ENABLED_STORAGE_KEY, enabled);
+    cancelAutoFocusTimer();
+    if (!enabled) {
+      setFocusMode((current) => current === "auto" ? "off" : current);
+    }
+  }
+
   // 로그아웃 등으로 페이지를 떠나면 이전 세션의 토스트(되돌리기 포함)를 남기지 않는다.
-  useEffect(() => () => toastStore.clear(), []);
+  useEffect(() => () => {
+    cancelAutoFocusTimer();
+    toastStore.clear();
+  }, []);
   const [titleInputFocusKey, setTitleInputFocusKey] = useState(0);
 
   useEffect(() => {
     if (!selectedNote) {
-      setZenMode(false);
+      cancelAutoFocusTimer();
+      setFocusMode("off");
     }
   }, [selectedNote]);
 
   useEffect(() => {
+    cancelAutoFocusTimer();
+  }, [selectedNote?.id]);
+
+  useEffect(() => {
     if (isMobile && mobilePanel !== "editor" && zenMode) {
-      setZenMode(false);
+      cancelAutoFocusTimer();
+      setFocusMode("off");
     }
   }, [isMobile, mobilePanel, zenMode]);
+
+  useEffect(() => {
+    if (isMobile && focusMode === "auto") {
+      setFocusMode("off");
+    }
+  }, [focusMode, isMobile]);
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [dialogMode, setDialogMode] = useState<"transition" | "conflict" | null>(null);
   const [conflictNote, setConflictNote] = useState<Note | null>(null);
+  useEffect(() => {
+    if (focusMode === "auto" && dialogMode === "conflict" && !pendingAction) {
+      setDialogMode(null);
+    }
+  }, [dialogMode, focusMode, pendingAction]);
   const [perfSamples, setPerfSamples] = useState<PerfSample[]>([]);
   const [shareInfo, setShareInfo] = useState<{
     share_token: string | null;
@@ -963,7 +1014,28 @@ export default function NotesPage({
           void handleNoteReorder(nextNotes);
         }}
         onTitleChange={handleTitleChange}
-        onContentChange={handleContentChange}
+        onContentChange={(event) => {
+          handleContentChange(event);
+          if (shouldScheduleAutoFocus({
+            enabled: autoFocusEnabled,
+            isMobile,
+            hasEditableNote: Boolean(selectedNote && selectedNote.deleted_at == null),
+            focusMode,
+          })) {
+            const { burst, delayMs } = recordAutoFocusInput(
+              autoFocusInputBurstRef.current,
+              Date.now()
+            );
+            autoFocusInputBurstRef.current = burst;
+            if (delayMs !== null && !autoFocusTimerRef.current) {
+              autoFocusTimerRef.current = setTimeout(() => {
+                setFocusMode((current) => current === "off" ? "auto" : current);
+                autoFocusTimerRef.current = null;
+                autoFocusInputBurstRef.current = null;
+              }, delayMs);
+            }
+          }
+        }}
         onMoveSelectedNoteGroup={(groupId) => {
           void handleMoveSelectedNoteGroup(groupId);
         }}
@@ -991,7 +1063,13 @@ export default function NotesPage({
         shareError={shareError}
         onShareToggle={handleShareToggle}
         zenMode={zenMode}
-        onToggleZenMode={() => setZenMode((prev) => !prev)}
+        autoFocusMode={focusMode === "auto"}
+        autoFocusEnabled={autoFocusEnabled}
+        onAutoFocusEnabledChange={handleAutoFocusEnabledChange}
+        onToggleZenMode={() => {
+          cancelAutoFocusTimer();
+          setFocusMode((current) => toggleManualFocusMode(current));
+        }}
         titleInputFocusKey={titleInputFocusKey}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
