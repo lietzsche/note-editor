@@ -21,6 +21,14 @@ export function hasBlockingEdits(
   );
 }
 
+/** 앱을 떠나도 되는지. 저장 중이거나 저장되지 않은 변경이 있으면 false. */
+export function canLeaveNotesPage(
+  selectedNote: Note | null,
+  saveStatus: SaveStatus
+) {
+  return !selectedNote || saveStatus === "saved";
+}
+
 export function getTransitionDialogMode(saveStatus: SaveStatus) {
   return saveStatus === "conflict" ? "conflict" : "transition";
 }
