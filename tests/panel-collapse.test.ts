@@ -4,7 +4,6 @@ import {
   readStorageBoolean,
   writeStorageBoolean,
   SIDEBAR_COLLAPSED_STORAGE_KEY,
-  NOTELIST_COLLAPSED_STORAGE_KEY,
 } from "../src/lib/panelCollapseState";
 
 describe("panelCollapseState", () => {
@@ -31,8 +30,8 @@ describe("panelCollapseState", () => {
       writeStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, true);
       expect(readStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false)).toBe(true);
 
-      writeStorageBoolean(NOTELIST_COLLAPSED_STORAGE_KEY, false);
-      expect(readStorageBoolean(NOTELIST_COLLAPSED_STORAGE_KEY, true)).toBe(false);
+      writeStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false);
+      expect(readStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, true)).toBe(false);
 
       vi.unstubAllGlobals();
     });
@@ -45,12 +44,11 @@ describe("panelCollapseState", () => {
   });
 
   describe("getVisiblePanels", () => {
-    it("shows all 3 panels in default PC mode", () => {
+    it("shows sidebar (groups + notes) and editor in default PC mode", () => {
       const result = getVisiblePanels({
         isMobile: false,
         mobilePanel: "notes",
         isSidebarCollapsed: false,
-        isNoteListCollapsed: false,
         zenMode: false,
       });
 
@@ -61,28 +59,11 @@ describe("panelCollapseState", () => {
       });
     });
 
-    it("collapses sidebar when isSidebarCollapsed is true on PC", () => {
+    it("collapses entire sidebar (groups + notes) when isSidebarCollapsed is true on PC", () => {
       const result = getVisiblePanels({
         isMobile: false,
         mobilePanel: "notes",
         isSidebarCollapsed: true,
-        isNoteListCollapsed: false,
-        zenMode: false,
-      });
-
-      expect(result).toEqual({
-        showGroupsPanel: false,
-        showNotesPanel: true,
-        showEditorPanel: true,
-      });
-    });
-
-    it("collapses both sidebar and note list to give full width to editor on PC", () => {
-      const result = getVisiblePanels({
-        isMobile: false,
-        mobilePanel: "notes",
-        isSidebarCollapsed: true,
-        isNoteListCollapsed: true,
         zenMode: false,
       });
 
@@ -98,7 +79,6 @@ describe("panelCollapseState", () => {
         isMobile: false,
         mobilePanel: "notes",
         isSidebarCollapsed: false,
-        isNoteListCollapsed: false,
         zenMode: true,
       });
 
@@ -115,7 +95,6 @@ describe("panelCollapseState", () => {
           isMobile: true,
           mobilePanel: "groups",
           isSidebarCollapsed: true,
-          isNoteListCollapsed: true,
           zenMode: false,
         })
       ).toEqual({
@@ -129,7 +108,6 @@ describe("panelCollapseState", () => {
           isMobile: true,
           mobilePanel: "editor",
           isSidebarCollapsed: false,
-          isNoteListCollapsed: false,
           zenMode: false,
         })
       ).toEqual({

@@ -144,22 +144,16 @@ describe("NOTES-PAGE derived state", () => {
     expect(derived.showEditorPanel).toBe(true);
   });
 
-  it("handles PC panel collapse states independently", () => {
-    expect(getPanelVisibility(false, "notes", false, true, false)).toEqual({
+  it("handles PC sidebar collapse state (groups + notes)", () => {
+    expect(getPanelVisibility(false, "notes", false, true)).toEqual({
       showGroupsPanel: false,
-      showNotesPanel: true,
+      showNotesPanel: false,
       showEditorPanel: true,
     });
 
-    expect(getPanelVisibility(false, "notes", false, false, true)).toEqual({
+    expect(getPanelVisibility(false, "notes", false, false)).toEqual({
       showGroupsPanel: true,
-      showNotesPanel: false,
-      showEditorPanel: true,
-    });
-
-    expect(getPanelVisibility(false, "notes", false, true, true)).toEqual({
-      showGroupsPanel: false,
-      showNotesPanel: false,
+      showNotesPanel: true,
       showEditorPanel: true,
     });
   });

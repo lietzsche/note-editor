@@ -17,7 +17,6 @@ import {
   readStorageBoolean,
   writeStorageBoolean,
   SIDEBAR_COLLAPSED_STORAGE_KEY,
-  NOTELIST_COLLAPSED_STORAGE_KEY,
 } from "../lib/panelCollapseState";
 import { countGraphemes } from "../lib/editorProductivity";
 import {
@@ -98,22 +97,11 @@ export default function NotesPage({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     readStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, false)
   );
-  const [isNoteListCollapsed, setIsNoteListCollapsed] = useState(() =>
-    readStorageBoolean(NOTELIST_COLLAPSED_STORAGE_KEY, false)
-  );
 
   function handleToggleSidebar() {
     setIsSidebarCollapsed((prev) => {
       const next = !prev;
       writeStorageBoolean(SIDEBAR_COLLAPSED_STORAGE_KEY, next);
-      return next;
-    });
-  }
-
-  function handleToggleNoteList() {
-    setIsNoteListCollapsed((prev) => {
-      const next = !prev;
-      writeStorageBoolean(NOTELIST_COLLAPSED_STORAGE_KEY, next);
       return next;
     });
   }
@@ -865,7 +853,6 @@ export default function NotesPage({
     mobilePanel,
     zenMode,
     isSidebarCollapsed,
-    isNoteListCollapsed,
   });
   const selectedNoteGroupValue = selectedNote
     ? getNoteGroupSelectValue(selectedNote.group_id, defaultGroupId)
@@ -1007,9 +994,7 @@ export default function NotesPage({
         onToggleZenMode={() => setZenMode((prev) => !prev)}
         titleInputFocusKey={titleInputFocusKey}
         isSidebarCollapsed={isSidebarCollapsed}
-        isNoteListCollapsed={isNoteListCollapsed}
         onToggleSidebar={handleToggleSidebar}
-        onToggleNoteList={handleToggleNoteList}
       />
       <AccountSecurityPanel
         isOpen={isAccountSecurityOpen}

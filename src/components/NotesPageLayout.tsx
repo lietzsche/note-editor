@@ -118,9 +118,7 @@ type Props = {
   onToggleZenMode: () => void;
   titleInputFocusKey?: number;
   isSidebarCollapsed?: boolean;
-  isNoteListCollapsed?: boolean;
   onToggleSidebar?: () => void;
-  onToggleNoteList?: () => void;
 };
 
 export function NotesPageLayout({
@@ -207,9 +205,7 @@ export function NotesPageLayout({
   onToggleZenMode,
   titleInputFocusKey = 0,
   isSidebarCollapsed = false,
-  isNoteListCollapsed = false,
   onToggleSidebar,
-  onToggleNoteList,
 }: Props) {
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
@@ -246,10 +242,19 @@ export function NotesPageLayout({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "\\") {
+      const isMod = event.ctrlKey || event.metaKey;
+      if (isMod && event.key === "\\") {
         if (selectedNote) {
           event.preventDefault();
           onToggleZenMode();
+        }
+        return;
+      }
+
+      if (isMod && (event.key === "[" || event.key === "b" || event.key === "B")) {
+        if (!isMobile && onToggleSidebar) {
+          event.preventDefault();
+          onToggleSidebar();
         }
       }
     };
@@ -257,7 +262,7 @@ export function NotesPageLayout({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedNote, onToggleZenMode]);
+  }, [selectedNote, onToggleZenMode, isMobile, onToggleSidebar]);
 
   function goToPreviousContentMatch() {
     setContentMatchIndex(Math.max(0, activeContentMatchIndex - 1));
@@ -294,8 +299,8 @@ export function NotesPageLayout({
                     type="button"
                     style={styles.panelHeaderIconButton}
                     onClick={onToggleSidebar}
-                    aria-label="그룹 패널 접기"
-                    title="그룹 패널 접기"
+                    aria-label="사이드바 접기 (Ctrl + [)"
+                    title="사이드바 접기 (Ctrl + [)"
                   >
                     <SidebarCollapseIcon />
                   </button>
@@ -449,24 +454,11 @@ export function NotesPageLayout({
           }}
         >
           <div style={styles.noteListHeader}>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, flex: 1 }}>
-              {!isMobile && onToggleNoteList && (
-                <button
-                  type="button"
-                  style={styles.panelHeaderIconButton}
-                  onClick={onToggleNoteList}
-                  aria-label="노트 목록 패널 접기"
-                  title="노트 목록 패널 접기"
-                >
-                  <SidebarCollapseIcon />
-                </button>
-              )}
-              <div style={styles.noteListMeta}>
-                <span style={styles.panelHeading}>
-                  {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
-                </span>
-                <span style={styles.reorderHint}>{noteListStatusLabel}</span>
-              </div>
+            <div style={styles.noteListMeta}>
+              <span style={styles.panelHeading}>
+                {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
+              </span>
+              <span style={styles.reorderHint}>{noteListStatusLabel}</span>
             </div>
             {!isTrashView && (
               <button
@@ -602,23 +594,10 @@ export function NotesPageLayout({
                       type="button"
                       style={styles.panelRestoreBtn}
                       onClick={onToggleSidebar}
-                      aria-label="그룹 패널 펼치기"
-                      title="그룹 패널 펼치기"
+                      aria-label="사이드바 펼치기 (Ctrl + [)"
+                      title="사이드바 펼치기 (Ctrl + [)"
                     >
                       <SidebarExpandIcon />
-                      <span>그룹</span>
-                    </button>
-                  )}
-                  {!isMobile && !zenMode && isNoteListCollapsed && onToggleNoteList && (
-                    <button
-                      type="button"
-                      style={styles.panelRestoreBtn}
-                      onClick={onToggleNoteList}
-                      aria-label="노트 목록 펼치기"
-                      title="노트 목록 펼치기"
-                    >
-                      <SidebarExpandIcon />
-                      <span>목록</span>
                     </button>
                   )}
                   <input
@@ -909,32 +888,18 @@ export function NotesPageLayout({
           ) : (
             <div style={styles.noNote}>
               <div style={styles.noNoteInner}>
-                {!isMobile && !zenMode && (isSidebarCollapsed || isNoteListCollapsed) && (
+                {!isMobile && !zenMode && isSidebarCollapsed && onToggleSidebar && (
                   <div style={styles.noNoteRestoreRow}>
-                    {isSidebarCollapsed && onToggleSidebar && (
-                      <button
-                        type="button"
-                        style={styles.panelRestoreBtn}
-                        onClick={onToggleSidebar}
-                        aria-label="그룹 패널 펼치기"
-                        title="그룹 패널 펼치기"
-                      >
-                        <SidebarExpandIcon />
-                        <span>그룹 패널 열기</span>
-                      </button>
-                    )}
-                    {isNoteListCollapsed && onToggleNoteList && (
-                      <button
-                        type="button"
-                        style={styles.panelRestoreBtn}
-                        onClick={onToggleNoteList}
-                        aria-label="노트 목록 펼치기"
-                        title="노트 목록 펼치기"
-                      >
-                        <SidebarExpandIcon />
-                        <span>노트 목록 열기</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      style={styles.panelRestoreBtn}
+                      onClick={onToggleSidebar}
+                      aria-label="사이드바 펼치기 (Ctrl + [)"
+                      title="사이드바 펼치기 (Ctrl + [)"
+                    >
+                      <SidebarExpandIcon />
+                      <span>사이드바 열기</span>
+                    </button>
                   </div>
                 )}
                 <strong style={styles.noNoteTitle}>

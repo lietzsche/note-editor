@@ -1,5 +1,4 @@
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = "note-editor:sidebar-collapsed";
-export const NOTELIST_COLLAPSED_STORAGE_KEY = "note-editor:notelist-collapsed";
 
 export function readStorageBoolean(key: string, fallback = false): boolean {
   if (typeof window === "undefined" || !window.localStorage) {
@@ -29,7 +28,6 @@ export type VisiblePanelsArgs = {
   isMobile: boolean;
   mobilePanel: "groups" | "notes" | "editor";
   isSidebarCollapsed: boolean;
-  isNoteListCollapsed: boolean;
   zenMode: boolean;
 };
 
@@ -43,7 +41,6 @@ export function getVisiblePanels({
   isMobile,
   mobilePanel,
   isSidebarCollapsed,
-  isNoteListCollapsed,
   zenMode,
 }: VisiblePanelsArgs): VisiblePanels {
   if (zenMode) {
@@ -62,9 +59,10 @@ export function getVisiblePanels({
     };
   }
 
+  const showSidebar = !isSidebarCollapsed;
   return {
-    showGroupsPanel: !isSidebarCollapsed,
-    showNotesPanel: !isNoteListCollapsed,
+    showGroupsPanel: showSidebar,
+    showNotesPanel: showSidebar,
     showEditorPanel: true,
   };
 }

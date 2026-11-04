@@ -19,7 +19,6 @@ type DeriveNotesPageStateArgs = {
   mobilePanel: MobilePanel;
   zenMode: boolean;
   isSidebarCollapsed?: boolean;
-  isNoteListCollapsed?: boolean;
 };
 
 export function deriveNotesPageState({
@@ -35,7 +34,6 @@ export function deriveNotesPageState({
   mobilePanel,
   zenMode,
   isSidebarCollapsed = false,
-  isNoteListCollapsed = false,
 }: DeriveNotesPageStateArgs) {
   const isTrashView = selectedGroupId === TRASH_NOTES_SCOPE_KEY;
   const normalizedSearchQuery = isTrashView ? "" : searchQuery.trim().toLocaleLowerCase();
@@ -62,7 +60,7 @@ export function deriveNotesPageState({
       ? `${filteredNotes.length}개 검색 결과`
       : noteListStatusLabel,
     currentGroupLabel: getCurrentGroupLabel(groups, selectedGroupId),
-    ...getPanelVisibility(isMobile, mobilePanel, zenMode, isSidebarCollapsed, isNoteListCollapsed),
+    ...getPanelVisibility(isMobile, mobilePanel, zenMode, isSidebarCollapsed),
   };
 }
 
@@ -123,8 +121,7 @@ export function getPanelVisibility(
   isMobile: boolean,
   mobilePanel: MobilePanel,
   zenMode?: boolean,
-  isSidebarCollapsed = false,
-  isNoteListCollapsed = false
+  isSidebarCollapsed = false
 ) {
   if (zenMode) {
     return {
@@ -133,9 +130,10 @@ export function getPanelVisibility(
       showEditorPanel: true,
     };
   }
+  const showSidebar = !isSidebarCollapsed;
   return {
-    showGroupsPanel: isMobile ? mobilePanel === "groups" : !isSidebarCollapsed,
-    showNotesPanel: isMobile ? mobilePanel === "notes" : !isNoteListCollapsed,
+    showGroupsPanel: isMobile ? mobilePanel === "groups" : showSidebar,
+    showNotesPanel: isMobile ? mobilePanel === "notes" : showSidebar,
     showEditorPanel: isMobile ? mobilePanel === "editor" : true,
   };
 }
