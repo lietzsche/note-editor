@@ -21,7 +21,8 @@ import {
   buildSearchPreview,
   splitHighlightSegments,
 } from "../lib/noteSearchHighlight";
-import { moveItem } from "../lib/noteOrder";
+import { NoteRowMenu } from "./NoteRowMenu";
+import { moveNoteByOffset, moveItem } from "../lib/noteOrder";
 
 type Mode = "active" | "trash";
 
@@ -43,6 +44,9 @@ type Props = {
 };
 
 type RowProps = {
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  onMove?: (direction: -1 | 1) => void;
   note: Note;
   groups: Group[];
   defaultGroupId: string | null;
@@ -68,6 +72,9 @@ function formatNoteTimestamp(note: Note, mode: Mode) {
 }
 
 function SortableNoteRow({
+  canMoveUp = false,
+  canMoveDown = false,
+  onMove,
   note,
   groups,
   defaultGroupId,
@@ -94,7 +101,7 @@ function SortableNoteRow({
     isDragging,
   } = useSortable({
     id: note.id,
-    disabled: isSortingDisabled,
+    disabled: isSortingDisabled || !isMobile,
   });
 
   const noteGroupName = getNoteGroupName(note.group_id, groups, defaultGroupId);
@@ -133,7 +140,7 @@ function SortableNoteRow({
       }}
     >
       <div style={styles.noteRow}>
-        {mode === "active" && (
+        {mode === "active" && isMobile && (
           <button
             ref={setActivatorNodeRef}
             type="button"
@@ -183,7 +190,10 @@ function SortableNoteRow({
             </div>
           )}
         </button>
-        <div
+        {!isMobile && mode === "active" ? (
+          <NoteRowMenu title={note.title} canMoveUp={canMoveUp} canMoveDown={canMoveDown}
+            onMove={(direction) => onMove?.(direction)} onDelete={() => onDeleteNote(note.id)} />
+        ) : <div
           style={{
             ...styles.noteActions,
             ...(isMobile ? styles.noteActionsMobile : styles.noteActionsCompact),
@@ -261,7 +271,7 @@ function SortableNoteRow({
               {isMobile ? <TrashIcon /> : "삭제"}
             </button>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -344,10 +354,17 @@ export function SortableNoteList({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={notes.map((note) => note.id)} strategy={verticalListSortingStrategy}>
-        {notes.map((note) => (
+        {notes.map((note, index) => (
           <SortableNoteRow
             key={note.id}
             note={note}
+            canMoveUp={!isSortingDisabled && !searchQuery.trim() && index > 0}
+            canMoveDown={!isSortingDisabled && !searchQuery.trim() && index < notes.length - 1}
+            onMove={(direction) => {
+              if (isSortingDisabled || searchQuery.trim()) return;
+              const nextNotes = moveNoteByOffset(notes, note.id, direction);
+              if (nextNotes !== notes) onReorder(nextNotes);
+            }}
             groups={groups}
             defaultGroupId={defaultGroupId}
             isActive={selectedNoteId === note.id}

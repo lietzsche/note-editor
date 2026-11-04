@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeGroupOrderIntoAllNotes, moveItem } from "../src/lib/noteOrder";
+import { mergeGroupOrderIntoAllNotes, moveItem, moveNoteByOffset } from "../src/lib/noteOrder";
 
 describe("BACKLOG-001 노트 정렬 유틸", () => {
   it("배열 항목을 원하는 위치로 이동한다", () => {
@@ -31,5 +31,25 @@ describe("BACKLOG-001 노트 정렬 유틸", () => {
     ];
 
     expect(() => mergeGroupOrderIntoAllNotes(allNotes, "g1", [])).toThrowError();
+  });
+});
+
+describe("PC 목록 메뉴 순서 이동", () => {
+  const notes = ["a", "b", "c"].map((id, sort_order) => ({
+    id, title: id, content: "", group_id: null, sort_order, updated_at: "x",
+  }));
+
+  it("인접 노트와 순서를 바꾸며 원본과 노트 내용은 보존한다", () => {
+    expect(moveNoteByOffset(notes, "b", -1).map((note) => note.id)).toEqual(["b", "a", "c"]);
+    expect(moveNoteByOffset(notes, "b", 1).map((note) => note.id)).toEqual(["a", "c", "b"]);
+    expect(notes.map((note) => note.id)).toEqual(["a", "b", "c"]);
+    expect(moveNoteByOffset(notes, "b", 1)[2]).toBe(notes[1]);
+  });
+
+  it("목록 경계, 없는 노트, 빈 목록에서는 이동하지 않는다", () => {
+    expect(moveNoteByOffset(notes, "a", -1)).toBe(notes);
+    expect(moveNoteByOffset(notes, "c", 1)).toBe(notes);
+    expect(moveNoteByOffset(notes, "missing", 1)).toBe(notes);
+    expect(moveNoteByOffset([], "a", 1)).toEqual([]);
   });
 });

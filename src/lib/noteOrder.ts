@@ -36,3 +36,10 @@ export function mergeGroupOrderIntoAllNotes(
     return { ...orderedGroupNotes[nextGroupIndex++] };
   });
 }
+
+export function moveNoteByOffset(notes: Note[], noteId: string, direction: -1 | 1): Note[] {
+  const index = notes.findIndex((note) => note.id === noteId);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= notes.length) return notes;
+  return moveItem(notes, index, target);
+}

@@ -258,3 +258,12 @@ and implemented behavior. The shipped reorder behavior is documented canonically
 Sections below that mention keeping up/down button fallback, limiting mobile DnD,
 or treating DnD as non-primary are historical proposal content and should not be
 used as current requirements.
+
+## PC 일반 목록 더보기 메뉴 (2026-11-04)
+
+- PC 일반 노트 목록은 행 끝의 `⋯` 메뉴에 `위로 이동`, `아래로 이동`, `휴지통으로 이동`을 모은다. 기존 드래그 손잡이와 별도 삭제 버튼을 제거해 제목·미리보기 공간을 확보한다.
+- 위아래 이동은 현재 그룹/전체 목록에서 인접한 노트와 순서를 바꾸며 기존 정렬 저장·실패 처리 경로를 사용한다.
+- 첫 행의 위로 이동과 마지막 행의 아래로 이동을 비활성화한다. 검색 중 또는 정렬 저장 중에는 모든 순서 이동을 비활성화한다.
+- 메뉴는 Enter/Space 또는 아래 방향키로 열고, 방향키/Home/End로 활성 항목을 탐색하며, Escape로 닫고 트리거로 돌아간다. 외부 클릭, 목록 스크롤, 창 크기 변경 시 닫는다.
+- 메뉴는 포털과 화면 경계 보정으로 스크롤 영역에 잘리지 않게 표시한다.
+- 모바일 드래그·삭제, 휴지통 복원·영구 삭제 UI는 유지한다. API/DB 계약은 변경하지 않는다.

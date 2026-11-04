@@ -54,6 +54,25 @@ describe("slim desktop sidebar", () => {
     expect(html).toContain('aria-label="새 그룹 이름"');
   });
 
+  it("uses a compact menu on desktop while retaining mobile drag and delete controls", () => {
+    const note = { id: "n1", title: "기록", content: "본문", group_id: null,
+      sort_order: 0, updated_at: "2026-11-01T00:00:00Z" };
+    const listProps = { notes: [note], groups: [], defaultGroupId: null, selectedNoteId: null,
+      onSelectNote: noop, onDeleteNote: noop, onRestoreNote: noop,
+      onPermanentDeleteNote: noop, onReorder: noop };
+    const desktop = renderToStaticMarkup(<SortableNoteList {...listProps} isMobile={false} />);
+    expect(desktop).toContain('aria-label="기록 노트 더보기"');
+    expect(desktop).not.toContain('aria-label="기록 노트 순서 변경"');
+    expect(desktop).not.toContain('aria-label="기록 노트 삭제"');
+    const mobile = renderToStaticMarkup(<SortableNoteList {...listProps} isMobile />);
+    expect(mobile).toContain('aria-label="기록 노트 순서 변경"');
+    expect(mobile).toContain('aria-label="기록 노트 삭제"');
+    expect(mobile).not.toContain('aria-label="기록 노트 더보기"');
+    const trash = renderToStaticMarkup(<SortableNoteList {...listProps} isMobile={false} mode="trash" />);
+    expect(trash).toContain('aria-label="기록 노트 복원"');
+    expect(trash).not.toContain('aria-label="기록 노트 더보기"');
+  });
+
   it("adds a normal preview while keeping deleted timestamps and restore actions", () => {
     const note = { id: "n1", title: "기록", content: "첫 문장\n다음 문장", group_id: null,
       sort_order: 0, updated_at: "2026-11-01T00:00:00Z", deleted_at: "2026-11-02T00:00:00Z" };
