@@ -1,0 +1,85 @@
+.slim-sidebar {
+  position: relative;
+}
+
+.slim-sidebar__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 4px;
+  flex-shrink: 0;
+}
+
+.slim-sidebar__group-select {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  background: var(--app-control-bg);
+  font: inherit;
+  font-size: 13px;
+}
+
+.slim-sidebar__groups {
+  margin: 0 12px;
+  flex-shrink: 0;
+}
+
+.slim-sidebar summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  min-height: 32px;
+  align-content: center;
+}
+
+.slim-sidebar__group-controls {
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+}
+
+.slim-sidebar__account {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  padding: 6px 12px;
+  position: relative;
+}
+
+.slim-sidebar__account > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.slim-sidebar__account > summary span {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.slim-sidebar__account-popover {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 8px;
+  right: 8px;
+  z-index: 5;
+  padding: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--app-panel-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.slim-sidebar summary:focus-visible,
+.slim-sidebar__group-select:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}

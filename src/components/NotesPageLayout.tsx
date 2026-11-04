@@ -22,6 +22,7 @@ import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
 import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import ThemeToggle from "./ThemeToggle";
+import "../styles/slim-sidebar.css";
 import type { PerfSample } from "../lib/performanceDebug";
 import { useModalFocus } from "../lib/useModalFocus";
 
@@ -272,6 +273,141 @@ export function NotesPageLayout({
     setContentMatchIndex(Math.min(contentPreviews.length - 1, activeContentMatchIndex + 1));
   }
 
+  const groupControls = (
+    <>
+      {passwordChangeRequired && (
+        <div style={styles.userInfoAlertBanner}>
+          <p style={styles.userInfoAlert}>
+            임시 비밀번호로 로그인했습니다. 계속 사용하려면 새 비밀번호를 설정하세요.
+          </p>
+          <button
+            type="button"
+            style={{ ...styles.accountBtn, ...styles.accountBtnAlert }}
+            onClick={onOpenAccountSecurity}
+          >
+            새 비밀번호 설정
+          </button>
+        </div>
+      )}
+
+      <div style={styles.groupSectionHeader}>
+        <span style={styles.reorderHint}>{groupListStatusLabel}</span>
+      </div>
+
+      <div style={styles.groupSection}>
+        <div
+          style={{
+            ...styles.groupRow,
+            ...(selectedGroupId === null ? styles.activeGroup : {}),
+          }}
+        >
+          <button
+            type="button"
+            style={styles.groupSelectButton}
+            onClick={() => onSelectGroup(null)}
+            aria-pressed={selectedGroupId === null}
+          >
+            전체 노트
+          </button>
+        </div>
+        <div
+          style={{
+            ...styles.groupRow,
+            ...(isTrashView ? styles.activeGroup : {}),
+          }}
+        >
+          <button
+            type="button"
+            style={{
+              ...styles.groupSelectButton,
+              ...(styles.trashGroupButton ?? {}),
+            }}
+            onClick={() => onSelectGroup(TRASH_NOTES_SCOPE_KEY)}
+            aria-pressed={isTrashView}
+          >
+            휴지통
+          </button>
+        </div>
+        <SortableGroupList
+          groups={groups}
+          selectedGroupId={selectedGroupId}
+          defaultGroupName={defaultGroupName}
+          isMobile={isMobile}
+          disabled={groupReorderBusy}
+          onSelectGroup={onSelectGroup}
+          onRenameGroup={onRenameGroup}
+          onDeleteGroup={onDeleteGroup}
+          onReorder={onReorderGroups}
+        />
+      </div>
+
+      <form onSubmit={onCreateGroup} style={styles.newGroupForm}>
+        <input
+          style={{ ...styles.groupInput, ...(isMobile ? styles.groupInputMobile : {}) }}
+          placeholder="새 그룹 이름..."
+          value={newGroupName}
+          onChange={onNewGroupNameChange}
+          aria-label="새 그룹 이름"
+        />
+        <button style={styles.addBtn} type="submit" aria-label="그룹 추가">+</button>
+      </form>
+
+    </>
+  );
+  const accountControls = (
+    <div style={{ ...styles.sidebarFooter, ...(!isMobile ? { padding: "8px 0 0" } : {}) }}>
+      <div style={styles.userIdentity}>
+        <strong style={styles.userInfoName} title={`@${username}`}>@{username}</strong>
+      </div>
+      <div style={styles.sidebarFooterActions}>
+        {onOpenGuide && (
+          <button
+            type="button"
+            style={isMobile ? styles.mobileHeaderIconButton : styles.footerActionBtn}
+            onClick={onOpenGuide}
+            aria-label="사용 가이드"
+            title="사용 가이드"
+          >
+            {isMobile ? <GuideIcon /> : "가이드"}
+          </button>
+        )}
+        <button
+          type="button"
+          style={{
+            ...(isMobile ? styles.accountIconButton : styles.footerActionBtn),
+            ...(passwordChangeRequired ? styles.accountBtnAlert : {}),
+          }}
+          onClick={onOpenAccountSecurity}
+          aria-label={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+          title={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
+        >
+          {isMobile ? <SecurityIcon alert={passwordChangeRequired} /> : "보안"}
+        </button>
+        {showAdminConsoleButton && onOpenAdminConsole && (
+          <button
+            type="button"
+            style={isMobile ? styles.mobileHeaderIconButton : styles.adminBtn}
+            onClick={onOpenAdminConsole}
+            aria-label="운영 패널 열기"
+            title="운영 패널 열기"
+          >
+            {isMobile ? <AdminIcon /> : "운영"}
+          </button>
+        )}
+        <span style={styles.footerDivider} aria-hidden="true" />
+        <button
+          type="button"
+          style={isMobile ? styles.mobileLogoutIconButton : styles.footerLogoutBtn}
+          onClick={onLogout}
+          title="로그아웃"
+          aria-label="로그아웃"
+        >
+          {isMobile ? <LogoutIcon /> : "로그아웃"}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div
       style={{
@@ -280,7 +416,7 @@ export function NotesPageLayout({
         flexDirection: isMobile ? "column" : "row",
       }}
     >
-      {showGroupsPanel && (
+      {isMobile && showGroupsPanel && (
         <aside
           style={{
             ...styles.sidebar,
@@ -311,164 +447,68 @@ export function NotesPageLayout({
             </div>
           </div>
 
-          {passwordChangeRequired && (
-            <div style={styles.userInfoAlertBanner}>
-              <p style={styles.userInfoAlert}>
-                임시 비밀번호로 로그인했습니다. 계속 사용하려면 새 비밀번호를 설정하세요.
-              </p>
-              <button
-                type="button"
-                style={{ ...styles.accountBtn, ...styles.accountBtnAlert }}
-                onClick={onOpenAccountSecurity}
-              >
-                새 비밀번호 설정
-              </button>
-            </div>
-          )}
+          {groupControls}
 
-          <div style={styles.groupSectionHeader}>
-            <span style={styles.reorderHint}>{groupListStatusLabel}</span>
-          </div>
-
-          <div style={styles.groupSection}>
-            <div
-              style={{
-                ...styles.groupRow,
-                ...(selectedGroupId === null ? styles.activeGroup : {}),
-              }}
-            >
-              <button
-                type="button"
-                style={styles.groupSelectButton}
-                onClick={() => onSelectGroup(null)}
-                aria-pressed={selectedGroupId === null}
-              >
-                전체 노트
-              </button>
-            </div>
-            <div
-              style={{
-                ...styles.groupRow,
-                ...(isTrashView ? styles.activeGroup : {}),
-              }}
-            >
-              <button
-                type="button"
-                style={{
-                  ...styles.groupSelectButton,
-                  ...(styles.trashGroupButton ?? {}),
-                }}
-                onClick={() => onSelectGroup(TRASH_NOTES_SCOPE_KEY)}
-                aria-pressed={isTrashView}
-              >
-                휴지통
-              </button>
-            </div>
-            <SortableGroupList
-              groups={groups}
-              selectedGroupId={selectedGroupId}
-              defaultGroupName={defaultGroupName}
-              isMobile={isMobile}
-              disabled={groupReorderBusy}
-              onSelectGroup={onSelectGroup}
-              onRenameGroup={onRenameGroup}
-              onDeleteGroup={onDeleteGroup}
-              onReorder={onReorderGroups}
-            />
-          </div>
-
-          <form onSubmit={onCreateGroup} style={styles.newGroupForm}>
-            <input
-              style={{ ...styles.groupInput, ...(isMobile ? styles.groupInputMobile : {}) }}
-              placeholder="새 그룹 이름..."
-              value={newGroupName}
-              onChange={onNewGroupNameChange}
-              aria-label="새 그룹 이름"
-            />
-            <button style={styles.addBtn} type="submit" aria-label="그룹 추가">+</button>
-          </form>
-
-          <div style={styles.sidebarFooter}>
-            <div style={styles.userIdentity}>
-              <strong style={styles.userInfoName} title={`@${username}`}>@{username}</strong>
-            </div>
-            <div style={styles.sidebarFooterActions}>
-              {onOpenGuide && (
-                <button
-                  type="button"
-                  style={isMobile ? styles.mobileHeaderIconButton : styles.footerActionBtn}
-                  onClick={onOpenGuide}
-                  aria-label="사용 가이드"
-                  title="사용 가이드"
-                >
-                  {isMobile ? <GuideIcon /> : "가이드"}
-                </button>
-              )}
-              <button
-                type="button"
-                style={{
-                  ...(isMobile ? styles.accountIconButton : styles.footerActionBtn),
-                  ...(passwordChangeRequired ? styles.accountBtnAlert : {}),
-                }}
-                onClick={onOpenAccountSecurity}
-                aria-label={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
-                title={passwordChangeRequired ? "보안 설정 필요" : "계정 보안"}
-              >
-                {isMobile ? <SecurityIcon alert={passwordChangeRequired} /> : "보안"}
-              </button>
-              {showAdminConsoleButton && onOpenAdminConsole && (
-                <button
-                  type="button"
-                  style={isMobile ? styles.mobileHeaderIconButton : styles.adminBtn}
-                  onClick={onOpenAdminConsole}
-                  aria-label="운영 패널 열기"
-                  title="운영 패널 열기"
-                >
-                  {isMobile ? <AdminIcon /> : "운영"}
-                </button>
-              )}
-              <span style={styles.footerDivider} aria-hidden="true" />
-              <button
-                type="button"
-                style={isMobile ? styles.mobileLogoutIconButton : styles.footerLogoutBtn}
-                onClick={onLogout}
-                title="로그아웃"
-                aria-label="로그아웃"
-              >
-                {isMobile ? <LogoutIcon /> : "로그아웃"}
-              </button>
-            </div>
-          </div>
+          {accountControls}
         </aside>
       )}
 
       {showNotesPanel && (
         <div
+          className={!isMobile ? "slim-sidebar" : undefined}
+          role="navigation"
+          aria-label="노트 탐색"
           style={{
             ...styles.noteList,
             flex: isMobile ? 1 : undefined,
             minHeight: 0,
-            width: isMobile ? "100%" : styles.noteList.width,
+            width: isMobile ? "100%" : "288px",
             borderRight: isMobile ? "none" : styles.noteList.borderRight,
             borderBottom: isMobile ? "1px solid var(--color-border)" : "none",
           }}
         >
-          <div style={styles.noteListHeader}>
+          {!isMobile && (
+            <div className="slim-sidebar__top">
+              <select
+                className="slim-sidebar__group-select"
+                aria-label="탐색할 그룹 선택"
+                value={selectedGroupId ?? ""}
+                onChange={(event) => onSelectGroup(event.target.value || null)}
+              >
+                <option value="">전체 노트</option>
+                <option value={TRASH_NOTES_SCOPE_KEY}>휴지통</option>
+                {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+              {onToggleSidebar && (
+                <button type="button" style={styles.panelHeaderIconButton}
+                  onClick={onToggleSidebar} aria-label="사이드바 접기 (Ctrl + [)" title="사이드바 접기 (Ctrl + [)">
+                  <SidebarCollapseIcon />
+                </button>
+              )}
+            </div>
+          )}
+          {!isMobile && (
+            <details className="slim-sidebar__groups">
+              <summary>그룹 관리</summary>
+              <div className="slim-sidebar__group-controls">{groupControls}</div>
+            </details>
+          )}
+          <div style={{ ...styles.noteListHeader, ...(!isMobile ? { padding: "6px 12px", gap: "8px" } : {}) }}>
             <div style={styles.noteListMeta}>
               <span style={styles.panelHeading}>
-                {currentGroupLabel} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
+                {isMobile ? currentGroupLabel : "노트"} ({notes.length}{notes.length !== totalNotesCount ? ` / ${totalNotesCount}` : ""})
               </span>
               <span style={styles.reorderHint}>{noteListStatusLabel}</span>
             </div>
             {!isTrashView && (
               <button
                 type="button"
-                style={isMobile ? styles.noteListIconButton : styles.newNoteBtn}
+                style={styles.noteListIconButton}
                 onClick={onCreateNote}
                 aria-label="새 노트 만들기"
                 title="새 노트 만들기"
               >
-                {isMobile ? <NewNoteIcon /> : "+ 새 노트"}
+                <NewNoteIcon />
               </button>
             )}
           </div>
@@ -557,6 +597,24 @@ export function NotesPageLayout({
               />
             )}
           </div>
+          {!isMobile && (
+            <details className="slim-sidebar__account"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.currentTarget.open = false;
+                  event.currentTarget.querySelector("summary")?.focus();
+                }
+              }}>
+              <summary>@{username}<span>{passwordChangeRequired ? "보안 설정 필요 · " : ""}설정 ⌃</span></summary>
+              <div className="slim-sidebar__account-popover">
+                <ThemeToggle />
+                {accountControls}
+              </div>
+            </details>
+          )}
         </div>
       )}
 

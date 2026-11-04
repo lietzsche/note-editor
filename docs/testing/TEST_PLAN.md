@@ -275,3 +275,15 @@ npm run dev
 7. Confirm multiple matches in one note show total and field-level counts without expanding the whole body.
 8. Confirm body searches with multiple matches show the current match position as `1 / N` and allow moving to previous/next match previews.
 9. Confirm the user can hide the editor search context and reopen it while the same search is still active.
+
+## PC 통합 사이드바 회귀 확인 (2026-11-04)
+
+자동화: `tests/slim-sidebar.test.tsx`에서 PC 단일 탐색 패널의 그룹/계정 기능 접근, 모바일 그룹 화면 유지, 일반 노트 미리보기와 휴지통 삭제 시각/복원 버튼을 확인한다. 검색 강조는 기존 `tests/note-search-highlight.test.tsx`에서 검증한다.
+
+수동 QA:
+
+1. PC에서 그룹 선택 메뉴로 전체 노트/개별 그룹/휴지통을 전환하고, 노트 선택 후 제목·본문과 저장 상태가 맞는지 확인한다.
+2. 그룹 관리를 펼쳐 생성/이름 변경/정렬/삭제를 실행한다. 그룹이 많아도 관리 영역과 노트 목록을 각각 스크롤할 수 있는지 확인한다.
+3. 하단 계정 메뉴를 키보드로 열고 테마/가이드/보안/로그아웃에 접근한다. Escape와 초점 이동 시 닫힘을 확인한다. 긴 계정명, 운영 권한, 임시 비밀번호 안내도 확인한다.
+4. 긴 제목·본문, 빈 본문, 검색 결과, 빈 목록, 로딩/실패, 휴지통 복원/영구 삭제를 확인한다.
+5. 사이드바 접기/펼치기, 집중 모드, 미저장 전환 보호와 모바일 그룹/목록/편집 전환을 확인한다. 라이트/다크 테마에서 선택 표시와 키보드 초점을 확인한다.

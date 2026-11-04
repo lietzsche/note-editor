@@ -78,3 +78,13 @@
 2. Sidebar group order is managed with `@dnd-kit` drag-and-drop on desktop, mobile, and keyboard flows.
 3. The default group participates in reorder, but rename/delete restrictions remain unchanged.
 4. Automated coverage for group reorder success and validation failures lives in `tests/api/auth.test.ts`.
+
+## PC 통합 사이드바 (2026-11-04)
+
+- PC에서는 그룹 패널과 노트 목록을 너비 288px의 사이드바 하나로 통합한다. 노트를 전환하기 위해 별도 그룹 패널을 펼칠 필요가 없도록 한다.
+- 상단 그룹 선택 메뉴에서 전체 노트, 휴지통, 개별 그룹을 선택한다. 검색과 새 노트 버튼은 목록 위에 둔다.
+- 그룹 생성, 이름 변경, 삭제, 순서 변경은 상단의 `그룹 관리`를 펼쳐 사용한다. 기존 기본 그룹 보호와 그룹 삭제 정책을 유지한다.
+- 노트 목록은 제목과 본문 미리보기 한 줄로 표시한다. 검색 중에는 일치 부분 미리보기를 유지하고, 휴지통에서는 삭제 시각과 복원/영구 삭제 기능을 유지한다.
+- 계정 보안, 테마, 가이드, 운영 패널(권한 보유 시), 로그아웃은 하단 계정 버튼으로 펼친다. Escape로 닫으면 계정 버튼으로 초점이 돌아간다.
+- 사이드바 접기와 집중 모드를 유지하며 모바일의 그룹/목록/편집 화면 전환은 유지한다.
+- 목록의 로딩, 빈 상태, 오류, 재시도 표시는 기존 흐름을 유지한다.

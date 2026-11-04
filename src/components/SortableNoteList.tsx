@@ -103,6 +103,7 @@ function SortableNoteRow({
   const showControls = isMobile || isActive || isHovered || isFocusedWithin || isDragging;
   const itemStyle: CSSProperties = {
     ...styles.noteItem,
+    ...(!isMobile ? { margin: "3px 6px", padding: "7px 8px" } : {}),
     ...(mode === "trash" ? styles.noteItemTrash : {}),
     ...(isHovered && !isActive ? styles.noteItemHover : {}),
     ...(isActive ? styles.activeNote : {}),
@@ -167,15 +168,20 @@ function SortableNoteRow({
               {contentPreview.hasTrailingEllipsis ? "..." : ""}
             </div>
           )}
-          <div style={styles.noteMetaRow}>
-            <span style={styles.noteDate}>
-              {mode === "trash" ? "삭제됨 " : ""}
-              {formatNoteTimestamp(note, mode)}
-            </span>
-            {mode === "active" && (
-              <span style={styles.noteGroupBadge}>{noteGroupName}</span>
-            )}
-          </div>
+          {!isMobile && !contentPreview && (
+            <div style={styles.notePreview}>{note.content.replace(/\s+/g, " ").trim() || "내용 없음"}</div>
+          )}
+          {(isMobile || mode === "trash") && (
+            <div style={styles.noteMetaRow}>
+              <span style={styles.noteDate}>
+                {mode === "trash" ? "삭제됨 " : ""}
+                {formatNoteTimestamp(note, mode)}
+              </span>
+              {mode === "active" && (
+                <span style={styles.noteGroupBadge}>{noteGroupName}</span>
+              )}
+            </div>
+          )}
         </button>
         <div
           style={{
@@ -473,6 +479,7 @@ const styles = {
     justifyContent: "center",
   } satisfies CSSProperties,
   noteTitle: {
+    maxWidth: "100%",
     fontWeight: 700,
     fontSize: "14px",
     letterSpacing: 0,
@@ -482,6 +489,7 @@ const styles = {
     color: "var(--color-text-primary)",
   } satisfies CSSProperties,
   notePreview: {
+    maxWidth: "100%",
     marginTop: "4px",
     fontSize: "12px",
     lineHeight: 1.45,
