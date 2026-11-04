@@ -25,6 +25,7 @@ import ThemeToggle from "./ThemeToggle";
 import "../styles/slim-sidebar.css";
 import type { PerfSample } from "../lib/performanceDebug";
 import { useModalFocus } from "../lib/useModalFocus";
+import { useBackHandler } from "../lib/useBackHandler";
 
 type MobilePanel = "groups" | "notes" | "editor";
 type CountStatus = "count-ready" | "count-stale";
@@ -217,6 +218,7 @@ export function NotesPageLayout({
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
   const [autoFocusNavigationOpen, setAutoFocusNavigationOpen] = useState(false);
+  useBackHandler(confirmingEditorPermanentDelete, () => setConfirmingEditorPermanentDelete(false));
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
   const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());

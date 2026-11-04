@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getNextMenuIndex } from "./EditorMoreMenu";
+import { useBackHandler } from "../lib/useBackHandler";
 import "../styles/note-row-menu.css";
 
 const useClientLayoutEffect = typeof document === "undefined" ? useEffect : useLayoutEffect;
@@ -19,6 +20,8 @@ export function NoteRowMenu({ title, canMoveUp, canMoveDown, onMove, onDelete }:
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+
+  useBackHandler(open, () => setOpen(false));
 
   function items() {
     return Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);

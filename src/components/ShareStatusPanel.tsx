@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { copyText } from "../lib/editorProductivity";
+import { useBackHandler } from "../lib/useBackHandler";
 
 export type ShareInfo = {
   share_token: string | null;
@@ -33,6 +34,8 @@ export function ShareStatusPanel({
   const [isOpen, setIsOpen] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "success" | "error">("idle");
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useBackHandler(isOpen, () => setIsOpen(false));
 
   const isActive = Boolean(shareInfo?.is_active && shareInfo.share_url);
   const iconOnly = size === "xs";

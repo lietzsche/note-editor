@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { SPELL_CHECK_GUIDANCE, SPELL_CHECK_URL } from "../lib/externalLinks";
+import { useBackHandler } from "../lib/useBackHandler";
 
 type Props = {
   onCopy: () => void;
@@ -39,6 +40,8 @@ export function EditorMoreMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+
+  useBackHandler(isOpen, () => setIsOpen(false));
 
   function getItems() {
     return Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role=\"menuitem\"]") ?? []);

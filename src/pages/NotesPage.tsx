@@ -12,7 +12,9 @@ import { AccountSecurityPanel } from "../components/AccountSecurityPanel";
 import { AdminConsolePanel } from "../components/AdminConsolePanel";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { ToastViewport } from "../components/ToastViewport";
-import { toastStore } from "../lib/toastStore";
+import { showToast, toastStore } from "../lib/toastStore";
+import { backHandlerStack, installBackGuard } from "../lib/backNavigation";
+import { useBackHandler } from "../lib/useBackHandler";
 import {
   readStorageBoolean,
   writeStorageBoolean,
@@ -34,6 +36,7 @@ import {
   type CountStatus,
 } from "../lib/noteEditorSession";
 import {
+  canLeaveNotesPage,
   getNextMobilePanelAfterNoteSelection,
   getNextMobilePanelAfterGroupSelection,
   getTransitionDialogMode,
@@ -343,6 +346,41 @@ export default function NotesPage({
       mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
+
+  // 모바일 휴대폰 뒤로가기: 겹침 화면 닫기 → 패널 되돌리기 → (저장된 경우에만) 앱 나가기
+  const canLeaveRef = useRef(true);
+  canLeaveRef.current = canLeaveNotesPage(selectedNote, saveStatus);
+
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return undefined;
+
+    const guard = installBackGuard({
+      stack: backHandlerStack,
+      history: window.history,
+      win: window,
+      canLeave: () => canLeaveRef.current,
+      onLeaveBlocked: () => {
+        showToast({ message: "저장되지 않은 변경이 있습니다. 저장이 끝난 뒤 다시 시도하세요." });
+      },
+    });
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (canLeaveRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      guard.uninstall();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isMobile]);
+
+  useBackHandler(isMobile && mobilePanel !== "notes", () => setMobilePanel("notes"));
+  useBackHandler(isMobile && zenMode, () => {
+    cancelAutoFocusTimer();
+    setFocusMode("off");
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -874,6 +912,10 @@ export default function NotesPage({
     setPendingAction(null);
     setDialogMode(null);
   }
+
+  useBackHandler(dialogMode !== null, handleDialogCancelAction);
+  useBackHandler(isAccountSecurityOpen, closeAccountSecurity);
+  useBackHandler(isAdminConsoleOpen, closeAdminConsole);
 
   async function handleRetrySave() {
     await persistCurrentNote(saveStatus === "conflict");
