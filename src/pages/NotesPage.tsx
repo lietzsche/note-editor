@@ -24,6 +24,8 @@ import { countGraphemes } from "../lib/editorProductivity";
 import {
   AUTO_FOCUS_ENABLED_STORAGE_KEY,
   recordAutoFocusInput,
+  recordPointerMovement,
+  type PointerMovementState,
   shouldScheduleAutoFocus,
   toggleManualFocusMode,
   type FocusMode,
@@ -170,6 +172,31 @@ export default function NotesPage({
     if (isMobile && focusMode === "auto") {
       setFocusMode("off");
     }
+  }, [focusMode, isMobile]);
+
+  function exitAutoFocus() {
+    cancelAutoFocusTimer();
+    setFocusMode((current) => current === "auto" ? "off" : current);
+  }
+
+  // PC 자동 집중 중 마우스를 크게 움직이면 일반 화면으로 돌아온다.
+  useEffect(() => {
+    if (isMobile || focusMode !== "auto" || typeof window === "undefined") return undefined;
+
+    let movement: PointerMovementState | null = null;
+    const handleMouseMove = (event: MouseEvent) => {
+      const result = recordPointerMovement(movement, {
+        x: event.clientX,
+        y: event.clientY,
+        now: Date.now(),
+      });
+      movement = result.state;
+      if (result.shouldExit) exitAutoFocus();
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
   }, [focusMode, isMobile]);
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -1109,6 +1136,7 @@ export default function NotesPage({
         onShareToggle={handleShareToggle}
         zenMode={zenMode}
         autoFocusMode={focusMode === "auto"}
+        onExitAutoFocus={exitAutoFocus}
         autoFocusEnabled={autoFocusEnabled}
         onAutoFocusEnabledChange={handleAutoFocusEnabledChange}
         onToggleZenMode={() => {

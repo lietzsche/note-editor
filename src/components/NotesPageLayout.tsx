@@ -120,6 +120,8 @@ type Props = {
   onShareToggle: () => void;
   zenMode: boolean;
   autoFocusMode?: boolean;
+  /** 자동 집중 해제 (Esc) */
+  onExitAutoFocus?: () => void;
   autoFocusEnabled?: boolean;
   onAutoFocusEnabledChange?: (enabled: boolean) => void;
   onToggleZenMode: () => void;
@@ -212,6 +214,7 @@ export function NotesPageLayout({
   onShareToggle,
   zenMode,
   autoFocusMode = false,
+  onExitAutoFocus,
   autoFocusEnabled = true,
   onAutoFocusEnabledChange,
   onToggleZenMode,
@@ -280,15 +283,19 @@ export function NotesPageLayout({
           onToggleSidebar();
         }
       }
-      if (event.key === "Escape" && autoFocusNavigationOpen) {
-        setAutoFocusNavigationOpen(false);
+      if (event.key === "Escape") {
+        if (autoFocusNavigationOpen) {
+          setAutoFocusNavigationOpen(false);
+        } else if (!isMobile && autoFocusMode && !dialogMode && !event.defaultPrevented) {
+          onExitAutoFocus?.();
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedNote, onToggleZenMode, isMobile, onToggleSidebar, autoFocusMode, autoFocusNavigationOpen]);
+  }, [selectedNote, onToggleZenMode, isMobile, onToggleSidebar, autoFocusMode, autoFocusNavigationOpen, dialogMode, onExitAutoFocus]);
 
   function goToPreviousContentMatch() {
     setContentMatchIndex(Math.max(0, activeContentMatchIndex - 1));
