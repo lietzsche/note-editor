@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { ApiError, api, type Note } from "../lib/api";
 import { copyText } from "../lib/editorProductivity";
+import { applyMarkdownFormat, type MarkdownFormatType } from "../lib/markdownFormat";
 import type { CountStatus, CopyStatus } from "../lib/noteEditorSession";
 import {
   createSerializedAutoSaveRunner,
@@ -38,6 +39,7 @@ type UseNotePersistenceArgs = {
   setConflictNote: React.Dispatch<React.SetStateAction<Note | null>>;
   setDialogMode: React.Dispatch<React.SetStateAction<"transition" | "conflict" | null>>;
   updateNoteAcrossCaches: (note: Note) => void;
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
 };
 
 export function isConflictNoteData(data: unknown): data is Note {
@@ -81,6 +83,7 @@ export function useNotePersistence({
   setConflictNote,
   setDialogMode,
   updateNoteAcrossCaches,
+  textareaRef,
 }: UseNotePersistenceArgs) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveRunnerRef = useRef<SerializedAutoSaveRunner | null>(null);
@@ -258,6 +261,37 @@ export function useNotePersistence({
     );
   }
 
+  function handleApplyMarkdownFormat(formatType: MarkdownFormatType) {
+    const textarea = textareaRef?.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const result = applyMarkdownFormat(textarea.value, start, end, formatType);
+
+    setContent(result.text);
+    contentRef.current = result.text;
+    setCountStatus("count-ready");
+
+    const currentNote = selectedNote;
+    if (currentNote && shouldScheduleAutoSave(currentNote, saveStatus)) {
+      scheduleAutoSave(currentNote.id);
+    }
+
+    const restoreSelection = () => {
+      if (textareaRef?.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(result.selectionStart, result.selectionEnd);
+      }
+    };
+
+    if (typeof requestAnimationFrame !== "undefined") {
+      requestAnimationFrame(restoreSelection);
+    } else {
+      restoreSelection();
+    }
+  }
+
   return {
     cancelScheduledSave,
     resetPersistenceSession,
@@ -266,5 +300,6 @@ export function useNotePersistence({
     handleTitleChange,
     handleContentChange,
     handleCopy,
+    handleApplyMarkdownFormat,
   };
 }

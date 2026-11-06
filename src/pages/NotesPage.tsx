@@ -146,6 +146,7 @@ export default function NotesPage({
     toastStore.clear();
   }, []);
   const [titleInputFocusKey, setTitleInputFocusKey] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!selectedNote) {
@@ -250,6 +251,7 @@ export default function NotesPage({
     handleTitleChange,
     handleContentChange,
     handleCopy,
+    handleApplyMarkdownFormat,
   } = useNotePersistence({
     selectedNote,
     saveStatus,
@@ -271,6 +273,7 @@ export default function NotesPage({
     setConflictNote,
     setDialogMode,
     updateNoteAcrossCaches,
+    textareaRef,
   });
   const {
     createNoteImmediately,
@@ -1113,6 +1116,8 @@ export default function NotesPage({
           setFocusMode((current) => toggleManualFocusMode(current));
         }}
         titleInputFocusKey={titleInputFocusKey}
+        textareaRef={textareaRef}
+        onApplyMarkdownFormat={handleApplyMarkdownFormat}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
       />

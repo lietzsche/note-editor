@@ -15,12 +15,14 @@ import {
   splitHighlightSegments,
 } from "../lib/noteSearchHighlight";
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
+import { EditorMarkdownToolbar } from "./EditorMarkdownToolbar";
 import { EditorMoreMenu } from "./EditorMoreMenu";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { ShareStatusPanel } from "./ShareStatusPanel";
 import { SortableGroupList } from "./SortableGroupList";
 import { SortableNoteList } from "./SortableNoteList";
 import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
+import type { MarkdownFormatType } from "../lib/markdownFormat";
 import ThemeToggle from "./ThemeToggle";
 import "../styles/slim-sidebar.css";
 import type { PerfSample } from "../lib/performanceDebug";
@@ -122,6 +124,8 @@ type Props = {
   onAutoFocusEnabledChange?: (enabled: boolean) => void;
   onToggleZenMode: () => void;
   titleInputFocusKey?: number;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  onApplyMarkdownFormat?: (formatType: MarkdownFormatType) => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 };
@@ -212,6 +216,8 @@ export function NotesPageLayout({
   onAutoFocusEnabledChange,
   onToggleZenMode,
   titleInputFocusKey = 0,
+  textareaRef,
+  onApplyMarkdownFormat,
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: Props) {
@@ -979,11 +985,30 @@ export function NotesPageLayout({
                   </div>
                 </div>
               )}
+              {selectedNote && !isSelectedNoteReadOnly && !zenMode && onApplyMarkdownFormat && (
+                <EditorMarkdownToolbar
+                  onApplyFormat={onApplyMarkdownFormat}
+                  isMobile={isMobile}
+                />
+              )}
               <textarea
+                ref={textareaRef}
                 style={{ ...styles.textarea, ...(isMobile ? styles.textareaMobile : {}) }}
                 placeholder="본문을 입력하세요..."
                 value={content}
                 onChange={onContentChange}
+                onKeyDown={(e) => {
+                  if (isSelectedNoteReadOnly || !onApplyMarkdownFormat) return;
+                  if (e.ctrlKey || e.metaKey) {
+                    if (e.key === "b" || e.key === "B") {
+                      e.preventDefault();
+                      onApplyMarkdownFormat("bold");
+                    } else if (e.key === "i" || e.key === "I") {
+                      e.preventDefault();
+                      onApplyMarkdownFormat("italic");
+                    }
+                  }
+                }}
                 maxLength={20000}
                 aria-label="노트 본문"
                 readOnly={isSelectedNoteReadOnly}
