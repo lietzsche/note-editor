@@ -17,6 +17,7 @@ import {
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
 import { EditorMarkdownToolbar } from "./EditorMarkdownToolbar";
 import { EditorMoreMenu } from "./EditorMoreMenu";
+import { MarkdownPreview } from "./MarkdownPreview";
 import { PerformanceDebugPanel } from "./PerformanceDebugPanel";
 import { ShareStatusPanel } from "./ShareStatusPanel";
 import { SortableGroupList } from "./SortableGroupList";
@@ -128,6 +129,9 @@ type Props = {
   titleInputFocusKey?: number;
   textareaRef?: React.Ref<HTMLTextAreaElement>;
   onApplyMarkdownFormat?: (formatType: MarkdownFormatType) => void;
+  editorMode?: "edit" | "preview";
+  onEditorModeChange?: (mode: "edit" | "preview") => void;
+  onToggleMarkdownTask?: (taskIndex: number) => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 };
@@ -221,6 +225,9 @@ export function NotesPageLayout({
   titleInputFocusKey = 0,
   textareaRef,
   onApplyMarkdownFormat,
+  editorMode = "edit",
+  onEditorModeChange,
+  onToggleMarkdownTask,
   isSidebarCollapsed = false,
   onToggleSidebar,
 }: Props) {
@@ -992,34 +999,53 @@ export function NotesPageLayout({
                   </div>
                 </div>
               )}
-              {selectedNote && !isSelectedNoteReadOnly && !zenMode && onApplyMarkdownFormat && (
+              {selectedNote && !zenMode && (onApplyMarkdownFormat || onEditorModeChange) && (
                 <EditorMarkdownToolbar
-                  onApplyFormat={onApplyMarkdownFormat}
+                  onApplyFormat={onApplyMarkdownFormat ?? (() => {})}
                   isMobile={isMobile}
+                  editorMode={editorMode}
+                  onEditorModeChange={onEditorModeChange}
+                  readOnly={isSelectedNoteReadOnly}
                 />
               )}
-              <textarea
-                ref={textareaRef}
-                style={{ ...styles.textarea, ...(isMobile ? styles.textareaMobile : {}) }}
-                placeholder="본문을 입력하세요..."
-                value={content}
-                onChange={onContentChange}
-                onKeyDown={(e) => {
-                  if (isSelectedNoteReadOnly || !onApplyMarkdownFormat) return;
-                  if (e.ctrlKey || e.metaKey) {
-                    if (e.key === "b" || e.key === "B") {
-                      e.preventDefault();
-                      onApplyMarkdownFormat("bold");
-                    } else if (e.key === "i" || e.key === "I") {
-                      e.preventDefault();
-                      onApplyMarkdownFormat("italic");
+              {editorMode === "preview" ? (
+                <div
+                  style={{
+                    ...styles.markdownPreviewContainer,
+                    ...(isMobile ? styles.markdownPreviewContainerMobile : {}),
+                  }}
+                >
+                  <MarkdownPreview
+                    content={content}
+                    interactive={!isSelectedNoteReadOnly}
+                    onToggleTask={onToggleMarkdownTask}
+                    emptyText="아직 작성된 내용이 없습니다."
+                  />
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  style={{ ...styles.textarea, ...(isMobile ? styles.textareaMobile : {}) }}
+                  placeholder="본문을 입력하세요..."
+                  value={content}
+                  onChange={onContentChange}
+                  onKeyDown={(e) => {
+                    if (isSelectedNoteReadOnly || !onApplyMarkdownFormat) return;
+                    if (e.ctrlKey || e.metaKey) {
+                      if (e.key === "b" || e.key === "B") {
+                        e.preventDefault();
+                        onApplyMarkdownFormat("bold");
+                      } else if (e.key === "i" || e.key === "I") {
+                        e.preventDefault();
+                        onApplyMarkdownFormat("italic");
+                      }
                     }
-                  }
-                }}
-                maxLength={20000}
-                aria-label="노트 본문"
-                readOnly={isSelectedNoteReadOnly}
-              />
+                  }}
+                  maxLength={20000}
+                  aria-label="노트 본문"
+                  readOnly={isSelectedNoteReadOnly}
+                />
+              )}
             </>
           ) : (
             <div style={styles.noNote}>

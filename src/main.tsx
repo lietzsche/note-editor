@@ -11,6 +11,7 @@ import "./styles/shared.css";
 import "./styles/guide.css";
 import "./styles/toast.css";
 import "./styles/editor-menu.css";
+import "./styles/markdown.css";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

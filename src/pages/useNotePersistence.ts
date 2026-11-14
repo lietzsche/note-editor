@@ -235,8 +235,7 @@ export function useNotePersistence({
     }
   }
 
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const value = e.target.value;
+  function replaceContent(value: string) {
     setContent(value);
     contentRef.current = value;
     setCountStatus("count-ready");
@@ -244,6 +243,10 @@ export function useNotePersistence({
     if (currentNote && shouldScheduleAutoSave(currentNote, saveStatus)) {
       scheduleAutoSave(currentNote.id);
     }
+  }
+
+  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    replaceContent(e.target.value);
   }
 
   async function handleCopy() {
@@ -299,6 +302,7 @@ export function useNotePersistence({
     persistCurrentNote,
     handleTitleChange,
     handleContentChange,
+    replaceContent,
     handleCopy,
     handleApplyMarkdownFormat,
   };

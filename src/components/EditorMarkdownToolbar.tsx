@@ -5,6 +5,9 @@ export interface EditorMarkdownToolbarProps {
   onApplyFormat: (formatType: MarkdownFormatType) => void;
   isMobile?: boolean;
   disabled?: boolean;
+  editorMode?: "edit" | "preview";
+  onEditorModeChange?: (mode: "edit" | "preview") => void;
+  readOnly?: boolean;
 }
 
 interface ToolbarAction {
@@ -113,90 +116,163 @@ export function EditorMarkdownToolbar({
   onApplyFormat,
   isMobile = false,
   disabled = false,
+  editorMode = "edit",
+  onEditorModeChange,
+  readOnly = false,
 }: EditorMarkdownToolbarProps): React.JSX.Element {
+  const showFormatButtons = !readOnly && editorMode === "edit";
+
   return (
     <div
-      role="toolbar"
-      aria-label="마크다운 서식 도구"
+      role={showFormatButtons ? "toolbar" : "region"}
+      aria-label={showFormatButtons ? "마크다운 서식 도구" : "편집기 보기 모드"}
       style={{
         display: "flex",
         alignItems: "center",
-        gap: isMobile ? "4px" : "6px",
+        justifyContent: "space-between",
+        gap: isMobile ? "6px" : "10px",
         padding: isMobile ? "6px 10px" : "8px 16px",
         background: "var(--app-panel-bg)",
         borderBottom: "1px solid var(--color-border-subtle)",
-        overflowX: isMobile ? "auto" : "visible",
-        WebkitOverflowScrolling: "touch",
-        scrollbarWidth: "none",
         flexShrink: 0,
         zIndex: 5,
       }}
     >
-      {TOOLBAR_ACTIONS.map((action, index) => {
-        // Add visual dividers between heading, inline, and block styles
-        const showDivider = index === 2 || index === 5;
-        return (
-          <React.Fragment key={action.id}>
-            {showDivider && (
-              <span
-                role="separator"
-                aria-orientation="vertical"
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: isMobile ? "4px" : "6px",
+          overflowX: isMobile ? "auto" : "visible",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        {showFormatButtons ? (
+          TOOLBAR_ACTIONS.map((action, index) => {
+            // Add visual dividers between heading, inline, and block styles
+            const showDivider = index === 2 || index === 5;
+            return (
+              <React.Fragment key={action.id}>
+                {showDivider && (
+                  <span
+                    role="separator"
+                    aria-orientation="vertical"
+                    style={{
+                      display: "inline-block",
+                      width: "1px",
+                      height: "16px",
+                      background: "var(--color-border-subtle)",
+                      margin: "0 2px",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={disabled}
+                  title={action.tooltip}
+                  aria-label={action.label}
+                  onMouseDown={(e) => {
+                    // Prevent textarea from losing focus
+                    e.preventDefault();
+                  }}
+                  onClick={() => onApplyFormat(action.id)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: isMobile ? "34px" : "32px",
+                    height: isMobile ? "34px" : "30px",
+                    padding: "0 6px",
+                    borderRadius: "var(--radius-sm, 6px)",
+                    border: "1px solid transparent",
+                    background: "transparent",
+                    color: "var(--color-text-secondary)",
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    transition: "background 0.15s ease, color 0.15s ease, border-color 0.15s ease",
+                    flexShrink: 0,
+                    fontSize: "13px",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!disabled) {
+                      e.currentTarget.style.background = "var(--app-control-bg)";
+                      e.currentTarget.style.color = "var(--color-text-primary)";
+                      e.currentTarget.style.borderColor = "var(--color-border-subtle)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!disabled) {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--color-text-secondary)";
+                      e.currentTarget.style.borderColor = "transparent";
+                    }
+                  }}
+                >
+                  {action.icon}
+                </button>
+              </React.Fragment>
+            );
+          })
+        ) : (
+          <span
+            style={{
+              fontSize: "12px",
+              color: "var(--color-text-muted)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {readOnly ? "휴지통 읽기 전용" : "마크다운 미리보기 (Alt+P)"}
+          </span>
+        )}
+      </div>
+
+      {onEditorModeChange && (
+        <div
+          role="group"
+          aria-label="편집기 보기 모드"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "2px",
+            borderRadius: "var(--radius-sm, 8px)",
+            border: "1px solid var(--color-border-subtle)",
+            background: "var(--app-control-bg)",
+            flexShrink: 0,
+          }}
+        >
+          {(["edit", "preview"] as const).map((mode) => {
+            const active = editorMode === mode;
+            const label = mode === "edit" ? (readOnly ? "원문" : "편집") : "미리보기";
+            return (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={active}
+                title={`${label} (Alt+P)`}
+                onClick={() => onEditorModeChange(mode)}
                 style={{
-                  display: "inline-block",
-                  width: "1px",
-                  height: "16px",
-                  background: "var(--color-border-subtle)",
-                  margin: "0 2px",
-                  flexShrink: 0,
+                  height: isMobile ? "30px" : "26px",
+                  padding: isMobile ? "0 10px" : "0 10px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: active ? "var(--color-bg-emphasis)" : "transparent",
+                  color: active ? "var(--color-text-inverse)" : "var(--color-text-secondary)",
+                  fontSize: "12px",
+                  fontWeight: active ? 700 : 500,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "background 0.15s ease, color 0.15s ease",
                 }}
-              />
-            )}
-            <button
-              type="button"
-              disabled={disabled}
-              title={action.tooltip}
-              aria-label={action.label}
-              onMouseDown={(e) => {
-                // Prevent textarea from losing focus
-                e.preventDefault();
-              }}
-              onClick={() => onApplyFormat(action.id)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: isMobile ? "34px" : "32px",
-                height: isMobile ? "34px" : "30px",
-                padding: "0 6px",
-                borderRadius: "var(--radius-sm, 6px)",
-                border: "1px solid transparent",
-                background: "transparent",
-                color: "var(--color-text-secondary)",
-                cursor: disabled ? "not-allowed" : "pointer",
-                transition: "background 0.15s ease, color 0.15s ease, border-color 0.15s ease",
-                flexShrink: 0,
-                fontSize: "13px",
-              }}
-              onMouseEnter={(e) => {
-                if (!disabled) {
-                  e.currentTarget.style.background = "var(--app-control-bg)";
-                  e.currentTarget.style.color = "var(--color-text-primary)";
-                  e.currentTarget.style.borderColor = "var(--color-border-subtle)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!disabled) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--color-text-secondary)";
-                  e.currentTarget.style.borderColor = "transparent";
-                }
-              }}
-            >
-              {action.icon}
-            </button>
-          </React.Fragment>
-        );
-      })}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

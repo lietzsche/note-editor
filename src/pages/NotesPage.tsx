@@ -21,6 +21,7 @@ import {
   SIDEBAR_COLLAPSED_STORAGE_KEY,
 } from "../lib/panelCollapseState";
 import { countGraphemes } from "../lib/editorProductivity";
+import { toggleMarkdownTaskAtIndex } from "../lib/markdownTaskToggle";
 import {
   AUTO_FOCUS_ENABLED_STORAGE_KEY,
   recordAutoFocusInput,
@@ -107,6 +108,7 @@ export default function NotesPage({
   );
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("notes");
   const [focusMode, setFocusMode] = useState<FocusMode>("off");
+  const [editorMode, setEditorMode] = useState<"edit" | "preview">("edit");
   const zenMode = focusMode !== "off";
   const [autoFocusEnabled, setAutoFocusEnabled] = useState(() =>
     readStorageBoolean(AUTO_FOCUS_ENABLED_STORAGE_KEY, true)
@@ -173,6 +175,25 @@ export default function NotesPage({
       setFocusMode("off");
     }
   }, [focusMode, isMobile]);
+
+  useEffect(() => {
+    if (!selectedNote) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        setEditorMode((current) => {
+          const nextMode = current === "edit" ? "preview" : "edit";
+          if (nextMode === "preview") {
+            cancelAutoFocusTimer();
+            setFocusMode("off");
+          }
+          return nextMode;
+        });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedNote]);
 
   function exitAutoFocus() {
     cancelAutoFocusTimer();
@@ -277,6 +298,7 @@ export default function NotesPage({
     persistCurrentNote,
     handleTitleChange,
     handleContentChange,
+    replaceContent,
     handleCopy,
     handleApplyMarkdownFormat,
   } = useNotePersistence({
@@ -787,6 +809,7 @@ export default function NotesPage({
     setConflictNote(nextEditorState.conflictNote);
     setPendingAction(nextEditorState.pendingAction);
     setDialogMode(nextEditorState.dialogMode);
+    setEditorMode("edit");
     if (nextEditorState.mobilePanel) {
       setMobilePanel(nextEditorState.mobilePanel);
     }
@@ -815,6 +838,7 @@ export default function NotesPage({
     setConflictNote(nextEditorState.conflictNote);
     setPendingAction(nextEditorState.pendingAction);
     setDialogMode(nextEditorState.dialogMode);
+    setEditorMode("edit");
     if (nextEditorState.mobilePanel) {
       setMobilePanel(nextEditorState.mobilePanel);
     }
@@ -1146,6 +1170,23 @@ export default function NotesPage({
         titleInputFocusKey={titleInputFocusKey}
         textareaRef={textareaRef}
         onApplyMarkdownFormat={handleApplyMarkdownFormat}
+        editorMode={editorMode}
+        onEditorModeChange={(nextMode) => {
+          setEditorMode(nextMode);
+          if (nextMode === "preview") {
+            cancelAutoFocusTimer();
+            if (focusMode !== "off") {
+              setFocusMode("off");
+            }
+          }
+        }}
+        onToggleMarkdownTask={(taskIndex) => {
+          if (!selectedNote || selectedNote.deleted_at != null) return;
+          const nextContent = toggleMarkdownTaskAtIndex(contentRef.current, taskIndex);
+          if (nextContent !== contentRef.current) {
+            replaceContent(nextContent);
+          }
+        }}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
       />

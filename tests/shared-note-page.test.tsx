@@ -38,4 +38,20 @@ describe("SharedNoteView", () => {
     expect(markup).toContain("전체 복사");
     expect(markup).toContain("이 화면에서는 노트를 수정할 수 없습니다.");
   });
+
+  it("renders shared note content as read-only markdown", () => {
+    const note: SharedNote = {
+      title: "마크다운 공유",
+      content: "## 안내\n\n- [ ] 확인 항목\n\n**중요** 내용",
+      updated_at: "2026-04-22T12:00:00.000Z",
+      shared: true,
+    };
+
+    const markup = renderToStaticMarkup(<SharedNoteView state={{ kind: "ready", note }} />);
+
+    expect(markup).toContain("<h2>안내</h2>");
+    expect(markup).toContain("<strong>중요</strong>");
+    expect(markup).toContain("type=\"checkbox\"");
+    expect(markup).toContain("disabled=\"\"");
+  });
 });

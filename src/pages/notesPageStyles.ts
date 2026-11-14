@@ -1104,6 +1104,17 @@ export const styles: Record<string, CSSProperties> = {
     fontSize: "17px",
     lineHeight: 1.75,
   },
+  markdownPreviewContainer: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    padding: "clamp(24px, 5vw, 56px)",
+    background:
+      "linear-gradient(180deg, color-mix(in srgb, var(--color-bg-surface) 82%, transparent), var(--color-bg-canvas))",
+  },
+  markdownPreviewContainerMobile: {
+    padding: "14px 12px 28px",
+  },
   noNote: {
     display: "flex",
     alignItems: "center",

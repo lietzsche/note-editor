@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CopyAllButton } from "../components/CopyAllButton";
+import { MarkdownPreview } from "../components/MarkdownPreview";
 import ThemeToggle from "../components/ThemeToggle";
 import { api, type SharedNote } from "../lib/api";
 import { copyText } from "../lib/editorProductivity";
@@ -103,7 +104,11 @@ export function SharedNoteView({ state }: { state: SharedNoteViewState }) {
         </header>
 
         <div className="shared-note-card__content">
-          {note.content || "빈 본문입니다."}
+          <MarkdownPreview
+            content={note.content}
+            interactive={false}
+            emptyText="빈 본문입니다."
+          />
         </div>
 
         <footer className="shared-note-card__footer">

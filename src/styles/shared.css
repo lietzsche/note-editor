@@ -93,7 +93,7 @@
 .shared-note-card__content {
   min-height: 340px;
   padding: clamp(var(--space-lg), 4.5vw, var(--space-3xl));
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
   color: var(--color-text-primary);
