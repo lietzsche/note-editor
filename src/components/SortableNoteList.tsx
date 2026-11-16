@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { Group, Note } from "../lib/api";
 import {
   buildSearchPreview,
@@ -44,6 +44,7 @@ type Props = {
 };
 
 type RowProps = {
+  index?: number;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   onMove?: (direction: -1 | 1) => void;
@@ -72,6 +73,7 @@ function formatNoteTimestamp(note: Note, mode: Mode) {
 }
 
 function SortableNoteRow({
+  index,
   canMoveUp = false,
   canMoveDown = false,
   onMove,
@@ -104,6 +106,16 @@ function SortableNoteRow({
     disabled: isSortingDisabled || !isMobile,
   });
 
+  useEffect(() => {
+    if (!isActive) {
+      setIsHovered(false);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    setIsHovered(false);
+  }, [index]);
+
   const noteGroupName = getNoteGroupName(note.group_id, groups, defaultGroupId);
   const isSearchActive = searchQuery.trim().length > 0;
   const contentPreview = isSearchActive ? buildSearchPreview(note.content, searchQuery) : null;
@@ -112,12 +124,16 @@ function SortableNoteRow({
     ...styles.noteItem,
     ...(!isMobile ? { margin: "3px 6px", padding: "7px 8px" } : {}),
     ...(mode === "trash" ? styles.noteItemTrash : {}),
-    ...(isHovered && !isActive ? styles.noteItemHover : {}),
+    ...(!isMobile && isHovered && !isActive ? styles.noteItemHover : {}),
     ...(isActive ? styles.activeNote : {}),
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.94 : 1,
-    boxShadow: isDragging ? "var(--shadow-md)" : undefined,
+    boxShadow: isDragging
+      ? "var(--shadow-md)"
+      : isActive
+        ? styles.activeNote.boxShadow
+        : undefined,
     position: "relative",
     zIndex: isDragging ? 1 : 0,
   };
@@ -126,7 +142,11 @@ function SortableNoteRow({
     <div
       ref={setNodeRef}
       style={itemStyle}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => {
+        if (!isMobile) {
+          setIsHovered(true);
+        }
+      }}
       onMouseLeave={() => {
         setIsHovered(false);
         setConfirmingPermanentDelete(false);
@@ -161,7 +181,10 @@ function SortableNoteRow({
         <button
           type="button"
           style={styles.noteSelectButton}
-          onClick={() => onSelectNote(note)}
+          onClick={() => {
+            setIsHovered(false);
+            onSelectNote(note);
+          }}
           aria-pressed={isActive}
           aria-label={`${note.title || "제목 없음"} 노트 열기`}
         >
@@ -357,6 +380,7 @@ export function SortableNoteList({
         {notes.map((note, index) => (
           <SortableNoteRow
             key={note.id}
+            index={index}
             note={note}
             canMoveUp={!isSortingDisabled && !searchQuery.trim() && index > 0}
             canMoveDown={!isSortingDisabled && !searchQuery.trim() && index < notes.length - 1}
@@ -459,7 +483,9 @@ const styles = {
   noteItem: {
     margin: "6px 8px",
     padding: "10px 12px",
-    border: "1px solid transparent",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "transparent",
     borderRadius: "var(--radius-md)",
     background: "transparent",
     transition: "background-color var(--motion-fast) var(--easing-standard), border-color var(--motion-fast) var(--easing-standard)",

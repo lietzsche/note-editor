@@ -99,9 +99,9 @@ export function NoteRowMenu({ title, canMoveUp, canMoveDown, onMove, onDelete }:
             if (index !== null) { event.preventDefault(); enabledItems[index]?.focus(); }
           }}>
           <button role="menuitem" type="button" tabIndex={-1} disabled={!canMoveUp}
-            onClick={() => { close(true); onMove(-1); }}>위로 이동</button>
+            onClick={(event) => { close(event.detail === 0); onMove(-1); }}>위로 이동</button>
           <button role="menuitem" type="button" tabIndex={-1} disabled={!canMoveDown}
-            onClick={() => { close(true); onMove(1); }}>아래로 이동</button>
+            onClick={(event) => { close(event.detail === 0); onMove(1); }}>아래로 이동</button>
           <div role="separator" className="note-row-menu__divider" />
           <button role="menuitem" type="button" tabIndex={-1} className="note-row-menu__danger"
             onClick={() => { close(true); onDelete(); }}>휴지통으로 이동</button>
