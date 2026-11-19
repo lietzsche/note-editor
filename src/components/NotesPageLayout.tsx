@@ -234,6 +234,7 @@ export function NotesPageLayout({
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
   const [autoFocusNavigationOpen, setAutoFocusNavigationOpen] = useState(false);
+  const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   useBackHandler(confirmingEditorPermanentDelete, () => setConfirmingEditorPermanentDelete(false));
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
@@ -551,7 +552,11 @@ export function NotesPageLayout({
             </div>
           )}
           {!isMobile && (
-            <details className="slim-sidebar__groups">
+            <details
+              className="slim-sidebar__groups"
+              open={groupManagerOpen}
+              onToggle={(event) => setGroupManagerOpen(event.currentTarget.open)}
+            >
               <summary>그룹 관리</summary>
               <div className="slim-sidebar__group-controls">{groupControls}</div>
             </details>
