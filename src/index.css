@@ -88,8 +88,9 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 4px rgba(31, 111, 235, 0.18);
+  outline: 2px solid color-mix(in srgb, var(--color-brand-primary) 72%, transparent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand-primary) 18%, transparent);
 }
 
 a {

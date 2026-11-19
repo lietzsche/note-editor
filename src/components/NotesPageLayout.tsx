@@ -786,6 +786,18 @@ export function NotesPageLayout({
                             : "var(--color-success)",
                       }}
                     >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          ...styles.statusDot,
+                          background:
+                            isSelectedNoteReadOnly ? "var(--color-text-muted)" :
+                            saveStatus === "error" || saveStatus === "conflict" ? "var(--color-danger)" :
+                            saveStatus === "dirty" || saveStatus === "saving"
+                              ? "var(--color-feedback-warning)"
+                              : "var(--color-success)",
+                        }}
+                      />
                       {saveLabel}
                     </span>
                     {!autoFocusMode && <CharacterCountIndicator count={charCount} state={countStatus} />}
@@ -875,7 +887,7 @@ export function NotesPageLayout({
                   aria-live="polite"
                 >
                   <div style={styles.searchContextHeader}>
-                    <span style={styles.searchContextEyebrow}>SEARCH MATCH</span>
+                    <span style={styles.searchContextEyebrow}>검색 일치</span>
                     <div style={styles.searchContextHeaderActions}>
                       <span style={styles.searchContextBadge}>총 {totalMatchCount}개 일치</span>
                       {onHideSearchContext && (
@@ -1080,6 +1092,19 @@ export function NotesPageLayout({
                   >
                     + 새 노트 만들기
                   </button>
+                )}
+                {!isMobile && !isTrashView && (
+                  <div style={styles.noNoteShortcuts} aria-label="에디터 단축키 안내">
+                    <span style={styles.noNoteShortcutItem}>
+                      <kbd style={styles.kbdKey}>Alt+P</kbd> 미리보기
+                    </span>
+                    <span style={styles.noNoteShortcutItem}>
+                      <kbd style={styles.kbdKey}>Ctrl+\</kbd> 몰입 모드
+                    </span>
+                    <span style={styles.noNoteShortcutItem}>
+                      <kbd style={styles.kbdKey}>Ctrl+[</kbd> 사이드바
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

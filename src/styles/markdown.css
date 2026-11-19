@@ -1,4 +1,6 @@
 .markdown-preview {
+  max-width: 74ch;
+  margin-inline: auto;
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-md);
@@ -77,6 +79,10 @@
   gap: 8px;
 }
 
+.markdown-preview li.task-list-item:has(> input[type="checkbox"]:checked) {
+  color: var(--color-text-secondary);
+}
+
 .markdown-preview li.task-list-item > input[type="checkbox"] {
   margin-top: 0.38em;
   width: 16px;
@@ -91,11 +97,11 @@
 
 .markdown-preview blockquote {
   margin: 0.9em 0;
-  padding: 0.35em 1em;
-  border-left: 3px solid var(--color-brand-primary);
+  padding: 0.65em 1em;
+  border: 1px solid color-mix(in srgb, var(--color-brand-primary) 22%, transparent);
   background: var(--color-bg-accent-soft);
   color: var(--color-text-secondary);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: var(--radius-sm);
 }
 
 .markdown-preview code {
