@@ -103,7 +103,7 @@ function SortableNoteRow({
     isDragging,
   } = useSortable({
     id: note.id,
-    disabled: isSortingDisabled || !isMobile,
+    disabled: isSortingDisabled,
   });
 
   useEffect(() => {
@@ -160,12 +160,13 @@ function SortableNoteRow({
       }}
     >
       <div style={styles.noteRow}>
-        {mode === "active" && isMobile && (
+        {mode === "active" && (
           <button
             ref={setActivatorNodeRef}
             type="button"
             style={{
               ...styles.dragHandle,
+              ...(!isMobile ? styles.dragHandleCompact : {}),
               ...(!showControls ? styles.subtleControlHidden : {}),
               ...(isSortingDisabled ? styles.disabledHandle : {}),
             }}
@@ -607,6 +608,12 @@ const styles = {
     lineHeight: 1,
     flexShrink: 0,
     transition: "opacity var(--motion-fast) var(--easing-standard)",
+  } satisfies CSSProperties,
+  dragHandleCompact: {
+    minWidth: "22px",
+    width: "22px",
+    minHeight: "32px",
+    fontSize: "14px",
   } satisfies CSSProperties,
   disabledHandle: {
     cursor: "default",

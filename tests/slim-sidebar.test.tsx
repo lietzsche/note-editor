@@ -83,7 +83,7 @@ describe("slim desktop sidebar", () => {
       onPermanentDeleteNote: noop, onReorder: noop };
     const desktop = renderToStaticMarkup(<SortableNoteList {...listProps} isMobile={false} />);
     expect(desktop).toContain('aria-label="기록 노트 더보기"');
-    expect(desktop).not.toContain('aria-label="기록 노트 순서 변경"');
+    expect(desktop).toContain('aria-label="기록 노트 순서 변경"');
     expect(desktop).not.toContain('aria-label="기록 노트 삭제"');
     const mobile = renderToStaticMarkup(<SortableNoteList {...listProps} isMobile />);
     expect(mobile).toContain('aria-label="기록 노트 순서 변경"');
@@ -92,6 +92,7 @@ describe("slim desktop sidebar", () => {
     const trash = renderToStaticMarkup(<SortableNoteList {...listProps} isMobile={false} mode="trash" />);
     expect(trash).toContain('aria-label="기록 노트 복원"');
     expect(trash).not.toContain('aria-label="기록 노트 더보기"');
+    expect(trash).not.toContain('aria-label="기록 노트 순서 변경"');
   });
 
   it("adds a normal preview while keeping deleted timestamps and restore actions", () => {
