@@ -338,6 +338,26 @@ export function GuideView({ isAuthenticated = false, username = null }: Props) {
               </div>
               <div className="guide-shortcut-row">
                 <div className="guide-kbd-group">
+                  <kbd className="guide-kbd">Alt</kbd>
+                  <span>+</span>
+                  <kbd className="guide-kbd">P</kbd>
+                </div>
+                <span className="guide-status-desc">
+                  마크다운 편집 / 미리보기 전환
+                </span>
+              </div>
+              <div className="guide-shortcut-row">
+                <div className="guide-kbd-group">
+                  <kbd className="guide-kbd">Ctrl</kbd>
+                  <span>+</span>
+                  <kbd className="guide-kbd">[</kbd>
+                </div>
+                <span className="guide-status-desc">
+                  데스크톱 좌측 그룹·노트 사이드바 접기 / 펼치기
+                </span>
+              </div>
+              <div className="guide-shortcut-row">
+                <div className="guide-kbd-group">
                   <kbd className="guide-kbd">Enter</kbd>
                   <span>/</span>
                   <kbd className="guide-kbd">Esc</kbd>

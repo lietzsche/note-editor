@@ -1,12 +1,31 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import LoginPage from "./pages/LoginPage";
-import NotesPage from "./pages/NotesPage";
-import SharedNotePage from "./pages/SharedNotePage";
-import GuidePage from "./pages/GuidePage";
 import { api, type AuthSession } from "./lib/api";
 
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const NotesPage = lazy(() => import("./pages/NotesPage"));
+const SharedNotePage = lazy(() => import("./pages/SharedNotePage"));
+const GuidePage = lazy(() => import("./pages/GuidePage"));
+
 type AuthState = "loading" | "authenticated" | "unauthenticated";
+
+function AppLoadingScreen({
+  title = "세션 상태를 확인하고 있습니다",
+  body = "보호된 작업 공간에 안전하게 연결하는 중입니다.",
+}: {
+  title?: string;
+  body?: string;
+}) {
+  return (
+    <div className="app-loading">
+      <div className="app-loading__panel" role="status" aria-live="polite">
+        <div className="app-loading__dot" aria-hidden="true" />
+        <strong className="app-loading__title">{title}</strong>
+        <p className="app-loading__body">{body}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState>("loading");
@@ -26,74 +45,75 @@ export default function App() {
   }, []);
 
   if (auth === "loading") {
-    return (
-      <div className="app-loading">
-        <div className="app-loading__panel" role="status" aria-live="polite">
-          <div className="app-loading__dot" aria-hidden="true" />
-          <strong className="app-loading__title">세션 상태를 확인하고 있습니다</strong>
-          <p className="app-loading__body">보호된 작업 공간에 안전하게 연결하는 중입니다.</p>
-        </div>
-      </div>
-    );
+    return <AppLoadingScreen />;
   }
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          auth === "authenticated" ? (
-            <Navigate to="/" replace />
-          ) : (
-            <LoginPage
-              onLogin={(nextUser) => {
-                setCurrentUser(nextUser);
-                setAuth("authenticated");
-              }}
+    <Suspense
+      fallback={
+        <AppLoadingScreen
+          title="화면을 불러오는 중입니다"
+          body="필요한 편집 도구를 준비하고 있습니다."
+        />
+      }
+    >
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            auth === "authenticated" ? (
+              <Navigate to="/" replace />
+            ) : (
+              <LoginPage
+                onLogin={(nextUser) => {
+                  setCurrentUser(nextUser);
+                  setAuth("authenticated");
+                }}
+              />
+            )
+          }
+        />
+        <Route
+          path="/shared/:shareToken"
+          element={<SharedNotePage />}
+        />
+        <Route
+          path="/guide"
+          element={
+            <GuidePage
+              isAuthenticated={auth === "authenticated"}
+              username={currentUser?.username ?? null}
             />
-          )
-        }
-      />
-      <Route
-        path="/shared/:shareToken"
-        element={<SharedNotePage />}
-      />
-      <Route
-        path="/guide"
-        element={
-          <GuidePage
-            isAuthenticated={auth === "authenticated"}
-            username={currentUser?.username ?? null}
-          />
-        }
-      />
-      <Route
-        path="/*"
-        element={
-          auth === "authenticated" ? (
-            <NotesPage
-              username={currentUser?.username ?? ""}
-              passwordChangeRequired={currentUser?.passwordChangeRequired ?? false}
-              onPasswordChangeRequiredChange={(passwordChangeRequired) => {
-                setCurrentUser((prev) => (
-                  prev
-                    ? {
-                      ...prev,
-                      passwordChangeRequired,
-                    }
-                    : prev
-                ));
-              }}
-              onLogout={() => {
-                setAuth("unauthenticated");
-                setCurrentUser(null);
-              }}
-            />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-    </Routes>
+          }
+        />
+        <Route
+          path="/*"
+          element={
+            auth === "authenticated" ? (
+              <NotesPage
+                username={currentUser?.username ?? ""}
+                passwordChangeRequired={currentUser?.passwordChangeRequired ?? false}
+                onPasswordChangeRequiredChange={(passwordChangeRequired) => {
+                  setCurrentUser((prev) => (
+                    prev
+                      ? {
+                        ...prev,
+                        passwordChangeRequired,
+                      }
+                      : prev
+                  ));
+                }}
+                onLogout={() => {
+                  setAuth("unauthenticated");
+                  setCurrentUser(null);
+                }}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 }

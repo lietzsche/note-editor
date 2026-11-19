@@ -72,7 +72,7 @@ export async function getShareTokenForNote(
 ): Promise<{ shareToken: string; isActive: boolean; expiresAt: string | null; accessCount: number } | null> {
   const now = new Date().toISOString();
   let query: string;
-  let params: any[];
+  let params: unknown[];
 
   if (includeExpired) {
     // 만료된 토큰도 포함하여 조회

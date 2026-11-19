@@ -1204,6 +1204,9 @@ app.get("/api/shared/:shareToken", async (c) => {
   });
 });
 
+// 알 수 없는 /api/* 경로가 SPA index.html로 떨어지지 않도록 JSON 404 반환
+app.all("/api/*", () => err("NOT_FOUND", "요청한 API 경로를 찾을 수 없습니다.", 404));
+
 // ── SPA fallback: 정적 파일 서빙 (React 클라이언트 라우팅 포함) ─────────────
 // ASSETS 바인딩은 wrangler v4+ 또는 운영 환경에서만 주입됨
 app.all("*", async (c) => {
@@ -1213,7 +1216,14 @@ app.all("*", async (c) => {
   // 정적 파일이 없으면 index.html 반환 (SPA 라우팅)
   const url = new URL(c.req.url);
   url.pathname = "/";
-  return c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
+  const htmlRes = await c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
+  const headers = new Headers(htmlRes.headers);
+  headers.set("Cache-Control", "no-cache");
+  return new Response(htmlRes.body, {
+    status: htmlRes.status,
+    statusText: htmlRes.statusText,
+    headers,
+  });
 });
 
 // ── Workers export ─────────────────────────────────────────────────────────
