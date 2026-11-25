@@ -940,6 +940,30 @@ export function NotesPageLayout({
                         {isMobile ? <SearchInfoIcon /> : "검색 정보"}
                       </button>
                     )}
+                    {!autoFocusMode && !isSelectedNoteReadOnly && onToggleStartupNote && (
+                      <button
+                        type="button"
+                        style={{
+                          ...(isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn),
+                          ...(startupNoteId === selectedNote.id ? styles.zenModeToggleBtnActive : {}),
+                        }}
+                        onClick={() => onToggleStartupNote(selectedNote.id)}
+                        aria-pressed={startupNoteId === selectedNote.id}
+                        aria-label={
+                          startupNoteId === selectedNote.id
+                            ? "시작 노트 해제"
+                            : "시작 노트로 설정"
+                        }
+                        title={
+                          startupNoteId === selectedNote.id
+                            ? "로그인 시 자동으로 열리는 시작 노트 (클릭하여 해제)"
+                            : "로그인 시 이 노트를 자동으로 열기"
+                        }
+                      >
+                        <StartupPinIcon active={startupNoteId === selectedNote.id} />
+                        {!isMobile && "시작 노트"}
+                      </button>
+                    )}
                     {!autoFocusMode && !isSelectedNoteReadOnly && (
                       <ShareStatusPanel
                         styles={styles}
@@ -969,12 +993,6 @@ export function NotesPageLayout({
                       compact={isMobile}
                       triggerStyle={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
                       onCopy={onCopy}
-                      isStartupNote={startupNoteId === selectedNote.id}
-                      onToggleStartupNote={
-                        isSelectedNoteReadOnly || !onToggleStartupNote
-                          ? undefined
-                          : () => onToggleStartupNote(selectedNote.id)
-                      }
                       showSpellCheck={!isSelectedNoteReadOnly}
                       onDelete={isSelectedNoteReadOnly ? undefined : () => onDeleteNote(selectedNote.id)}
                     />}
@@ -1666,6 +1684,26 @@ function SearchInfoIcon() {
       <path d="M16 16l5 5" />
       <path d="M10.5 8v.01" />
       <path d="M10.5 11v4" />
+    </svg>
+  );
+}
+
+function StartupPinIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill={active ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a1 1 0 0 1 1-1h1V3H7v2h1a1 1 0 0 1 1 1z" />
     </svg>
   );
 }

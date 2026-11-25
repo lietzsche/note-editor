@@ -217,6 +217,55 @@ describe("Startup note UI", () => {
     expect(html).toContain('aria-expanded="false"');
     expect(html).not.toContain("@work");
   });
+
+  it("shows a direct startup note toggle button in the editor toolbar and hides it in trash or auto-focus mode", () => {
+    const activeNote = {
+      id: "n1",
+      title: "데일리 노트",
+      content: "본문",
+      group_id: null,
+      sort_order: 0,
+      updated_at: "2026-11-24T00:00:00Z",
+    };
+
+    const desktopActive = renderToStaticMarkup(
+      <NotesPageLayout
+        {...createLayoutProps({
+          selectedNote: activeNote,
+          startupNoteId: "n1",
+          onToggleStartupNote: noop,
+        })}
+      />
+    );
+    expect(desktopActive).toContain('aria-label="시작 노트 해제"');
+    expect(desktopActive).toContain('aria-pressed="true"');
+    expect(desktopActive).toContain("시작 노트");
+
+    const mobileInactive = renderToStaticMarkup(
+      <NotesPageLayout
+        {...createLayoutProps({
+          isMobile: true,
+          mobilePanel: "editor",
+          selectedNote: activeNote,
+          startupNoteId: null,
+          onToggleStartupNote: noop,
+        })}
+      />
+    );
+    expect(mobileInactive).toContain('aria-label="시작 노트로 설정"');
+    expect(mobileInactive).toContain('aria-pressed="false"');
+
+    const trashedNote = renderToStaticMarkup(
+      <NotesPageLayout
+        {...createLayoutProps({
+          selectedNote: { ...activeNote, deleted_at: "2026-11-24T01:00:00Z" },
+          startupNoteId: null,
+          onToggleStartupNote: noop,
+        })}
+      />
+    );
+    expect(trashedNote).not.toContain('aria-label="시작 노트로 설정"');
+  });
 });
 
 describe("Desktop account popover auto-focus label click regression", () => {
