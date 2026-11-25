@@ -440,9 +440,38 @@ export function NotesPageLayout({
   );
   const accountControls = (
     <div style={{ ...styles.sidebarFooter, ...(!isMobile ? { padding: "8px 0 0" } : {}) }}>
-      <div style={styles.userIdentity}>
-        <strong style={styles.userInfoName} title={`@${username}`}>@{username}</strong>
-      </div>
+      {onSwitchAccount && onRequestAddAccount ? (
+        <AccountSwitcherSection
+          username={username}
+          accounts={accounts}
+          busy={accountSwitchBusy}
+          onSwitchAccount={(userId) => {
+            if (accountDetailsRef.current) {
+              accountDetailsRef.current.open = false;
+              setAccountMenuOpen(false);
+            }
+            onSwitchAccount(userId);
+          }}
+          onRequestAddAccount={() => {
+            if (accountDetailsRef.current) {
+              accountDetailsRef.current.open = false;
+              setAccountMenuOpen(false);
+            }
+            onRequestAddAccount();
+          }}
+          onLogoutAll={onLogoutAll ? () => {
+            if (accountDetailsRef.current) {
+              accountDetailsRef.current.open = false;
+              setAccountMenuOpen(false);
+            }
+            onLogoutAll();
+          } : undefined}
+        />
+      ) : (
+        <div style={styles.userIdentity}>
+          <strong style={styles.userInfoName} title={`@${username}`}>@{username}</strong>
+        </div>
+      )}
       <div style={styles.sidebarFooterActions}>
         {!isMobile && onAutoFocusEnabledChange && (
           <label className="auto-focus-setting" title="본문 입력 시 자동으로 집중 화면으로 전환">
@@ -499,33 +528,6 @@ export function NotesPageLayout({
           {isMobile ? <LogoutIcon /> : "로그아웃"}
         </button>
       </div>
-      {onSwitchAccount && onRequestAddAccount && (
-        <AccountSwitcherSection
-          accounts={accounts}
-          busy={accountSwitchBusy}
-          onSwitchAccount={(userId) => {
-            if (accountDetailsRef.current) {
-              accountDetailsRef.current.open = false;
-              setAccountMenuOpen(false);
-            }
-            onSwitchAccount(userId);
-          }}
-          onRequestAddAccount={() => {
-            if (accountDetailsRef.current) {
-              accountDetailsRef.current.open = false;
-              setAccountMenuOpen(false);
-            }
-            onRequestAddAccount();
-          }}
-          onLogoutAll={onLogoutAll ? () => {
-            if (accountDetailsRef.current) {
-              accountDetailsRef.current.open = false;
-              setAccountMenuOpen(false);
-            }
-            onLogoutAll();
-          } : undefined}
-        />
-      )}
     </div>
   );
 

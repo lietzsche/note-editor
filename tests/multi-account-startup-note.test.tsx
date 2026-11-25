@@ -106,9 +106,10 @@ function createLayoutProps(
 }
 
 describe("AccountSwitcherSection", () => {
-  it("renders signed-in accounts, active badge, add-account button, and logout-all when 2+ accounts exist", () => {
+  it("stays collapsed by default showing only the compact @username trigger", () => {
     const html = renderToStaticMarkup(
       <AccountSwitcherSection
+        username="personal"
         accounts={[
           { userId: "u1", username: "personal", isActive: true },
           { userId: "u2", username: "work", isActive: false },
@@ -119,9 +120,31 @@ describe("AccountSwitcherSection", () => {
       />
     );
 
-    expect(html).toContain("2/5");
     expect(html).toContain("@personal");
-    expect(html).toContain("사용 중");
+    expect(html).toContain("2개 계정");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("@work");
+    expect(html).not.toContain("+ 다른 계정 로그인");
+  });
+
+  it("renders signed-in accounts, check icon, add-account button, and logout-all when expanded", () => {
+    const html = renderToStaticMarkup(
+      <AccountSwitcherSection
+        username="personal"
+        defaultOpen
+        accounts={[
+          { userId: "u1", username: "personal", isActive: true },
+          { userId: "u2", username: "work", isActive: false },
+        ]}
+        onSwitchAccount={noop}
+        onRequestAddAccount={noop}
+        onLogoutAll={noop}
+      />
+    );
+
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain("@personal");
+    expect(html).toContain('aria-label="현재 사용 중"');
     expect(html).toContain("@work");
     expect(html).toContain("+ 다른 계정 로그인");
     expect(html).toContain("모든 계정 로그아웃");
@@ -130,16 +153,21 @@ describe("AccountSwitcherSection", () => {
   it("hides logout-all for single account and disables add-account at 5 accounts", () => {
     const singleHtml = renderToStaticMarkup(
       <AccountSwitcherSection
+        username="personal"
+        defaultOpen
         accounts={[{ userId: "u1", username: "personal", isActive: true }]}
         onSwitchAccount={noop}
         onRequestAddAccount={noop}
         onLogoutAll={noop}
       />
     );
+    expect(singleHtml).toContain("계정 전환");
     expect(singleHtml).not.toContain("모든 계정 로그아웃");
 
     const fullHtml = renderToStaticMarkup(
       <AccountSwitcherSection
+        username="a1"
+        defaultOpen
         accounts={[
           { userId: "u1", username: "a1", isActive: true },
           { userId: "u2", username: "a2", isActive: false },
@@ -151,7 +179,7 @@ describe("AccountSwitcherSection", () => {
         onRequestAddAccount={noop}
       />
     );
-    expect(fullHtml).toContain("5/5");
+    expect(fullHtml).toContain("5개 계정");
     expect(fullHtml).toContain('class="account-switcher__addBtn" disabled=""');
   });
 });
@@ -182,11 +210,12 @@ describe("Startup note UI", () => {
     expect(html).toContain("시작");
   });
 
-  it("shows multi-account count and switcher inside desktop account popover", () => {
+  it("shows compact collapsed account switcher trigger inside desktop account popover", () => {
     const html = renderToStaticMarkup(<NotesPageLayout {...createLayoutProps()} />);
     expect(html).toContain("@personal (2)");
-    expect(html).toContain("다중 계정 전환");
-    expect(html).toContain("@work");
+    expect(html).toContain("2개 계정");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("@work");
   });
 });
 

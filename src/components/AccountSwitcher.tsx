@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { api, ApiError, type AccountSummary, type AuthSession } from "../lib/api";
 import { useModalFocus } from "../lib/useModalFocus";
 import { useBackHandler } from "../lib/useBackHandler";
@@ -7,74 +7,154 @@ import "../styles/account-switcher.css";
 const MAX_ACCOUNTS = 5;
 
 type SwitcherSectionProps = {
+  username: string;
   accounts: AccountSummary[];
   busy?: boolean;
+  defaultOpen?: boolean;
   onSwitchAccount: (userId: string) => void;
   onRequestAddAccount: () => void;
   onLogoutAll?: () => void;
 };
 
 export function AccountSwitcherSection({
+  username,
   accounts,
   busy = false,
+  defaultOpen = false,
   onSwitchAccount,
   onRequestAddAccount,
   onLogoutAll,
 }: SwitcherSectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
   const canAddMore = accounts.length < MAX_ACCOUNTS;
+  const metaLabel = accounts.length > 1 ? `${accounts.length}개 계정` : "계정 전환";
 
   return (
-    <div className="account-switcher" aria-label="다중 계정 전환">
-      <div className="account-switcher__header">
-        <span className="account-switcher__label">로그인된 계정</span>
-        <span className="account-switcher__count">
-          {accounts.length}/{MAX_ACCOUNTS}
+    <div
+      className="account-switcher"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="account-switcher__trigger"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={`@${username} 계정 전환 메뉴 ${open ? "닫기" : "열기"}`}
+        title={`@${username} (${metaLabel})`}
+        disabled={busy}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className="account-switcher__triggerName">@{username}</span>
+        <span className="account-switcher__triggerMeta">
+          <span>{metaLabel}</span>
+          <ChevronDownIcon />
         </span>
-      </div>
+      </button>
 
-      {accounts.length > 0 && (
-        <div className="account-switcher__list" role="list">
-          {accounts.map((account) => (
+      {open && (
+        <div
+          id={panelId}
+          className="account-switcher__panel"
+          role="region"
+          aria-label="로그인된 계정 목록"
+        >
+          {accounts.length > 0 && (
+            <div className="account-switcher__list" role="list">
+              {accounts.map((account) => (
+                <button
+                  key={account.userId}
+                  type="button"
+                  role="listitem"
+                  className={`account-switcher__item${account.isActive ? " account-switcher__item--active" : ""}`}
+                  disabled={busy || account.isActive}
+                  aria-current={account.isActive ? "true" : undefined}
+                  onClick={() => {
+                    setOpen(false);
+                    onSwitchAccount(account.userId);
+                  }}
+                >
+                  <span className="account-switcher__name">@{account.username}</span>
+                  {account.isActive && <CheckIcon />}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="account-switcher__actions">
             <button
-              key={account.userId}
               type="button"
-              role="listitem"
-              className={`account-switcher__item${account.isActive ? " account-switcher__item--active" : ""}`}
-              disabled={busy || account.isActive}
-              aria-current={account.isActive ? "true" : undefined}
-              onClick={() => onSwitchAccount(account.userId)}
+              className="account-switcher__addBtn"
+              disabled={busy || !canAddMore}
+              title={canAddMore ? "다른 계정으로 추가 로그인" : `최대 ${MAX_ACCOUNTS}개 계정까지 로그인할 수 있습니다`}
+              onClick={() => {
+                setOpen(false);
+                onRequestAddAccount();
+              }}
             >
-              <span className="account-switcher__name">@{account.username}</span>
-              {account.isActive && (
-                <span className="account-switcher__badge">사용 중</span>
-              )}
+              + 다른 계정 로그인
             </button>
-          ))}
+            {accounts.length > 1 && onLogoutAll && (
+              <button
+                type="button"
+                className="account-switcher__logoutAllBtn"
+                disabled={busy}
+                onClick={() => {
+                  setOpen(false);
+                  onLogoutAll();
+                }}
+              >
+                모든 계정 로그아웃
+              </button>
+            )}
+          </div>
         </div>
       )}
-
-      <div className="account-switcher__actions">
-        <button
-          type="button"
-          className="account-switcher__addBtn"
-          disabled={busy || !canAddMore}
-          title={canAddMore ? "다른 계정으로 추가 로그인" : `최대 ${MAX_ACCOUNTS}개 계정까지 로그인할 수 있습니다`}
-          onClick={onRequestAddAccount}
-        >
-          + 다른 계정 로그인
-        </button>
-        {accounts.length > 1 && onLogoutAll && (
-          <button
-            type="button"
-            className="account-switcher__logoutAllBtn"
-            disabled={busy}
-            onClick={onLogoutAll}
-          >
-            모든 계정 로그아웃
-          </button>
-        )}
-      </div>
     </div>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      className="account-switcher__chevron"
+      aria-hidden="true"
+      focusable="false"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      className="account-switcher__check"
+      aria-label="현재 사용 중"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
