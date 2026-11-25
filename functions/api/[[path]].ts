@@ -1,12 +1,15 @@
 import { Context, Hono } from "hono";
-import type { Env } from "./_lib/types";
+import type { AccountSummary, Env } from "./_lib/types";
 import {
   createSession,
   getSession,
+  getSessionContext,
+  switchSession,
   clearSession,
   hashPassword,
   verifyPassword,
   shouldRehashPassword,
+  MAX_MULTI_SESSIONS,
 } from "./_lib/auth";
 import {
   ok,
@@ -147,11 +150,69 @@ function generateTemporaryPassword(length = TEMP_PASSWORD_LENGTH) {
   ).join("");
 }
 
-function buildAuthResponse(username: string, passwordResetRequired: number | boolean) {
+async function resolveValidStartupNoteId(
+  db: D1Database,
+  userId: string,
+  startupNoteId: string | null | undefined
+): Promise<string | null> {
+  if (!startupNoteId) return null;
+
+  const note = await db.prepare(
+    "SELECT id FROM pages WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
+  )
+    .bind(startupNoteId, userId)
+    .first<{ id: string }>();
+
+  return note?.id ?? null;
+}
+
+function buildAuthResponse(params: {
+  userId: string;
+  username: string;
+  passwordResetRequired: number | boolean;
+  startupNoteId: string | null;
+  accounts: AccountSummary[];
+}) {
   return {
-    username,
-    passwordChangeRequired: Boolean(passwordResetRequired),
+    userId: params.userId,
+    username: params.username,
+    passwordChangeRequired: Boolean(params.passwordResetRequired),
+    startupNoteId: params.startupNoteId,
+    accounts: params.accounts,
   };
+}
+
+async function loadAuthSessionResponse(
+  db: D1Database,
+  userId: string,
+  accounts: AccountSummary[]
+) {
+  const user = await db.prepare(
+    "SELECT id, username, password_reset_required, startup_note_id FROM users WHERE id = ?"
+  )
+    .bind(userId)
+    .first<{
+      id: string;
+      username: string;
+      password_reset_required: number;
+      startup_note_id: string | null;
+    }>();
+
+  if (!user) return null;
+
+  const startupNoteId = await resolveValidStartupNoteId(
+    db,
+    user.id,
+    user.startup_note_id
+  );
+
+  return buildAuthResponse({
+    userId: user.id,
+    username: user.username,
+    passwordResetRequired: user.password_reset_required,
+    startupNoteId,
+    accounts,
+  });
 }
 
 // ── Auth routes ────────────────────────────────────────────────────────────
@@ -192,8 +253,24 @@ app.post("/api/auth/signup", async (c) => {
     .bind(groupId, id, DEFAULT_GROUP_NAME, now, now)
     .run();
 
-  await createSession(c, { userId: id, username });
-  return c.json({ data: buildAuthResponse(username, false) }, 201);
+  const createdSession = await createSession(c, { userId: id, username });
+  if (!createdSession.ok) {
+    return err(
+      "MAX_SESSIONS_REACHED",
+      `최대 ${MAX_MULTI_SESSIONS}개 계정까지 동시에 로그인할 수 있습니다. 다른 계정을 로그아웃한 뒤 다시 시도하세요.`,
+      409
+    );
+  }
+
+  return c.json({
+    data: buildAuthResponse({
+      userId: id,
+      username,
+      passwordResetRequired: false,
+      startupNoteId: null,
+      accounts: createdSession.accounts,
+    }),
+  }, 201);
 });
 
 // 5분 윈도우, 최대 5회 실패 시 차단
@@ -221,7 +298,7 @@ app.post("/api/auth/login", async (c) => {
     return err("RATE_LIMITED", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.", 429);
 
   const user = await c.env.DB.prepare(
-    "SELECT id, username, password_hash, password_reset_required FROM users WHERE username = ?"
+    "SELECT id, username, password_hash, password_reset_required, startup_note_id FROM users WHERE username = ?"
   )
     .bind(username)
     .first<{
@@ -229,6 +306,7 @@ app.post("/api/auth/login", async (c) => {
       username: string;
       password_hash: string;
       password_reset_required: number;
+      startup_note_id: string | null;
     }>();
 
   if (!user) {
@@ -253,10 +331,29 @@ app.post("/api/auth/login", async (c) => {
       .run();
   }
 
-  await createSession(c, { userId: user.id, username: user.username });
+  const createdSession = await createSession(c, { userId: user.id, username: user.username });
+  if (!createdSession.ok) {
+    return err(
+      "MAX_SESSIONS_REACHED",
+      `최대 ${MAX_MULTI_SESSIONS}개 계정까지 동시에 로그인할 수 있습니다. 다른 계정을 로그아웃한 뒤 다시 시도하세요.`,
+      409
+    );
+  }
+
   await recordAuditLog(c.env.DB, "login_success", username);
+  const startupNoteId = await resolveValidStartupNoteId(
+    c.env.DB,
+    user.id,
+    user.startup_note_id
+  );
   return c.json({
-    data: buildAuthResponse(user.username, user.password_reset_required),
+    data: buildAuthResponse({
+      userId: user.id,
+      username: user.username,
+      passwordResetRequired: user.password_reset_required,
+      startupNoteId,
+      accounts: createdSession.accounts,
+    }),
   }, 200);
 });
 
@@ -279,31 +376,97 @@ async function recordAuditLog(db: D1Database, eventType: string, username: strin
 }
 
 app.post("/api/auth/logout", async (c) => {
-  const session = await getSession(c);
-  await clearSession(c, session?.sessionId);
-  if (session) {
-    await recordAuditLog(c.env.DB, "logout", session.username);
+  let scope: "current" | "all" = "current";
+  const rawBody = await c.req.text();
+  if (rawBody.trim()) {
+    const parsed = JSON.parse(rawBody) as { scope?: string };
+    if (parsed.scope === "all") {
+      scope = "all";
+    }
   }
+
+  const result = await clearSession(c, { scope });
+  for (const loggedOut of result.loggedOutSessions) {
+    await recordAuditLog(c.env.DB, "logout", loggedOut.username);
+  }
+
+  if (result.nextContext) {
+    const nextAuth = await loadAuthSessionResponse(
+      c.env.DB,
+      result.nextContext.activeSession.userId,
+      result.nextContext.accounts
+    );
+    if (nextAuth) {
+      return c.json({ data: nextAuth }, 200);
+    }
+  }
+
   return c.newResponse(null, 204);
 });
 
-app.get("/api/auth/me", async (c) => {
+app.post("/api/auth/switch", async (c) => {
+  const { userId } = await c.req.json<{ userId?: string }>();
+  if (!userId || typeof userId !== "string") {
+    return err("VALIDATION", "전환할 계정 ID가 필요합니다.");
+  }
+
+  const switched = await switchSession(c, userId);
+  if (!switched) {
+    return err("NOT_FOUND", "로그인된 계정을 찾을 수 없습니다.", 404);
+  }
+
+  const nextAuth = await loadAuthSessionResponse(
+    c.env.DB,
+    switched.activeSession.userId,
+    switched.accounts
+  );
+  if (!nextAuth) return unauthorized();
+  return c.json({ data: nextAuth }, 200);
+});
+
+app.put("/api/auth/startup-note", async (c) => {
   const session = await getSession(c);
   if (!session) return unauthorized();
 
-  const user = await c.env.DB.prepare(
-    "SELECT username, password_reset_required FROM users WHERE id = ?"
-  )
-    .bind(session.userId)
-    .first<{ username: string; password_reset_required: number }>();
+  const body = await c.req.json<{ noteId?: string | null }>();
+  if (body.noteId === undefined || (body.noteId !== null && typeof body.noteId !== "string")) {
+    return err("VALIDATION", "noteId는 문자열 또는 null이어야 합니다.");
+  }
 
-  if (!user) return unauthorized();
-  return ok(buildAuthResponse(user.username, user.password_reset_required));
+  if (body.noteId !== null) {
+    const note = await findOwnedNote(c.env.DB, session.userId, body.noteId);
+    if (!note) return notFound();
+    if (note.deleted_at !== null) {
+      return err("CONFLICT", "휴지통 노트는 시작 노트로 설정할 수 없습니다.", 409);
+    }
+  }
+
+  await c.env.DB.prepare(
+    "UPDATE users SET startup_note_id = ? WHERE id = ?"
+  )
+    .bind(body.noteId, session.userId)
+    .run();
+
+  return ok({ startupNoteId: body.noteId });
+});
+
+app.get("/api/auth/me", async (c) => {
+  const ctx = await getSessionContext(c);
+  if (!ctx) return unauthorized();
+
+  const auth = await loadAuthSessionResponse(
+    c.env.DB,
+    ctx.activeSession.userId,
+    ctx.accounts
+  );
+  if (!auth) return unauthorized();
+  return ok(auth);
 });
 
 app.post("/api/auth/change-password", async (c) => {
-  const session = await getSession(c);
-  if (!session) return unauthorized();
+  const ctx = await getSessionContext(c);
+  if (!ctx) return unauthorized();
+  const session = ctx.activeSession;
 
   const { currentPassword, newPassword } = await c.req.json<{
     currentPassword: string;
@@ -321,10 +484,10 @@ app.post("/api/auth/change-password", async (c) => {
   }
 
   const user = await c.env.DB.prepare(
-    "SELECT id, username, password_hash FROM users WHERE id = ?"
+    "SELECT id, username, password_hash, startup_note_id FROM users WHERE id = ?"
   )
     .bind(session.userId)
-    .first<{ id: string; username: string; password_hash: string }>();
+    .first<{ id: string; username: string; password_hash: string; startup_note_id: string | null }>();
 
   if (!user) return unauthorized();
 
@@ -351,7 +514,18 @@ app.post("/api/auth/change-password", async (c) => {
     ).bind(crypto.randomUUID(), "password_change", user.username, now),
   ]);
 
-  return ok(buildAuthResponse(user.username, false));
+  const startupNoteId = await resolveValidStartupNoteId(
+    c.env.DB,
+    user.id,
+    user.startup_note_id
+  );
+  return ok(buildAuthResponse({
+    userId: user.id,
+    username: user.username,
+    passwordResetRequired: false,
+    startupNoteId,
+    accounts: ctx.accounts,
+  }));
 });
 
 app.get("/api/admin/users", async (c) => {
@@ -1022,9 +1196,12 @@ app.delete("/api/notes/:id", async (c) => {
   }
 
   const now = new Date().toISOString();
-  await c.env.DB.prepare("UPDATE pages SET deleted_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
-    .bind(now, now, noteId, session.userId)
-    .run();
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE pages SET deleted_at = ?, updated_at = ? WHERE id = ? AND user_id = ?")
+      .bind(now, now, noteId, session.userId),
+    c.env.DB.prepare("UPDATE users SET startup_note_id = NULL WHERE id = ? AND startup_note_id = ?")
+      .bind(session.userId, noteId),
+  ]);
   await deactivateShareToken(c.env.DB, noteId);
 
   return noContent();
@@ -1082,9 +1259,12 @@ app.delete("/api/notes/:id/permanent", async (c) => {
     return err("CONFLICT", "휴지통에 있는 노트만 영구 삭제할 수 있습니다.", 409);
   }
 
-  await c.env.DB.prepare("DELETE FROM pages WHERE id = ? AND user_id = ?")
-    .bind(noteId, session.userId)
-    .run();
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE users SET startup_note_id = NULL WHERE id = ? AND startup_note_id = ?")
+      .bind(session.userId, noteId),
+    c.env.DB.prepare("DELETE FROM pages WHERE id = ? AND user_id = ?")
+      .bind(noteId, session.userId),
+  ]);
 
   return noContent();
 });

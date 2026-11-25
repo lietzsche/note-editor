@@ -18,6 +18,7 @@ async function setupSchema() {
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       password_reset_required INTEGER NOT NULL DEFAULT 0,
+      startup_note_id TEXT REFERENCES pages(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )`),
     env.DB.prepare(`CREATE TABLE IF NOT EXISTS groups (

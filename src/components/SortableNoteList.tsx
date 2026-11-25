@@ -31,6 +31,7 @@ type Props = {
   groups: Group[];
   defaultGroupId: string | null;
   selectedNoteId: string | null;
+  startupNoteId?: string | null;
   isMobile: boolean;
   searchQuery?: string;
   disabled?: boolean;
@@ -40,6 +41,7 @@ type Props = {
   onRestoreNote: (noteId: string) => void;
   onPermanentDeleteNote: (noteId: string) => void;
   onMoveNoteGroup?: (note: Note, groupId: string | null) => void;
+  onToggleStartupNote?: (noteId: string) => void;
   onReorder: (nextNotes: Note[]) => void;
 };
 
@@ -52,6 +54,7 @@ type RowProps = {
   groups: Group[];
   defaultGroupId: string | null;
   isActive: boolean;
+  isStartupNote?: boolean;
   isMobile: boolean;
   searchQuery: string;
   isSortingDisabled: boolean;
@@ -60,6 +63,7 @@ type RowProps = {
   onDeleteNote: (noteId: string) => void;
   onRestoreNote: (noteId: string) => void;
   onPermanentDeleteNote: (noteId: string) => void;
+  onToggleStartupNote?: (noteId: string) => void;
 };
 
 function formatNoteTimestamp(note: Note, mode: Mode) {
@@ -81,6 +85,7 @@ function SortableNoteRow({
   groups,
   defaultGroupId,
   isActive,
+  isStartupNote = false,
   isMobile,
   searchQuery,
   isSortingDisabled,
@@ -89,6 +94,7 @@ function SortableNoteRow({
   onDeleteNote,
   onRestoreNote,
   onPermanentDeleteNote,
+  onToggleStartupNote,
 }: RowProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isFocusedWithin, setIsFocusedWithin] = useState(false);
@@ -189,8 +195,15 @@ function SortableNoteRow({
           aria-pressed={isActive}
           aria-label={`${note.title || "제목 없음"} 노트 열기`}
         >
-          <div style={styles.noteTitle}>
-            {renderHighlightedText(note.title || "(제목 없음)", searchQuery)}
+          <div style={{ ...styles.noteTitle, display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {renderHighlightedText(note.title || "(제목 없음)", searchQuery)}
+            </span>
+            {mode === "active" && isStartupNote && (
+              <span className="startup-note-badge" title="로그인 시 자동으로 열리는 시작 노트">
+                시작
+              </span>
+            )}
           </div>
           {contentPreview && (
             <div style={styles.notePreview}>
@@ -215,8 +228,15 @@ function SortableNoteRow({
           )}
         </button>
         {!isMobile && mode === "active" ? (
-          <NoteRowMenu title={note.title} canMoveUp={canMoveUp} canMoveDown={canMoveDown}
-            onMove={(direction) => onMove?.(direction)} onDelete={() => onDeleteNote(note.id)} />
+          <NoteRowMenu
+            title={note.title}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
+            isStartupNote={isStartupNote}
+            onToggleStartupNote={onToggleStartupNote ? () => onToggleStartupNote(note.id) : undefined}
+            onMove={(direction) => onMove?.(direction)}
+            onDelete={() => onDeleteNote(note.id)}
+          />
         ) : <div
           style={{
             ...styles.noteActions,
@@ -316,6 +336,7 @@ export function SortableNoteList({
   groups,
   defaultGroupId,
   selectedNoteId,
+  startupNoteId = null,
   isMobile,
   searchQuery = "",
   disabled = false,
@@ -324,6 +345,7 @@ export function SortableNoteList({
   onDeleteNote,
   onRestoreNote,
   onPermanentDeleteNote,
+  onToggleStartupNote,
   onReorder,
 }: Props) {
   const sensors = useSensors(
@@ -393,6 +415,7 @@ export function SortableNoteList({
             groups={groups}
             defaultGroupId={defaultGroupId}
             isActive={selectedNoteId === note.id}
+            isStartupNote={startupNoteId === note.id}
             isMobile={isMobile}
             searchQuery={searchQuery}
             isSortingDisabled={isSortingDisabled}
@@ -401,6 +424,7 @@ export function SortableNoteList({
             onDeleteNote={onDeleteNote}
             onRestoreNote={onRestoreNote}
             onPermanentDeleteNote={onPermanentDeleteNote}
+            onToggleStartupNote={onToggleStartupNote}
           />
         ))}
       </SortableContext>

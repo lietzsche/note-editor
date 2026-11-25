@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN startup_note_id TEXT REFERENCES pages(id) ON DELETE SET NULL;

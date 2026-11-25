@@ -89,10 +89,27 @@ export default function App() {
         <Route
           path="/*"
           element={
-            auth === "authenticated" ? (
+            auth === "authenticated" && currentUser ? (
               <NotesPage
-                username={currentUser?.username ?? ""}
-                passwordChangeRequired={currentUser?.passwordChangeRequired ?? false}
+                key={currentUser.userId || currentUser.username}
+                username={currentUser.username}
+                accounts={currentUser.accounts ?? []}
+                startupNoteId={currentUser.startupNoteId ?? null}
+                passwordChangeRequired={currentUser.passwordChangeRequired}
+                onSessionChange={(nextSession) => {
+                  setCurrentUser(nextSession);
+                  setAuth("authenticated");
+                }}
+                onStartupNoteIdChange={(startupNoteId) => {
+                  setCurrentUser((prev) => (
+                    prev
+                      ? {
+                        ...prev,
+                        startupNoteId,
+                      }
+                      : prev
+                  ));
+                }}
                 onPasswordChangeRequiredChange={(passwordChangeRequired) => {
                   setCurrentUser((prev) => (
                     prev
@@ -103,9 +120,14 @@ export default function App() {
                       : prev
                   ));
                 }}
-                onLogout={() => {
-                  setAuth("unauthenticated");
-                  setCurrentUser(null);
+                onLogout={(nextSession) => {
+                  if (nextSession) {
+                    setCurrentUser(nextSession);
+                    setAuth("authenticated");
+                  } else {
+                    setAuth("unauthenticated");
+                    setCurrentUser(null);
+                  }
                 }}
               />
             ) : (

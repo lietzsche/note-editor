@@ -9,7 +9,9 @@ export type PendingAction =
   | { type: "delete-note"; noteId: string }
   | { type: "move-note-group"; noteId: string; groupId: string | null }
   | { type: "open-guide" }
-  | { type: "logout" };
+  | { type: "switch-account"; userId: string }
+  | { type: "add-account" }
+  | { type: "logout"; scope?: "current" | "all" };
 
 export function hasBlockingEdits(
   selectedNote: Note | null,

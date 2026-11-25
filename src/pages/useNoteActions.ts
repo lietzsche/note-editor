@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { api, type Group, type Note } from "../lib/api";
+import { api, type AuthSession, type Group, type Note } from "../lib/api";
 import { TRASH_NOTES_SCOPE_KEY } from "../lib/noteCache";
 import { sortNotesByOrder } from "../lib/noteCollections";
 import type { PendingAction } from "../lib/notesPageTransitions";
@@ -21,7 +21,8 @@ type UseNoteActionsArgs = {
   shareInfo: ShareInfo;
   shareLoading: boolean;
   newGroupName: string;
-  onLogout: () => void;
+  onLogout: (nextSession: AuthSession | null) => void;
+  onNoteTrashed?: (noteId: string) => void;
   hasBlockingEdits: () => boolean;
   openTransitionDialog: (action: PendingAction) => void;
   clearSelectedNoteView: () => void;
@@ -71,6 +72,7 @@ export function useNoteActions({
   shareLoading,
   newGroupName,
   onLogout,
+  onNoteTrashed,
   hasBlockingEdits,
   openTransitionDialog,
   clearSelectedNoteView,
@@ -134,6 +136,7 @@ export function useNoteActions({
 
     try {
       await api.notes.delete(noteId);
+      onNoteTrashed?.(noteId);
     } catch (error) {
       if (targetNote) {
         restoreNoteFromTrashInCaches(targetNote);
@@ -173,6 +176,7 @@ export function useNoteActions({
     clearSelectedNoteView,
     moveNoteToTrashInCaches,
     notes,
+    onNoteTrashed,
     removeNoteFromCaches,
     restoreNoteFromTrashInCaches,
     selectedNote,
@@ -268,17 +272,17 @@ export function useNoteActions({
     }
   }, [selectedNote, shareLoading, shareInfo, setShareError, setShareInfo, setShareLoading]);
 
-  const logoutImmediately = useCallback(async () => {
-    await api.auth.logout();
-    onLogout();
+  const logoutImmediately = useCallback(async (scope?: "current" | "all") => {
+    const nextSession = await api.auth.logout(scope);
+    onLogout(nextSession);
   }, [onLogout]);
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(async (scope?: "current" | "all") => {
     if (hasBlockingEdits()) {
-      openTransitionDialog({ type: "logout" });
+      openTransitionDialog({ type: "logout", scope });
       return;
     }
-    await logoutImmediately();
+    await logoutImmediately(scope);
   }, [hasBlockingEdits, logoutImmediately, openTransitionDialog]);
 
   const handleCreateGroup = useCallback(async (e: React.FormEvent) => {

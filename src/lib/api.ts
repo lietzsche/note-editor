@@ -65,8 +65,21 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ username, password }),
       }),
-    logout: () =>
-      request<void>("/api/auth/logout", { method: "POST" }),
+    logout: (scope?: "current" | "all") =>
+      request<AuthSession | undefined>("/api/auth/logout", {
+        method: "POST",
+        ...(scope ? { body: JSON.stringify({ scope }) } : {}),
+      }).then((res) => res ?? null),
+    switchAccount: (userId: string) =>
+      request<AuthSession>("/api/auth/switch", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      }),
+    setStartupNote: (noteId: string | null) =>
+      request<{ startupNoteId: string | null }>("/api/auth/startup-note", {
+        method: "PUT",
+        body: JSON.stringify({ noteId }),
+      }),
     me: () =>
       request<AuthSession>("/api/auth/me"),
     changePassword: (currentPassword: string, newPassword: string) =>
@@ -202,9 +215,18 @@ export type Note = {
   deleted_at?: string | null;
 };
 
+export type AccountSummary = {
+  userId: string;
+  username: string;
+  isActive: boolean;
+};
+
 export type AuthSession = {
+  userId: string;
   username: string;
   passwordChangeRequired: boolean;
+  startupNoteId: string | null;
+  accounts: AccountSummary[];
 };
 
 export type SharedNote = Pick<Note, "title" | "content" | "updated_at"> & {

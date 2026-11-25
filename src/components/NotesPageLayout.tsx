@@ -7,13 +7,14 @@ import {
   type FormEventHandler,
   type ReactNode,
 } from "react";
-import type { Group, Note } from "../lib/api";
+import type { AccountSummary, Group, Note } from "../lib/api";
 import {
   buildSearchPreviews,
   countMatchRanges,
   findMatchRange,
   splitHighlightSegments,
 } from "../lib/noteSearchHighlight";
+import { AccountSwitcherSection } from "./AccountSwitcher";
 import { CharacterCountIndicator } from "./CharacterCountIndicator";
 import { EditorMarkdownToolbar } from "./EditorMarkdownToolbar";
 import { EditorMoreMenu } from "./EditorMoreMenu";
@@ -32,6 +33,18 @@ import { useBackHandler } from "../lib/useBackHandler";
 
 type MobilePanel = "groups" | "notes" | "editor";
 type CountStatus = "count-ready" | "count-stale";
+
+/**
+ * 계정 팝오버에서 blur가 발생했을 때 닫아야 하는지 판단한다.
+ * 라벨 텍스트("자동 집중" 등) 클릭 시 relatedTarget이 null이 되므로
+ * 실제로 팝오버 바깥의 포커스 가능 요소로 포커스가 이동했을 때만 닫는다.
+ */
+export function shouldCloseAccountMenuOnBlur(
+  containerContains: (node: Node) => boolean,
+  relatedTarget: Node | null
+): boolean {
+  return Boolean(relatedTarget && !containerContains(relatedTarget));
+}
 
 type Props = {
   styles: Record<string, CSSProperties>;
@@ -134,6 +147,13 @@ type Props = {
   onToggleMarkdownTask?: (taskIndex: number) => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  accounts?: AccountSummary[];
+  accountSwitchBusy?: boolean;
+  startupNoteId?: string | null;
+  onToggleStartupNote?: (noteId: string) => void;
+  onSwitchAccount?: (userId: string) => void;
+  onRequestAddAccount?: () => void;
+  onLogoutAll?: () => void;
 };
 
 export function NotesPageLayout({
@@ -230,12 +250,36 @@ export function NotesPageLayout({
   onToggleMarkdownTask,
   isSidebarCollapsed = false,
   onToggleSidebar,
+  accounts = [],
+  accountSwitchBusy = false,
+  startupNoteId = null,
+  onToggleStartupNote,
+  onSwitchAccount,
+  onRequestAddAccount,
+  onLogoutAll,
 }: Props) {
   const [contentMatchIndex, setContentMatchIndex] = useState(0);
   const [confirmingEditorPermanentDelete, setConfirmingEditorPermanentDelete] = useState(false);
   const [autoFocusNavigationOpen, setAutoFocusNavigationOpen] = useState(false);
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountDetailsRef = useRef<HTMLDetailsElement | null>(null);
   useBackHandler(confirmingEditorPermanentDelete, () => setConfirmingEditorPermanentDelete(false));
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        accountDetailsRef.current &&
+        !accountDetailsRef.current.contains(event.target as Node)
+      ) {
+        accountDetailsRef.current.open = false;
+        setAccountMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [accountMenuOpen]);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const isSelectedNoteReadOnly = selectedNote?.deleted_at != null;
   const isEditorSearchActive = Boolean(selectedNote && searchQuery.trim());
@@ -455,6 +499,33 @@ export function NotesPageLayout({
           {isMobile ? <LogoutIcon /> : "로그아웃"}
         </button>
       </div>
+      {onSwitchAccount && onRequestAddAccount && (
+        <AccountSwitcherSection
+          accounts={accounts}
+          busy={accountSwitchBusy}
+          onSwitchAccount={(userId) => {
+            if (accountDetailsRef.current) {
+              accountDetailsRef.current.open = false;
+              setAccountMenuOpen(false);
+            }
+            onSwitchAccount(userId);
+          }}
+          onRequestAddAccount={() => {
+            if (accountDetailsRef.current) {
+              accountDetailsRef.current.open = false;
+              setAccountMenuOpen(false);
+            }
+            onRequestAddAccount();
+          }}
+          onLogoutAll={onLogoutAll ? () => {
+            if (accountDetailsRef.current) {
+              accountDetailsRef.current.open = false;
+              setAccountMenuOpen(false);
+            }
+            onLogoutAll();
+          } : undefined}
+        />
+      )}
     </div>
   );
 
@@ -652,6 +723,7 @@ export function NotesPageLayout({
                 groups={groups}
                 defaultGroupId={defaultGroupId}
                 selectedNoteId={selectedNote?.id ?? null}
+                startupNoteId={startupNoteId}
                 isMobile={isMobile}
                 searchQuery={searchQuery}
                 disabled={isTrashView || noteReorderBusy || Boolean(searchQuery.trim())}
@@ -664,22 +736,41 @@ export function NotesPageLayout({
                 onRestoreNote={onRestoreNote}
                 onPermanentDeleteNote={onPermanentDeleteNote}
                 onMoveNoteGroup={onMoveNoteGroup}
+                onToggleStartupNote={onToggleStartupNote}
                 onReorder={onReorderNotes}
               />
             )}
           </div>
           {!isMobile && (
-            <details className="slim-sidebar__account"
+            <details
+              ref={accountDetailsRef}
+              className="slim-sidebar__account"
+              onToggle={(event) => {
+                setAccountMenuOpen(event.currentTarget.open);
+              }}
               onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false;
+                const container = event.currentTarget;
+                if (
+                  shouldCloseAccountMenuOnBlur(
+                    (node) => container.contains(node),
+                    event.relatedTarget as Node | null
+                  )
+                ) {
+                  container.open = false;
+                  setAccountMenuOpen(false);
+                }
               }}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   event.currentTarget.open = false;
+                  setAccountMenuOpen(false);
                   event.currentTarget.querySelector("summary")?.focus();
                 }
               }}>
-              <summary>@{username}<span>{passwordChangeRequired ? "보안 설정 필요 · " : ""}설정 ⌃</span></summary>
+              <summary>
+                @{username}{accounts.length > 1 ? ` (${accounts.length})` : ""}
+                <span>{passwordChangeRequired ? "보안 설정 필요 · " : ""}설정 ⌃</span>
+              </summary>
               <div className="slim-sidebar__account-popover">
                 <ThemeToggle />
                 {accountControls}
@@ -876,6 +967,12 @@ export function NotesPageLayout({
                       compact={isMobile}
                       triggerStyle={isMobile ? styles.toolbarIconButton : styles.secondaryActionBtn}
                       onCopy={onCopy}
+                      isStartupNote={startupNoteId === selectedNote.id}
+                      onToggleStartupNote={
+                        isSelectedNoteReadOnly || !onToggleStartupNote
+                          ? undefined
+                          : () => onToggleStartupNote(selectedNote.id)
+                      }
                       showSpellCheck={!isSelectedNoteReadOnly}
                       onDelete={isSelectedNoteReadOnly ? undefined : () => onDeleteNote(selectedNote.id)}
                     />}

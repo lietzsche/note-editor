@@ -6,6 +6,8 @@ type Props = {
   onCopy: () => void;
   /** 지정하지 않으면 삭제 항목을 숨긴다. (읽기 전용 노트) */
   onDelete?: () => void;
+  isStartupNote?: boolean;
+  onToggleStartupNote?: () => void;
   showSpellCheck?: boolean;
   compact?: boolean;
   triggerStyle?: CSSProperties;
@@ -31,6 +33,8 @@ export function getNextMenuIndex(currentIndex: number, count: number, key: strin
 export function EditorMoreMenu({
   onCopy,
   onDelete,
+  isStartupNote = false,
+  onToggleStartupNote,
   showSpellCheck = true,
   compact = false,
   triggerStyle,
@@ -128,6 +132,21 @@ export function EditorMoreMenu({
           aria-label="노트 추가 작업"
           onKeyDown={handleMenuKeyDown}
         >
+          {onToggleStartupNote && (
+            <button
+              type="button"
+              role="menuitem"
+              className="editor-menu__item"
+              tabIndex={-1}
+              onClick={() => {
+                closeMenu({ restoreFocus: true });
+                onToggleStartupNote();
+              }}
+            >
+              <StartupPinIcon active={isStartupNote} />
+              <span>{isStartupNote ? "시작 노트 해제" : "시작 노트로 설정"}</span>
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -215,6 +234,26 @@ function TrashIcon() {
       <path d="M3 6h18" />
       <path d="M8 6V4h8v2" />
       <path d="M19 6l-1 14H6L5 6" />
+    </svg>
+  );
+}
+
+function StartupPinIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill={active ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a1 1 0 0 1 1-1h1V3H7v2h1a1 1 0 0 1 1 1z" />
     </svg>
   );
 }

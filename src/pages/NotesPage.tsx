@@ -3,12 +3,15 @@ import { useNavigate } from "react-router-dom";
 import {
   api,
   ApiError,
+  type AccountSummary,
   type AdminPasswordResetAuditEntry,
   type AdminPasswordResetResult,
   type AdminUser,
+  type AuthSession,
   type Note,
 } from "../lib/api";
 import { AccountSecurityPanel } from "../components/AccountSecurityPanel";
+import { AddAccountModal } from "../components/AccountSwitcher";
 import { AdminConsolePanel } from "../components/AdminConsolePanel";
 import { NotesPageLayout } from "../components/NotesPageLayout";
 import { ToastViewport } from "../components/ToastViewport";
@@ -70,9 +73,13 @@ import { useNotePersistence } from "./useNotePersistence";
 
 type Props = {
   username: string;
+  accounts?: AccountSummary[];
+  startupNoteId?: string | null;
   passwordChangeRequired: boolean;
+  onSessionChange?: (session: AuthSession) => void;
+  onStartupNoteIdChange?: (noteId: string | null) => void;
   onPasswordChangeRequiredChange: (required: boolean) => void;
-  onLogout: () => void;
+  onLogout: (nextSession: AuthSession | null) => void;
 };
 
 const MOBILE_MEDIA_QUERY = "(max-width: 900px)";
@@ -88,7 +95,11 @@ type PendingGroupPerf = {
 
 export default function NotesPage({
   username,
+  accounts = [],
+  startupNoteId = null,
   passwordChangeRequired,
+  onSessionChange,
+  onStartupNoteIdChange,
   onPasswordChangeRequiredChange,
   onLogout,
 }: Props) {
@@ -103,6 +114,9 @@ export default function NotesPage({
   const [newGroupName, setNewGroupName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchContextDismissed, setSearchContextDismissed] = useState(false);
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [accountSwitchBusy, setAccountSwitchBusy] = useState(false);
+  const startupAutoOpenHandledRef = useRef(false);
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" && window.matchMedia(MOBILE_MEDIA_QUERY).matches
   );
@@ -349,6 +363,11 @@ export default function NotesPage({
     shareLoading,
     newGroupName,
     onLogout,
+    onNoteTrashed: (trashedNoteId) => {
+      if (trashedNoteId === startupNoteId) {
+        onStartupNoteIdChange?.(null);
+      }
+    },
     hasBlockingEdits,
     openTransitionDialog,
     clearSelectedNoteView,
@@ -890,6 +909,82 @@ export default function NotesPage({
     openNote(note);
   }
 
+  useEffect(() => {
+    if (
+      startupAutoOpenHandledRef.current ||
+      !startupNoteId ||
+      selectedGroupId !== null ||
+      selectedNote ||
+      notesLoadState !== "ready"
+    ) {
+      return;
+    }
+
+    startupAutoOpenHandledRef.current = true;
+    const startupNote = notes.find(
+      (note) => note.id === startupNoteId && note.deleted_at == null
+    );
+    if (startupNote) {
+      openNote(startupNote);
+    } else {
+      onStartupNoteIdChange?.(null);
+    }
+  }, [notesLoadState, notes, selectedGroupId, selectedNote, startupNoteId, onStartupNoteIdChange]);
+
+  async function handleToggleStartupNote(noteId: string) {
+    const nextNoteId = startupNoteId === noteId ? null : noteId;
+    try {
+      const result = await api.auth.setStartupNote(nextNoteId);
+      onStartupNoteIdChange?.(result.startupNoteId);
+      showToast({
+        message: result.startupNoteId
+          ? "로그인 시 자동으로 열리는 시작 노트로 설정했습니다."
+          : "시작 노트 설정을 해제했습니다.",
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        message: error instanceof ApiError ? error.message : "시작 노트 설정을 변경하지 못했습니다.",
+      });
+    }
+  }
+
+  async function switchAccountImmediately(userId: string) {
+    if (accountSwitchBusy) return;
+    setAccountSwitchBusy(true);
+    try {
+      const nextSession = await api.auth.switchAccount(userId);
+      onSessionChange?.(nextSession);
+    } catch (error) {
+      showToast({
+        tone: "error",
+        message: error instanceof ApiError ? error.message : "계정을 전환하지 못했습니다.",
+      });
+    } finally {
+      setAccountSwitchBusy(false);
+    }
+  }
+
+  function handleSwitchAccount(userId: string) {
+    if (hasBlockingEdits()) {
+      openTransitionDialog({ type: "switch-account", userId });
+      return;
+    }
+    void switchAccountImmediately(userId);
+  }
+
+  function handleRequestAddAccount() {
+    if (hasBlockingEdits()) {
+      openTransitionDialog({ type: "add-account" });
+      return;
+    }
+    setIsAddAccountOpen(true);
+  }
+
+  function handleLogoutAll() {
+    void handleLogout("all");
+  }
+
   async function executePendingAction(action: PendingAction) {
     if (action.type === "select-note") {
       openNote(action.note);
@@ -921,7 +1016,17 @@ export default function NotesPage({
       return;
     }
 
-    await logoutImmediately();
+    if (action.type === "switch-account") {
+      await switchAccountImmediately(action.userId);
+      return;
+    }
+
+    if (action.type === "add-account") {
+      setIsAddAccountOpen(true);
+      return;
+    }
+
+    await logoutImmediately(action.scope);
   }
 
   useEffect(() => {
@@ -1189,6 +1294,23 @@ export default function NotesPage({
         }}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
+        accounts={accounts}
+        accountSwitchBusy={accountSwitchBusy}
+        startupNoteId={startupNoteId}
+        onToggleStartupNote={(noteId) => {
+          void handleToggleStartupNote(noteId);
+        }}
+        onSwitchAccount={handleSwitchAccount}
+        onRequestAddAccount={handleRequestAddAccount}
+        onLogoutAll={handleLogoutAll}
+      />
+      <AddAccountModal
+        open={isAddAccountOpen}
+        onClose={() => setIsAddAccountOpen(false)}
+        onAdded={(nextSession) => {
+          setIsAddAccountOpen(false);
+          onSessionChange?.(nextSession);
+        }}
       />
       <AccountSecurityPanel
         isOpen={isAccountSecurityOpen}

@@ -10,11 +10,21 @@ type Props = {
   title: string;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  isStartupNote?: boolean;
+  onToggleStartupNote?: () => void;
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
 };
 
-export function NoteRowMenu({ title, canMoveUp, canMoveDown, onMove, onDelete }: Props) {
+export function NoteRowMenu({
+  title,
+  canMoveUp,
+  canMoveDown,
+  isStartupNote = false,
+  onToggleStartupNote,
+  onMove,
+  onDelete,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -98,6 +108,15 @@ export function NoteRowMenu({ title, canMoveUp, canMoveDown, onMove, onDelete }:
             const index = getNextMenuIndex(enabledItems.indexOf(document.activeElement as HTMLButtonElement), enabledItems.length, event.key);
             if (index !== null) { event.preventDefault(); enabledItems[index]?.focus(); }
           }}>
+          {onToggleStartupNote && (
+            <>
+              <button role="menuitem" type="button" tabIndex={-1}
+                onClick={(event) => { close(event.detail === 0); onToggleStartupNote(); }}>
+                {isStartupNote ? "시작 노트 해제" : "시작 노트로 설정"}
+              </button>
+              <div role="separator" className="note-row-menu__divider" />
+            </>
+          )}
           <button role="menuitem" type="button" tabIndex={-1} disabled={!canMoveUp}
             onClick={(event) => { close(event.detail === 0); onMove(-1); }}>위로 이동</button>
           <button role="menuitem" type="button" tabIndex={-1} disabled={!canMoveDown}

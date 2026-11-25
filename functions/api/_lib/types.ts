@@ -38,3 +38,16 @@ export type SessionData = {
   userId: string;
   username: string;
 };
+
+export type AccountSummary = {
+  userId: string;
+  username: string;
+  isActive: boolean;
+};
+
+export type SessionContext = {
+  activeSession: SessionData;
+  sessions: SessionData[];
+  accounts: AccountSummary[];
+};
+
