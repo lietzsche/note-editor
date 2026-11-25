@@ -65,25 +65,25 @@ export function AccountSwitcherSection({
           aria-label="로그인된 계정 목록"
         >
           {accounts.length > 0 && (
-            <div className="account-switcher__list" role="list">
+            <ul className="account-switcher__list">
               {accounts.map((account) => (
-                <button
-                  key={account.userId}
-                  type="button"
-                  role="listitem"
-                  className={`account-switcher__item${account.isActive ? " account-switcher__item--active" : ""}`}
-                  disabled={busy || account.isActive}
-                  aria-current={account.isActive ? "true" : undefined}
-                  onClick={() => {
-                    setOpen(false);
-                    onSwitchAccount(account.userId);
-                  }}
-                >
-                  <span className="account-switcher__name">@{account.username}</span>
-                  {account.isActive && <CheckIcon />}
-                </button>
+                <li key={account.userId} className="account-switcher__listItem">
+                  <button
+                    type="button"
+                    className={`account-switcher__item${account.isActive ? " account-switcher__item--active" : ""}`}
+                    disabled={busy || account.isActive}
+                    aria-current={account.isActive ? "true" : undefined}
+                    onClick={() => {
+                      setOpen(false);
+                      onSwitchAccount(account.userId);
+                    }}
+                  >
+                    <span className="account-switcher__name">@{account.username}</span>
+                    {account.isActive && <CheckIcon />}
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
           <div className="account-switcher__actions">

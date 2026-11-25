@@ -143,6 +143,8 @@ describe("AccountSwitcherSection", () => {
     );
 
     expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('<ul class="account-switcher__list">');
+    expect(html).not.toContain('role="listitem"');
     expect(html).toContain("@personal");
     expect(html).toContain('aria-label="현재 사용 중"');
     expect(html).toContain("@work");
